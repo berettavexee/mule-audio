@@ -8,7 +8,7 @@ Critères pour le cœur B de l'Echo Mini, par ordre d'importance : **mémoire** 
 
 ## Gains probables, coût faible
 
-1. **Bande passante jusqu'à 22 kHz.** La dernière bande s'arrête au coefficient 928 (19,95 kHz), alors qu'Opus monte à environ 20,4 kHz. C'est inaudible, mais PEAQ retire environ **0,025 d'ODG à 128 kb/s** pour cela (`E2-LOG.md`). Il suffirait d'une 23e bande de 928 à 1024, presque toujours remplie de bruit : quelques bits par trame, aucune mémoire en plus.
+1. **Bande passante jusqu'à 22 kHz.** La dernière bande s'arrête au coefficient 928 (19,95 kHz), alors qu'Opus monte à environ 20,4 kHz. C'est inaudible, mais PEAQ retire environ **0,025 d'ODG à 128 kb/s** pour cela (`E2-LOG.md`). Il suffirait d'une 23e bande de 928 à 1024, presque toujours remplie de bruit : quelques bits par trame, aucune mémoire en plus. Testé et écarté, c'est juste une artefact de PEAQ.
 2. **Niveau du bruit de remplacement transmis à part.** L'axe 2 a montré qu'abaisser de 3 dB l'énergie des bandes non codées améliore PEAQ, mais en faussant l'énergie, ce que ViSQOL semble pénaliser. Un gain de bruit codé séparément (2 bits par trame ou par groupe de bandes, par exemple 0 / −1,5 / −3 / −4,5 dB) garderait l'énergie juste tout en réglant la sonie du bruit. Coût décodeur : une multiplication par bande.
 3. **Pente spectrale du bruit de remplacement.** Dans une large bande aiguë remplie de bruit, le bruit est plat, alors que le signal descend souvent vers les aigus. Une pente codée sur 2 ou 3 bits par bande remplie (ou par trame) éviterait un bruit trop brillant en haut de bande.
 4. **Contextes tenant compte de l'état du treillis.** La parité de l'état TCQ est connue du décodeur et pourrait affiner le contexte des coefficients. Gain attendu modeste (le codage entropique est proche de sa limite), coût nul en mémoire.
@@ -52,3 +52,62 @@ Tous les leviers de l'encodeur seul ont été essayés. S'y ajoute une piste :
 ## Ordre proposé
 
 Si une v3 est lancée : **1 + 2 + 3** d'abord (simples, sans mémoire, gain PEAQ direct), puis **5 + 7** (les attaques, point faible restant), puis **15, 6 et 8** selon les mesures. Les points 9 à 11 seulement sur demande. Le point 12 (trame par trame) peut être fait dès maintenant en v2.
+
+## Pistes ajoutées (discussion du 18/11/2026)
+
+### À mesurer d'abord, sans changer le format
+
+- **M1. Intervalle des paquets clés.** `keyframe` est un réglage de l'encodeur ; l'octet 17 de l'en-tête n'est qu'indicatif. Comparer 40, 80 et 160 trames : débit gagné (réinitialisation des CDF, `valide = 0`) contre temps de recherche (30 à 40 ms aujourd'hui).
+- **M2. Borne du modèle harmonique.** Bits de coefficients dans les trames longues avec `valide = 0` (premier paquet après une clé, trames suivant des blocs courts) contre `valide = 1`. Le contexte inter-trame capte déjà les harmoniques stables : le gain possible du point 20 se trouve dans cet écart, et dans le vibrato.
+- **M3. Allocation optimisée sur toute la trame.** Le choix RD a−1 / a / a+1 (`rd_lambda`, `core/enc.c`) se fait bande par bande, de façon gloutonne. Or le choix pour la bande b change les queues de contexte de la bande b+1 et, en mode 0, le coût différentiel de `a[b+1]`. Un Viterbi sur les bandes (3 états par bande) trouverait l'optimum de la trame. Encodeur seul.
+- **M4. Viterbi sur les décisions de trame** (type de bloc, α, M/S), qui ont de vraies dépendances d'une trame à l'autre (énergies et allocations prédites). Encodeur seul.
+- **M5. Coût futur des contextes dans le Viterbi TCQ** : tenir compte de l'effet de `u` sur le contexte inter-trame de la trame suivante. Gain attendu faible, puisque seule une statistique se propage. En dernier.
+- **M6. Réglage joint des paramètres de l'encodeur** (`tcap_db`, `mid_db`, `fft_noise_db`, `rd_lambda`, `tcq_lam`), par CMA-ES ou optimisation bayésienne sur `dev`. On garde la règle actuelle : accord de plusieurs métriques sur `test`, puis ABX. Risque : suroptimiser les angles morts des métriques.
+- **M7. Mesures préalables aux points 22 et 23** : entropie des résidus d'énergie avec une interpolation entre trames voisines contre la prédiction actuelle (α) ; entropie conditionnelle des index avec un contexte des deux côtés (n−1 et n+1) contre le contexte actuel.
+
+### Changements de format
+
+16. **Continuité de l'état TCQ entre bandes.** Aujourd'hui `t = 0` au début de chaque bande (spec §5.3). Le premier coefficient est donc forcé dans l'union paire, et ça pèse sur les bandes 0 à 7 (8 coefficients en trame longue), là où se trouvait le défaut des triangles. Garder l'état fait du treillis une seule chaîne par trame. Coût décodeur : nul.
+17. **Plus d'états dans le treillis** (16, 32, 64, voire 256). Gain de granularité théorique : environ 1 dB à 8 états, 1,36 dB à 256 (Marcellin et Fischer, cité par Kudryashov). On en a obtenu à peu près la moitié de la théorie à nos débits. Coût décodeur : une table plus grande. Coût encodeur : Viterbi proportionnel au nombre d'états, à contenir avec les accélérations de la TCQ de VVC (départ retardé, élagage, seuils ; arXiv 2008.11420). Faisable d'abord avec le Viterbi Python.
+18. **Codage binarisé des coefficients, à la VVC.** Drapeaux de significativité, de parité et de dépassement de seuil, puis reste en Golomb-Rice. Contextes choisis selon l'état du treillis (ce qui reprend le point 4). Une probabilité mise à jour par symbole binaire au lieu de 15 entrées de CDF : moins de calcul (63 % des instructions vont au décodage entropique, point 13) et moins de mémoire pour les modèles. À mesurer : débit perdu face aux CDF à 16 symboles entraînées, contre instructions et octets gagnés. Pourrait financer le point 17.
+19. **Repliement guidé par l'encodeur, à la IGF** (MPEG-H), pour les bandes à `a = 0` :
+    - un bit bruit ou copie par bande ;
+    - 1 à 2 bits de décalage de source, choisi par corrélation croisée et stabilisé dans le temps ;
+    - un niveau de blanchiment ;
+    - copie normalisée depuis le tampon de coefficients de la trame, mise à l'énergie de la bande.
+
+    Attention à la leçon de P2 : du bruit ou une copie tonale entre des partiels s'entend. La décision doit donc revenir à l'encodeur. Coût décodeur : une normalisation par bande, sans mémoire. Prioritaire si l'on vise des débits inférieurs à 128 kb/s.
+20. **Modèle harmonique dans les contextes des coefficients** (comme dans le TCX d'EVS) : une hauteur transmise en quelques bits par trame, et des contextes qui attendent des valeurs fortes aux positions harmoniques. Variante sans information transmise : hauteur estimée par le décodeur sur les `|y|` de la trame précédente (calcul en plus). Selon le résultat de M2.
+21. **Composantes tonales façon ATRAC3** : position et quelques coefficients (au plus 8), retirés avant la quantification et ajoutés avant l'IMDCT. Elles aplatissent le résidu des bandes dominées par un pic et protègent la source du repliement (point 19). Coût décodeur : des additions. Priorité basse à 128 kb/s.
+22. **Ordre hiérarchique des informations annexes dans un paquet.** On code les énergies (et éventuellement l'allocation) des trames 0 et 3, puis celles des trames 1 et 2, prédites à partir de leurs deux voisines. C'est l'idée des B-frames appliquée aux seules informations annexes. Mémoire négligeable, IMDCT dans l'ordre normal. Selon M7.
+23. **Contexte inter-trame des deux côtés** (index de n−1 et de n+1). Environ 4 Kio de plus pour garder les index de n+1 : contraire à la priorité mémoire. Seulement si M7 montre un gain net.
+24. **Rafraîchissement progressif** au lieu d'une réinitialisation complète au paquet clé, comme les groupes de prédicteurs d'AAC Main : la prédiction inter-trame et celle des énergies sont coupées sur un groupe de bandes différent à chaque trame. Les CDF adaptatives restent réinitialisées d'un coup. Seulement si M1 montre que les paquets clés coûtent cher.
+25. **Dictionnaire de 2 à 4 découpages en bandes**, choisi par trame sur 1 ou 2 bits, avec une correspondance fixe entre découpages pour garder la prédiction des énergies. Il complète le point 15, plutôt qu'un maillage temps-fréquence libre.
+26. **Haar sur plusieurs niveaux à l'intérieur des bandes**, en trame longue comme en trame courte (une forme de quadtree, qui généralise le point 5). Décision RD de l'encodeur, quelques additions par coefficient au décodeur.
+
+### Écartées après discussion
+
+- **TW-MDCT** (USAC) : il faut une estimation de hauteur et un rééchantillonnage en sortie, trop chers pour le décodeur.
+- **Synthèse sinusoïdale paramétrique** (HILN, SSC) : oscillateurs coûteux, et elle n'atteint pas la transparence.
+- **Maillage temps-fréquence libre ou paquets d'ondelettes** : il faut décrire le maillage, les transitions entre trames sont délicates, et la prédiction des énergies et les contextes ne marchent plus.
+- **B-frames ou treillis bidirectionnel au décodeur** : la MDCT se prédit mal d'une trame à l'autre, le réordonnancement coûte de la mémoire, et l'anticipation est déjà gratuite dans le Viterbi de l'encodeur.
+- **Treillis dans le temps** (raie par raie, d'une trame à l'autre) : le gain de granularité dépend du nombre d'états, pas de la direction. Le point 16 règle la seule perte liée à la longueur.
+- **PVQ avec projection de Duda** : déjà mesurée, moins bonne que A (`VARIANTS-BC.md`).
+
+### Ordre proposé pour ces pistes
+
+1. **Mesures gratuites** : M1, M2, M3.
+2. **Treillis** : 16, puis 17 (Python d'abord).
+3. **Décodeur** : 18, à mesurer en débit contre instructions et mémoire ; il libère du calcul pour 17.
+4. **Débits plus bas** : 19 et 20, si l'objectif descend sous 128 kb/s.
+5. **Le reste** (21 à 26) selon les mesures, notamment M7.
+
+### Références
+
+- IGF : brevets Fraunhofer US 10147430 (sélection de tuiles par corrélation), US 11769512 (décalage de source), US 10236007 (blanchiment).
+- Modèle harmonique EVS : « Harmonic model for MDCT based audio coding with LPC envelope », EUSIPCO 2015 (Fraunhofer).
+- ATRAC3 : composantes tonales, décodeur `libavcodec/atrac3.c`.
+- TCQ de VVC : « Low Complexity Trellis-Coded Quantization in Versatile Video Coding », arXiv 2008.11420 ; contextes selon l'état : brevet US 11184642.
+- Gain des treillis : Kudryashov, arXiv 0805.2379 ; Marcellin et Fischer, IEEE Trans. IT 1990.
+- AAC Main, groupes de réinitialisation des prédicteurs : `libavcodec/aacdec`, et ISO/IEC 13818-7.
+- Accès aléatoire USAC / MPEG-H : `usacIndependencyFlag`, `AudioPreRoll()` (Immediate Playout Frames).
