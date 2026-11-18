@@ -106,10 +106,38 @@ Si une v3 est lancée : **1 + 2 + 3** d'abord (simples, sans mémoire, gain PEAQ
 
 ### Références
 
-- IGF : brevets Fraunhofer US 10147430 (sélection de tuiles par corrélation), US 11769512 (décalage de source), US 10236007 (blanchiment).
-- Modèle harmonique EVS : « Harmonic model for MDCT based audio coding with LPC envelope », EUSIPCO 2015 (Fraunhofer).
-- ATRAC3 : composantes tonales, décodeur `libavcodec/atrac3.c`.
-- TCQ de VVC : « Low Complexity Trellis-Coded Quantization in Versatile Video Coding », arXiv 2008.11420 ; contextes selon l'état : brevet US 11184642.
-- Gain des treillis : Kudryashov, arXiv 0805.2379 ; Marcellin et Fischer, IEEE Trans. IT 1990.
-- AAC Main, groupes de réinitialisation des prédicteurs : `libavcodec/aacdec`, et ISO/IEC 13818-7.
-- Accès aléatoire USAC / MPEG-H : `usacIndependencyFlag`, `AudioPreRoll()` (Immediate Playout Frames).
+**Treillis et codage des coefficients (16, 17, 18, M3, M5)**
+- Marcellin et Fischer, « Trellis coded quantization of memoryless and Gauss-Markov sources », IEEE Trans. Inf. Theory 38(1), 1990, p. 82-93. L'article fondateur de la TCQ.
+- Kudryashov, « Linear code-based vector quantization for independent random variables », arXiv 0805.2379 : gain de granularité de 1,36 dB avec un treillis à 256 états.
+- Cappellari, « Trellis-Coded Quantization Based on Maximum-Hamming-Distance Binary Codes », arXiv 0704.1411 : changer les transitions du treillis ne rapporte rien, les gains viennent du codage entropique.
+- Schwarz et al., « Quantization and Entropy Coding in the Versatile Video Coding (VVC) Standard », IEEE TCSVT 31(10), 2021, p. 3891-3906, doi:10.1109/TCSVT.2021.3072202. Accès libre (CC BY 4.0) : https://refubium.fu-berlin.de/handle/fub188/33130. **Référence principale du point 18** : quantification dépendante, contextes, binarisation.
+- « Low Complexity Trellis-Coded Quantization in Versatile Video Coding », arXiv 2008.11420 : accélérations de l'encodeur (départ retardé, élagage, seuils) ; résultats en configurations AI et RA des CTC du JVET.
+- Contextes choisis selon l'état du treillis : brevet US 11184642.
+
+**Reconstruction spectrale (19, 20, 21)**
+- Disch et al., « Intelligent Gap Filling in Perceptual Transform Coding of Audio », 141e convention AES, Los Angeles, 2016, papier 9661. La présentation de référence de l'IGF.
+- IGF, brevets Fraunhofer : US 10147430 (sélection des tuiles par corrélation), US 11769512 (décalage de la source), US 10236007 (blanchiment).
+- Modèle harmonique d'EVS : « Harmonic model for MDCT based audio coding with LPC envelope », EUSIPCO 2015 (Fraunhofer).
+- HVQ d'EVS (Ericsson, « Harmonic Vector Quantization ») : pics spectraux et plancher de bruit au lieu d'enveloppe et résidu.
+- ATRAC3, composantes tonales : décodeur `libavcodec/atrac3.c` ; Sony, « Technologies in ATRAC3 ».
+- Opus/CELT, RFC 6716 §4.3 : repliement et spreading, `tf_change`, anti-collapse (aussi pour les points 5 et 7).
+
+**Contextes et modèles de variance (M8, 27)**
+- Duda, « Adaptive exponential power distribution with moving estimator for nonstationary time series », arXiv 2003.02149 : mise à jour par moyenne glissante de σ^κ. **Base de M8.**
+- Duda, « Improving distribution and flexible quantization for DCT coefficients », arXiv 2007.12055 : distribution EPD avec κ ≈ 0,5, prédiction de σ par le contexte.
+- Ozerov, Liutkus, Badeau, Richard, « Coding-Based Informed Source Separation: Nonnegative Tensor Factorization Approach », IEEE TASLP 21(8), 2013 : la NMF comme modèle de variance pour la quantification.
+
+**Pavage temps-fréquence (5, 25, 26)**
+- Niamut et Heusdens, « Flexible frequency decompositions for cosine-modulated filter banks », ICASSP 2003 ; « Subband merging in cosine-modulated filter banks », IEEE Signal Processing Letters, 2003.
+- Valin, brevet US 9008811 : résolution temps-fréquence adaptative par bande (`tf_change`).
+
+**Accès aléatoire et prédiction entre trames (22, 23, 24, M1)**
+- AAC Main, groupes de réinitialisation des prédicteurs : ISO/IEC 13818-7 ; `libavcodec/aacdec` ; note MPEG sur les reprises de décodage (https://mpeg.chiariglione.org/node/301).
+- USAC et MPEG-H : `usacIndependencyFlag`, `AudioPreRoll()` (Immediate Playout Frames) ; brevets Fraunhofer US 10614824 (AudioPreRoll) et Dolby US 12315524 (IPF).
+
+**Évaluation**
+- Torcoli, Kastner, Herre, « Objective Measures of Perceptual Audio Quality Reviewed: An Evaluation of Their Application Domain Dependence », IEEE/ACM TASLP 29, 2021, doi:10.1109/TASLP.2021.3069302, arXiv 2110.11438.
+- Kastner et Herre, « An Efficient Model for Estimating Subjective Quality of Separated Audio Source Signals », WASPAA 2019, p. 95-99 (le 2f-model). Paramètres pour PQevalAudio : https://audiolabs-erlangen.com/resources/2019-WASPAA-SEBASS.
+- Chinen et al., « ViSQOL v3: An Open Source Production Ready Objective Speech and Audio Metric », QoMEX 2020, arXiv 2004.09584 (voir ses limites : silences, monotonie, faible sensibilité sur la musique).
+- Zimtohrli : https://github.com/google/zimtohrli ; arXiv 2509.26133.
+- Schoeffler et al., « webMUSHRA — A Comprehensive Framework for Web-based Listening Tests », Journal of Open Research Software 6(1), 2018, doi:10.5334/jors.187.
