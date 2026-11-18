@@ -31,8 +31,8 @@ Why hasn’t anyone tried this combination before? Back when Opus was being deve
 ## Results
 
 Measured on 30 tracks drawn at random from my music library and never used for tuning, at equal
-real bitrate (curves interpolated). ODG is PEAQ's score: 0 = no difference, −1 = audible but not
-annoying, −4 = very annoying.
+real bitrate (curves interpolated). ODG is PEAQ's score: 0 = no difference *(audio transparency)*, −1 = audible but not
+annoying *(good)*, −4 = very annoying (shit). ViSQOL (Virtual Speech Quality Objective Listener) scores range from 1 (the worst) to 5 (the best).
 
 | | ODG @128 kb/s | ODG @160 kb/s | ODG (advanced) @128 / @160 | ViSQOL @128 | ODG @64 kb/s |
 |---|---|---|---|---|---|
