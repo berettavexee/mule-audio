@@ -64,6 +64,7 @@ Si une v3 est lancée : **1 + 2 + 3** d'abord (simples, sans mémoire, gain PEAQ
 - **M5. Coût futur des contextes dans le Viterbi TCQ** : tenir compte de l'effet de `u` sur le contexte inter-trame de la trame suivante. Gain attendu faible, puisque seule une statistique se propage. En dernier.
 - **M6. Réglage joint des paramètres de l'encodeur** (`tcap_db`, `mid_db`, `fft_noise_db`, `rd_lambda`, `tcq_lam`), par CMA-ES ou optimisation bayésienne sur `dev`. On garde la règle actuelle : accord de plusieurs métriques sur `test`, puis ABX. Risque : suroptimiser les angles morts des métriques.
 - **M7. Mesures préalables aux points 22 et 23** : entropie des résidus d'énergie avec une interpolation entre trames voisines contre la prédiction actuelle (α) ; entropie conditionnelle des index avec un contexte des deux côtés (n−1 et n+1) contre le contexte actuel.
+- **M8. Contexte inter-trame lissé.** Mesurer l'entropie conditionnelle des index avec `|y_prev[k]|` contre une moyenne glissante exponentielle `m[k] = α·m[k] + (1−α)·|y[k]|`, pour α = 0,5 ; 0,7 ; 0,85, ainsi qu'avec le maximum des deux. Sur un signal synthétique (notes tenues), environ 7 % des bits de coefficients en moins à α = 0,85 ; à confirmer sur `dev`, où le gain sera plus faible.
 
 ### Changements de format
 
@@ -84,6 +85,7 @@ Si une v3 est lancée : **1 + 2 + 3** d'abord (simples, sans mémoire, gain PEAQ
 24. **Rafraîchissement progressif** au lieu d'une réinitialisation complète au paquet clé, comme les groupes de prédicteurs d'AAC Main : la prédiction inter-trame et celle des énergies sont coupées sur un groupe de bandes différent à chaque trame. Les CDF adaptatives restent réinitialisées d'un coup. Seulement si M1 montre que les paquets clés coûtent cher.
 25. **Dictionnaire de 2 à 4 découpages en bandes**, choisi par trame sur 1 ou 2 bits, avec une correspondance fixe entre découpages pour garder la prédiction des énergies. Il complète le point 15, plutôt qu'un maillage temps-fréquence libre.
 26. **Haar sur plusieurs niveaux à l'intérieur des bandes**, en trame longue comme en trame courte (une forme de quadtree, qui généralise le point 5). Décision RD de l'encodeur, quelques additions par coefficient au décodeur.
+27. **Moyenne glissante à la place de `y_prev`** (selon M8) : même tampon de 16 bits, une multiplication-addition par raie, même remise à l'échelle et mêmes règles de validité (remise à zéro aux paquets clés, cas des trames courtes). Elle corrige les oscillations de phase de la MDCT et le bruit d'un tirage unique, au prix d'un retard sur les attaques. Variante : α par classe de bandes.
 
 ### Écartées après discussion
 
