@@ -5,11 +5,11 @@
 A mule is what you get when you cross a horse and a donkey. It is sturdy, it carries its load,
 it is famously stubborn, and it has no offspring. MULE is the same thing for audio: a cross
 between **Opus**, **Vorbis** and **AAC**, built to run on one tiny music player, the Snowsky
-Echo Mini (a Cortex-M3 without a floating-point unit). It carries the music, it digs its heels
-in at low bitrates, and it will not start a dynasty.
+Echo Mini (a Cortex-M3 without a floating-point unit). It carries the music, its refuse to go
+at low bitrates, and it will not start a dynasty.
 
 This is an **experimental, learning project**. It does not try to replace anything, and it
-does not. If you want a good lossy codec, use Opus. If you want to see what happens when someone
+does not. If you want a good lossy codec, **use Opus**. If you want to see what happens when some idiot
 builds one from scratch, measures everything, listens blind, and writes down every idea that did
 not work, read on.
 
@@ -26,9 +26,11 @@ not work, read on.
 | Entropy coding: rANS with adaptive multi-symbol CDFs | rANS (J. Duda), CDF adaptation as in AV1 | 134 adaptive models, trained initial tables |
 | Decoder in integers only, bit-exact everywhere | necessity | the target has no FPU |
 
+Why hasn’t anyone tried this combination before? Back when Opus was being developed, most of these techniques were tied up in software patents. For some of them, that’s no longer the case, and I couldn’t care less.
+
 ## Results
 
-Measured on 30 excerpts drawn at random from a music library and never used for tuning, at equal
+Measured on 30 tracks drawn at random from my music library and never used for tuning, at equal
 real bitrate (curves interpolated). ODG is PEAQ's score: 0 = no difference, −1 = audible but not
 annoying, −4 = very annoying.
 
@@ -50,8 +52,9 @@ In plain words:
   73 KiB). Its output is the same, bit for bit, on the PC, on the firmware's emulator and on a
   Cortex-M3 under QEMU.
 
-So, officially: a codec that is worse than Opus on almost every count, and sometimes as good. It
-was never supposed to be anything else.
+So, officially: a codec that is worse than Opus on almost every count, and sometimes as good.
+This is a surprise; outperforming Vorbis was by any means a sure thing. Coming close to Opus 
+was unexpected.
 
 ### Why so many machines, and so few ears
 
@@ -69,7 +72,7 @@ Those machines have their own blind spots, and this project walked into most of 
 - **noise-filled bands**: replacing a band by noise of the same energy fools a waveform
   comparison in one direction or the other. Lowering that noise by 3 dB pleased PEAQ and
   displeased ViSQOL, and only a listener can say which one is right;
-- **pathological excerpts**: a sparse pitch pipe gets −3.9 from PEAQ's basic model whatever the
+- **difficult excerpts**: a sparse pitch pipe gets −3.9 from PEAQ's basic model whatever the
   codec (Opus too, at 192 kb/s), while the advanced model calls the same file transparent;
 - **the metrics disagree**: MULE is behind Opus on PEAQ's basic score and ahead on its advanced
   score, on ViSQOL and on the noise-to-mask ratio, on the same files.
@@ -186,7 +189,7 @@ python3 -m venv --system-site-packages .venv && .venv/bin/pip install -r require
 make                                    # build/libmule.so, build/mule-dec
 make test
 
-tools/mule-enc in.flac out.mule         # 128 kb/s by default (a library average: VBR)
+tools/mule-enc in.flac out.mule         # 128 kb/s by default (my library average: VBR)
 tools/mule-enc --bitrate 160 --title "..." --picture cover.jpg in.wav out.mule
 tools/mule-gain -a album/*.mule         # ReplayGain 2.0, track and album
 tools/mule-dec out.mule out.wav         # 16-bit WAV, the reference decoder
