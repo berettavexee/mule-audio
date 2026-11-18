@@ -98,11 +98,11 @@ Si une v3 est lancée : **1 + 2 + 3** d'abord (simples, sans mémoire, gain PEAQ
 
 ### Ordre proposé pour ces pistes
 
-1. **Mesures gratuites** : M1, M2, M3.
+1. **Mesures gratuites** : M1, M2, M3, M8.
 2. **Treillis** : 16, puis 17 (Python d'abord).
 3. **Décodeur** : 18, à mesurer en débit contre instructions et mémoire ; il libère du calcul pour 17.
 4. **Débits plus bas** : 19 et 20, si l'objectif descend sous 128 kb/s.
-5. **Le reste** (21 à 26) selon les mesures, notamment M7.
+5. **Le reste** (21 à 26) selon les mesures, notamment M7 et M8.
 
 ### Références
 
