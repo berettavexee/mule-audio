@@ -1,0 +1,30 @@
+
+=== mule-pe10nf1 vs mule-pe10  (66 items)
+  odg      @128: +0.0049 [+0.0016, +0.0092]   @160: +0.0046 [+0.0019, +0.0077]   (+ = better)
+  odg_adv  @128: +0.0110 [+0.0075, +0.0147]   @160: +0.0045 [+0.0031, +0.0067]   (+ = better)
+  nmr_db   @128: +0.0410 [+0.0261, +0.0586]   @160: +0.0322 [+0.0172, +0.0509]   (+ = better)
+  rate change at equal settings: +0.04 %
+  regressions (< -0.05 odg): 0
+  best:
+                 d_odg  rate_%
+item                          
+triangles        0.101   0.089
+glockenspiel     0.047   0.431
+b_valient_thorr  0.025   0.045
+harpsichord      0.020   0.033
+b_franz_liszt    0.018   0.112
+
+=== mule-pe10nf2 vs mule-pe10  (66 items)
+  odg      @128: +0.0046 [-0.0008, +0.0137]   @160: +0.0058 [+0.0007, +0.0120]   (+ = better)
+  odg_adv  @128: +0.0148 [+0.0098, +0.0199]   @160: +0.0059 [+0.0035, +0.0087]   (+ = better)
+  nmr_db   @128: +0.0685 [+0.0432, +0.1012]   @160: +0.0543 [+0.0273, +0.0859]   (+ = better)
+  rate change at equal settings: +0.09 %
+  regressions (< -0.05 odg): 0
+  best:
+                 d_odg  rate_%
+item                          
+triangles        0.184   0.212
+glockenspiel     0.064   1.237
+b_valient_thorr  0.039   0.103
+harpsichord      0.033   0.080
+b_franz_liszt    0.029   0.199

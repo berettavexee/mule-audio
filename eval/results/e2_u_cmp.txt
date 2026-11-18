@@ -1,0 +1,38 @@
+
+=== mule-pe10u2 vs mule-pe10  (66 items)
+  odg      @128: -0.0051 [-0.0089, +0.0001]   @160: -0.0065 [-0.0103, -0.0008]   (+ = better)
+  odg_adv  @128: -0.0048 [-0.0095, +0.0015]   @160: -0.0030 [-0.0049, +0.0016]   (+ = better)
+  nmr_db   @128: -0.0293 [-0.0593, +0.0069]   @160: -0.0231 [-0.0520, +0.0145]   (+ = better)
+  rate change at equal settings: +1.19 %
+  regressions (< -0.05 odg): 0
+  best:
+               d_odg  rate_%
+item                        
+orchestra      0.012   0.598
+triangles      0.012   5.215
+heilung        0.010   0.210
+b_the_killers  0.007   0.395
+dp_hbfs        0.007   0.393
+
+=== mule-pe10u3 vs mule-pe10  (66 items)
+  odg      @128: -0.0136 [-0.0388, +0.0008]   @160: -0.0030 [-0.0196, +0.0069]   (+ = better)
+  odg_adv  @128: +0.0090 [-0.0086, +0.0143]   @160: +0.0042 [-0.0052, +0.0097]   (+ = better)
+  nmr_db   @128: +0.0340 [-0.0332, +0.0916]   @160: +0.0393 [-0.0247, +0.0965]   (+ = better)
+  rate change at equal settings: -2.89 %
+  regressions (< -0.05 odg): 6
+                          d_odg  rate_%
+item                                   
+trumpet                  -0.245 -17.609
+violin                   -0.239 -17.526
+vivaldi                  -0.089 -11.788
+emerson_fugue            -0.070  -6.945
+harpsichord              -0.059  -2.586
+b_ludwig_van_beethoven38 -0.056  -5.582
+  best:
+                      d_odg  rate_%
+item                               
+triangles             0.068  -1.585
+b_miranda_sex_garden  0.033  -4.265
+wutang                0.020  -2.087
+dp_hbfs               0.012  -3.131
+female_en             0.010  -1.396

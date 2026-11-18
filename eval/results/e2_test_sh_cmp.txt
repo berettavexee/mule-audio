@@ -1,0 +1,16 @@
+
+=== mule-shm3 vs mule-pe10  (30 items)
+  odg      @128: +0.0015 [-0.0005, +0.0047]   @160: +0.0072 [+0.0019, +0.0150]   (+ = better)
+  odg_adv  @128: +0.0034 [-0.0024, +0.0085]   @160: -0.0016 [-0.0087, +0.0025]   (+ = better)
+  visqol   @128: -0.0006 [-0.0010, -0.0002]   @160: -0.0004 [-0.0008, -0.0001]   (+ = better)
+  nmr_db   @128: -0.0154 [-0.0284, -0.0043]   @160: +0.0048 [-0.0206, +0.0431]   (+ = better)
+  rate change at equal settings: +0.48 %
+  regressions (< -0.05 odg): 0
+  best:
+                   d_odg  rate_%
+item                            
+b_lebanon_hanover  0.080   3.159
+b_crystal_castles  0.025   0.169
+b_salut_cest_cool  0.017   0.985
+b_eminem           0.007   2.334
+b_carpenter_brut   0.007   0.424

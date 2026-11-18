@@ -1,0 +1,45 @@
+
+=== mule-pe3 vs mule  (66 items)
+  odg      @128: -0.0131 [-0.0202, -0.0033]   @160: +0.0038 [-0.0010, +0.0157]   (+ = better)
+  odg_adv  @128: -0.0044 [-0.0180, +0.0153]   @160: -0.0098 [-0.0135, +0.0016]   (+ = better)
+  nmr_db   @128: -0.2278 [-0.3024, -0.1567]   @160: -0.2089 [-0.2794, -0.1361]   (+ = better)
+  rate change at equal settings: +4.21 %
+  regressions (< -0.05 odg): 0
+  best:
+              d_odg  rate_%
+item                       
+b_baroness    0.096   8.345
+slayer        0.068   6.188
+piano         0.062   4.736
+b_wolfmother  0.053   7.871
+b_arch_enemy  0.047   4.544
+
+=== mule-pe6 vs mule  (66 items)
+  odg      @128: +0.0047 [+0.0012, +0.0114]   @160: +0.0141 [+0.0094, +0.0230]   (+ = better)
+  odg_adv  @128: +0.0104 [+0.0022, +0.0243]   @160: +0.0002 [-0.0017, +0.0056]   (+ = better)
+  nmr_db   @128: -0.0443 [-0.0738, -0.0113]   @160: -0.0308 [-0.0599, +0.0019]   (+ = better)
+  rate change at equal settings: +1.45 %
+  regressions (< -0.05 odg): 0
+  best:
+              d_odg  rate_%
+item                       
+b_baroness    0.105   3.468
+b_wolfmother  0.079   3.713
+slayer        0.070   2.338
+piano         0.059   1.925
+female_en     0.059   5.388
+
+=== mule-pe10 vs mule  (66 items)
+  odg      @128: +0.0084 [+0.0055, +0.0121]   @160: +0.0147 [+0.0100, +0.0212]   (+ = better)
+  odg_adv  @128: +0.0123 [+0.0067, +0.0204]   @160: +0.0031 [+0.0019, +0.0071]   (+ = better)
+  nmr_db   @128: +0.0135 [-0.0001, +0.0288]   @160: +0.0198 [+0.0052, +0.0366]   (+ = better)
+  rate change at equal settings: +0.43 %
+  regressions (< -0.05 odg): 0
+  best:
+              d_odg  rate_%
+item                       
+b_baroness    0.093   1.083
+female_en     0.059   2.084
+piano         0.058   0.691
+b_wolfmother  0.056   1.547
+slayer        0.051   0.754

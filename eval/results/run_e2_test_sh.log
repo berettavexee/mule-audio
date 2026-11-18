@@ -1,0 +1,13 @@
+                 kbps  nmr_db  ...         worst_item  worst_nmr_db
+config                         ...                                 
+mule-shm3_-6   119.79   -2.57  ...  b_lebanon_hanover          2.22
+mule-shm3_-9   149.89   -5.54  ...  b_lebanon_hanover         -0.98
+mule-shm3_-12  181.29   -8.52  ...  b_lebanon_hanover         -4.33
+mule-shm3_-15  213.63  -11.51  ...  b_lebanon_hanover         -7.30
+
+[4 rows x 10 columns]
+
+           nmr_db@128  nmr_db@160
+mule-shm3       -3.38        -6.5
+
+120 rows -> eval/results/e2_test_sh.csv

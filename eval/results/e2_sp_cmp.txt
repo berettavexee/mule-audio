@@ -1,0 +1,190 @@
+
+=== mule-pnsl vs mule-pe10nf2  (66 items)
+  odg      @128: +0.0042 [-0.0093, +0.0184]   @160: -0.0091 [-0.0201, +0.0053]   (+ = better)
+  odg_adv  @128: -0.0064 [-0.0179, +0.0092]   @160: -0.0091 [-0.0172, +0.0052]   (+ = better)
+  nmr_db   @128: -0.0207 [-0.2948, +0.2846]   @160: +0.0466 [-0.2421, +0.4190]   (+ = better)
+  rate change at equal settings: +24.83 %
+  regressions (< -0.05 odg): 47
+                          d_odg  rate_%
+item                                   
+triangles                -0.352  52.913
+b_mussorgsky             -0.219  22.517
+b_modest_mussorgsky      -0.166  22.762
+abba                     -0.162  28.456
+organ_bach               -0.151  32.574
+castanets                -0.148  25.793
+emerson_fugue            -0.131  29.940
+b_body_count             -0.129  30.044
+piano                    -0.128  29.839
+b_miranda_sex_garden     -0.120  19.262
+pires_concerto           -0.118  27.111
+wutang                   -0.109  30.026
+violin                   -0.100  28.232
+b_lorde                  -0.100  22.018
+b_ludwig_van_beethoven38 -0.097  28.328
+b_deep_purple            -0.094  25.986
+vivaldi                  -0.093  24.351
+b_final_light            -0.093  24.058
+b_fu_manchu              -0.091  24.639
+b_wardruna               -0.091  23.981
+dp_hbfs                  -0.087  24.780
+beethoven5               -0.086  25.377
+guitar                   -0.079  23.743
+rabbitt                  -0.078  21.972
+b_tame_impala            -0.077  27.552
+trumpet                  -0.076  28.112
+harpsichord              -0.074  18.311
+female_en                -0.073  17.973
+male_en                  -0.073  20.418
+b_tomohiko_sagae         -0.071  21.316
+massive_teardrop         -0.067  23.868
+heilung                  -0.066  24.423
+quartet                  -0.064  29.444
+b_bat_for_lashes         -0.062  25.948
+tool                     -0.062  22.097
+dp_veridisquo            -0.062  20.059
+slayer                   -0.058  24.101
+b_valient_thorr          -0.057  29.298
+b_iron_maiden            -0.057  20.330
+b_wolfmother             -0.056  25.079
+b_johann_sebastian_bach  -0.055  23.514
+b_death                  -0.054  23.994
+b_franz_liszt            -0.054  31.639
+b_arch_enemy             -0.053  21.717
+dp_digitallove           -0.052  24.558
+dp_onemoretime           -0.052  20.272
+b_clutch                 -0.052  21.603
+  best:
+                  d_odg  rate_%
+item                           
+orchestra         0.120  10.319
+pitchpipe_gong5k  0.113   4.224
+satie             0.074  17.540
+glockenspiel      0.028  36.029
+b_joy_division    0.017  35.644
+
+=== mule-pna07 vs mule-pe10nf2  (66 items)
+  odg      @128: -0.0258 [-0.0330, -0.0173]   @160: +0.0044 [-0.0043, +0.0255]   (+ = better)
+  odg_adv  @128: -0.0326 [-0.0375, -0.0242]   @160: -0.0162 [-0.0186, -0.0045]   (+ = better)
+  nmr_db   @128: -0.6066 [-0.7604, -0.4714]   @160: -0.6249 [-0.7840, -0.4751]   (+ = better)
+  rate change at equal settings: -13.61 %
+  regressions (< -0.05 odg): 27
+                          d_odg  rate_%
+item                                   
+b_miranda_sex_garden     -0.232 -13.951
+piano                    -0.135 -11.778
+orchestra                -0.124  -5.105
+b_mussorgsky             -0.106 -14.084
+b_franz_liszt            -0.104 -10.481
+b_the_killers            -0.101 -14.491
+b_tomohiko_sagae         -0.089 -16.959
+b_modest_mussorgsky      -0.085 -14.280
+b_lorde                  -0.080 -13.413
+b_body_count             -0.080 -17.519
+b_iron_maiden            -0.077 -15.199
+beethoven5               -0.076 -14.918
+b_ludwig_van_beethoven38 -0.075 -14.097
+b_clutch                 -0.071 -15.555
+b_fu_manchu              -0.068 -16.012
+organ_bach               -0.067 -11.027
+vivaldi                  -0.065 -13.612
+b_arch_enemy             -0.064 -15.857
+metallica                -0.061 -14.956
+violin                   -0.060 -12.069
+dp_onemoretime           -0.057 -14.664
+b_death                  -0.055 -15.568
+slayer                   -0.053 -14.924
+b_baroness               -0.051 -15.337
+b_final_light            -0.051 -15.414
+harpsichord              -0.051  -9.748
+b_wardruna               -0.050 -14.827
+  best:
+                  d_odg  rate_%
+item                           
+female_en         0.017 -10.112
+pitchpipe_gong5k  0.005  -0.692
+guitar           -0.003 -12.684
+pinkfloyd        -0.004 -14.011
+wutang           -0.006 -14.470
+
+=== mule-pna05 vs mule-pe10nf2  (66 items)
+  odg      @128: -0.1849 [-0.2185, -0.1520]   @160: -0.1218 [-0.1548, -0.0758]   (+ = better)
+  odg_adv  @128: -0.2198 [-0.3105, -0.1464]   @160: -0.0798 [-0.1109, -0.0603]   (+ = better)
+  nmr_db   @128: -2.7321 [-3.1195, -2.3632]   @160: -2.8113 [-3.1834, -2.4391]   (+ = better)
+  rate change at equal settings: -32.57 %
+  regressions (< -0.05 odg): 65
+                          d_odg  rate_%
+item                                   
+b_miranda_sex_garden     -1.313 -32.831
+b_mussorgsky             -0.823 -34.019
+piano                    -0.757 -30.190
+orchestra                -0.754 -20.040
+quartet                  -0.709 -34.219
+b_body_count             -0.692 -40.625
+b_modest_mussorgsky      -0.667 -34.854
+b_franz_liszt            -0.659 -26.651
+slayer                   -0.610 -35.433
+b_final_light            -0.526 -36.173
+b_lorde                  -0.525 -31.885
+b_arch_enemy             -0.520 -36.766
+b_wardruna               -0.520 -34.598
+b_clutch                 -0.507 -36.429
+beethoven5               -0.506 -36.033
+b_the_killers            -0.503 -34.506
+b_iron_maiden            -0.497 -35.363
+b_death                  -0.495 -36.581
+b_joy_division           -0.489 -45.227
+organ_bach               -0.481 -27.615
+metallica                -0.452 -35.273
+b_lady_gaga              -0.449 -35.352
+b_fu_manchu              -0.448 -34.333
+b_tame_impala            -0.447 -38.421
+b_tomohiko_sagae         -0.441 -37.429
+dp_hbfs                  -0.432 -34.119
+b_ludwig_van_beethoven38 -0.427 -34.458
+heilung                  -0.418 -36.533
+massive_teardrop         -0.417 -33.671
+castanets                -0.401 -31.312
+b_baroness               -0.399 -36.035
+b_deep_purple            -0.398 -34.270
+b_wolfmother             -0.392 -34.258
+b_x                      -0.381 -38.483
+dp_onemoretime           -0.359 -33.790
+b_moscow_death_brigade   -0.352 -35.668
+bjork_medulla            -0.351 -33.312
+harpsichord              -0.343 -25.145
+rabbitt                  -0.340 -31.546
+b_minuit                 -0.328 -33.484
+violin                   -0.327 -30.361
+b_valient_thorr          -0.318 -36.931
+female_en                -0.309 -25.574
+b_ludwig_van_beethoven   -0.304 -34.276
+male_en                  -0.303 -26.089
+emerson_fugue            -0.300 -35.523
+b_various_artists        -0.298 -35.462
+kraftwerk                -0.295 -33.751
+dp_digitallove           -0.293 -34.180
+satie                    -0.287 -21.801
+trumpet                  -0.286 -29.095
+b_bat_for_lashes         -0.281 -34.607
+wutang                   -0.279 -33.847
+vivaldi                  -0.264 -32.955
+aphex                    -0.261 -29.683
+tool                     -0.256 -33.778
+brandenburg              -0.247 -33.840
+pires_concerto           -0.241 -34.886
+abba                     -0.232 -32.410
+dp_veridisquo            -0.214 -31.441
+pinkfloyd                -0.211 -32.605
+guitar                   -0.194 -30.941
+glockenspiel             -0.186 -15.978
+b_johann_sebastian_bach  -0.162 -32.809
+triangles                -0.100 -27.429
+  best:
+                         d_odg  rate_%
+item                                  
+pitchpipe_gong5k        -0.011  -2.554
+triangles               -0.100 -27.429
+b_johann_sebastian_bach -0.162 -32.809
+glockenspiel            -0.186 -15.978
+guitar                  -0.194 -30.941

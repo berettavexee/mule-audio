@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+# audio data: SQAM archive, extracted SQAM, corpus excerpts (rebuilt by eval/corpus.py)
+data/
+# external tools built locally (ViSQOL, ...)
+third_party/
+build/
+build_dev/
+build_*/
+bench/qemu/packets.h

@@ -1,0 +1,23 @@
+                  kbps  nmr_db  nmr_max_db  ...   odg_adv  worst_item  worst_nmr_db
+config                                      ...                                    
+mule-pnsl_-3    111.56   -3.87        3.76  ... -4.61e-01     heilung          3.56
+mule-pnsl_-6    138.35   -6.70        0.95  ... -2.13e-01     heilung          0.58
+mule-pnsl_-9    166.65   -9.62       -1.93  ... -8.44e-02     heilung         -2.37
+mule-pnsl_-12   196.61  -12.58       -4.84  ... -1.33e-02     heilung         -5.44
+mule-pna07_-9   111.94   -3.38        3.50  ... -4.95e-01     heilung          4.07
+mule-pna07_-12  140.07   -6.26        0.67  ... -2.15e-01     heilung          1.02
+mule-pna07_-15  169.71   -9.23       -2.21  ... -7.64e-02     heilung         -2.02
+mule-pna07_-18  200.38  -12.16       -5.10  ... -8.58e-03     heilung         -5.05
+mule-pna05_-12  104.06   -0.47        6.81  ... -1.07e+00     heilung          7.38
+mule-pna05_-15  132.51   -3.36        3.88  ... -4.20e-01     heilung          4.33
+mule-pna05_-18  162.45   -6.32        0.95  ... -1.64e-01     heilung          1.26
+mule-pna05_-21  193.39   -9.28       -2.02  ... -4.94e-02     heilung         -1.83
+
+[12 rows x 9 columns]
+
+            nmr_db@128  nmr_db@160
+mule-pnsl        -5.61       -8.93
+mule-pna07       -5.02       -8.26
+mule-pna05       -2.90       -6.08
+
+792 rows -> eval/results/e2_sp_dev.csv

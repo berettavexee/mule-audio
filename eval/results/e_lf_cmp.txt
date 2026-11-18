@@ -1,0 +1,60 @@
+
+=== mule-lf4 vs mule  (66 items)
+  odg      @128: +0.0136 [+0.0046, +0.0249]   @160: +0.0073 [+0.0024, +0.0136]   (+ = better)
+  odg_adv  @128: +0.0070 [+0.0000, +0.0202]   @160: +0.0045 [+0.0003, +0.0126]   (+ = better)
+  nmr_db   @128: +0.0808 [+0.0118, +0.1778]   @160: +0.0882 [+0.0122, +0.2105]   (+ = better)
+  rate change at equal settings: +0.28 %
+  regressions (< -0.05 odg): 0
+  best:
+           d_odg  rate_%
+item                    
+orchestra  0.166   2.329
+triangles  0.156   1.532
+violin     0.096   1.094
+trumpet    0.052   0.903
+heilung    0.041   0.272
+
+=== mule-lf8 vs mule  (66 items)
+  odg      @128: +0.0131 [+0.0030, +0.0252]   @160: +0.0066 [+0.0013, +0.0146]   (+ = better)
+  odg_adv  @128: +0.0077 [-0.0001, +0.0221]   @160: +0.0048 [+0.0000, +0.0149]   (+ = better)
+  nmr_db   @128: +0.0732 [-0.0085, +0.1884]   @160: +0.0822 [-0.0087, +0.2103]   (+ = better)
+  rate change at equal settings: +0.53 %
+  regressions (< -0.05 odg): 0
+  best:
+           d_odg  rate_%
+item                    
+orchestra  0.192   3.011
+triangles  0.175   2.111
+violin     0.105   1.403
+heilung    0.066   0.485
+trumpet    0.053   1.227
+
+=== mule-lf8n12 vs mule  (66 items)
+  odg      @128: +0.0189 [+0.0076, +0.0323]   @160: +0.0073 [+0.0023, +0.0161]   (+ = better)
+  odg_adv  @128: +0.0107 [+0.0008, +0.0277]   @160: +0.0065 [+0.0007, +0.0180]   (+ = better)
+  nmr_db   @128: +0.1531 [+0.0621, +0.2616]   @160: +0.1690 [+0.0716, +0.3084]   (+ = better)
+  rate change at equal settings: +0.89 %
+  regressions (< -0.05 odg): 0
+  best:
+              d_odg  rate_%
+item                       
+orchestra     0.190   2.971
+glockenspiel  0.156   5.749
+triangles     0.153   2.778
+violin        0.087   2.010
+heilung       0.064   0.804
+
+=== mule-lf8r05 vs mule  (66 items)
+  odg      @128: +0.0146 [+0.0038, +0.0281]   @160: +0.0046 [-0.0012, +0.0125]   (+ = better)
+  odg_adv  @128: +0.0197 [+0.0101, +0.0352]   @160: +0.0097 [+0.0047, +0.0194]   (+ = better)
+  nmr_db   @128: +0.1987 [+0.1196, +0.3205]   @160: +0.1912 [+0.1072, +0.3075]   (+ = better)
+  rate change at equal settings: +0.12 %
+  regressions (< -0.05 odg): 0
+  best:
+           d_odg  rate_%
+item                    
+orchestra  0.214   1.538
+triangles  0.204   0.792
+violin     0.112   0.696
+heilung    0.064   0.079
+trumpet    0.050   0.117

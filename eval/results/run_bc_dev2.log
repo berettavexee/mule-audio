@@ -1,0 +1,23 @@
+                  kbps  nmr_db  nmr_max_db  ...  odg_adv  worst_item  worst_nmr_db
+config                                      ...                                   
+mule-Bl0_-6     115.09   -3.41        3.96  ...    -0.54     heilung          3.57
+mule-Bl0_-9     141.17   -6.25        1.17  ...    -0.25     heilung          0.62
+mule-Bl0_-12    168.75   -9.10       -1.64  ...    -0.10     heilung         -2.32
+mule-Bl0_-15    197.71  -11.98       -4.46  ...    -0.02     heilung         -5.24
+mule-Bl015_-6   110.61   -3.24        4.14  ...    -0.57     heilung          3.76
+mule-Bl015_-9   137.12   -6.09        1.34  ...    -0.27     heilung          0.81
+mule-Bl015_-12  165.35   -8.97       -1.49  ...    -0.10     heilung         -2.18
+mule-Bl015_-15  194.96  -11.88       -4.34  ...    -0.02     heilung         -5.13
+mule-Bl045_-6   103.87   -2.78        4.64  ...    -0.67     heilung          4.31
+mule-Bl045_-9   131.13   -5.67        1.81  ...    -0.31     heilung          1.26
+mule-Bl045_-12  160.36   -8.60       -1.04  ...    -0.13     heilung         -1.81
+mule-Bl045_-15  190.93  -11.56       -3.95  ...    -0.03     heilung         -4.85
+
+[12 rows x 9 columns]
+
+            nmr_db@128  nmr_db@160
+mule-Bl0         -4.81       -8.20
+mule-Bl015       -5.11       -8.42
+mule-Bl045       -5.34       -8.56
+
+792 rows -> eval/results/bc_dev2.csv

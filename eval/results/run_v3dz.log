@@ -1,0 +1,28 @@
+                kbps  nmr_db  nmr_max_db  ...  odg_adv  worst_item  worst_nmr_db
+config                                    ...                                   
+mule_-6       103.55   -2.10        4.08  ...    -0.88     heilung          7.03
+mule_-9       129.84   -4.73        1.54  ...    -0.44     heilung          4.22
+mule_-12      158.11   -7.38       -1.04  ...    -0.21     heilung          1.32
+mule_-15      187.92  -10.12       -3.68  ...    -0.09     heilung         -1.61
+mule-dz0_-6   117.42   -3.20        2.97  ...    -0.63     heilung          5.74
+mule-dz0_-9   142.57   -5.90        0.33  ...    -0.32     heilung          2.80
+mule-dz0_-12  169.50   -8.66       -2.33  ...    -0.14     heilung         -0.16
+mule-dz0_-15  197.84  -11.44       -5.04  ...    -0.04     heilung         -3.16
+mule-dz1_-6   110.37   -2.89        3.32  ...    -0.69     heilung          6.14
+mule-dz1_-9   136.19   -5.55        0.71  ...    -0.34     heilung          3.23
+mule-dz1_-12  163.85   -8.27       -1.94  ...    -0.15     heilung          0.28
+mule-dz1_-15  192.95  -11.08       -4.63  ...    -0.05     heilung         -2.70
+mule-dz3_-6    97.09   -1.20        4.92  ...    -1.25     heilung          8.03
+mule-dz3_-9   123.65   -3.73        2.50  ...    -0.61     heilung          5.37
+mule-dz3_-12  152.45   -6.30       -0.01  ...    -0.30     heilung          2.57
+mule-dz3_-15  182.89   -8.98       -2.59  ...    -0.14     heilung         -0.30
+
+[16 rows x 9 columns]
+
+          nmr_db@128  nmr_db@160
+mule           -4.54       -7.55
+mule-dz0       -4.34       -7.68
+mule-dz1       -4.71       -7.89
+mule-dz3       -4.12       -6.97
+
+576 rows -> eval/results/p2_v3dz.csv

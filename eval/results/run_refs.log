@@ -1,0 +1,19 @@
+             kbps  nmr_db  nmr_max_db  ...  odg_adv  worst_item  worst_nmr_db
+config                                 ...                                   
+vorbis_q3   99.93   -0.55        6.22  ...    -0.89     heilung          7.57
+vorbis_q4  113.08   -2.24        4.65  ...    -0.67     heilung          5.57
+vorbis_q5  141.45   -4.65        1.64  ...    -0.37     heilung          3.80
+vorbis_q6  171.31   -6.70       -0.66  ...    -0.18     heilung          1.73
+opus_96    101.76   -1.69        4.66  ...    -0.77     heilung          7.31
+opus_128   133.89   -4.42        1.82  ...    -0.38     heilung          4.36
+opus_160   165.80   -6.57       -0.35  ...    -0.19     heilung          2.44
+opus_192   196.90   -8.78       -2.59  ...    -0.09     heilung          0.31
+
+[8 rows x 10 columns]
+
+        nmr_db@128  nmr_db@160
+vorbis       -3.51       -5.92
+opus         -3.92       -6.18
+
+288 rows -> eval/results/p0_refs.csv
+note: 4 decodes needed a delay correction ([-9] samples)

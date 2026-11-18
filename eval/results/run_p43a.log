@@ -1,0 +1,48 @@
+                 kbps  nmr_db  nmr_max_db  ...  odg_adv     worst_item  worst_nmr_db
+config                                     ...                                      
+mule_-6        121.94   -3.81        3.54  ...    -0.48        heilung          3.49
+mule_-9        150.27   -6.63        0.79  ...    -0.22        heilung          0.56
+mule_-12       180.28   -9.48       -2.00  ...    -0.09        heilung         -2.41
+mule_-15       211.54  -12.40       -4.84  ...    -0.02        heilung         -5.42
+mule-fft_-6    120.84   -3.81        3.52  ...    -0.48        heilung          3.59
+mule-fft_-9    149.13   -6.63        0.77  ...    -0.22        heilung          0.68
+mule-fft_-12   179.14   -9.48       -2.02  ...    -0.09        heilung         -2.31
+mule-fft_-15   210.40  -12.40       -4.85  ...    -0.02        heilung         -5.31
+mule-fft4_-6   113.68   -3.09        4.21  ...    -0.57        heilung          4.08
+mule-fft4_-9   141.57   -5.89        1.49  ...    -0.27        heilung          1.16
+mule-fft4_-12  171.31   -8.73       -1.29  ...    -0.11        heilung         -1.81
+mule-fft4_-15  202.33  -11.64       -4.11  ...    -0.03        heilung         -4.81
+mule-tm6_-6    119.39   -3.25        3.83  ...    -0.52  dp_veridisquo          4.04
+mule-tm6_-9    147.45   -6.02        1.09  ...    -0.25  dp_veridisquo          2.45
+mule-tm6_-12   177.27   -8.84       -1.70  ...    -0.10  dp_veridisquo          0.71
+mule-tm6_-15   208.40  -11.74       -4.52  ...    -0.03  dp_veridisquo         -1.43
+mule-tm12_-6   121.51   -3.73        3.59  ...    -0.49        heilung          3.53
+mule-tm12_-9   149.79   -6.53        0.84  ...    -0.23        heilung          0.60
+mule-tm12_-12  179.76   -9.39       -1.96  ...    -0.09        heilung         -2.38
+mule-tm12_-15  211.00  -12.31       -4.79  ...    -0.02        heilung         -5.38
+mule-msh2_-6   121.71   -3.82        3.53  ...    -0.48        heilung          3.51
+mule-msh2_-9   150.03   -6.62        0.78  ...    -0.22        heilung          0.58
+mule-msh2_-12  180.07   -9.47       -2.01  ...    -0.09        heilung         -2.40
+mule-msh2_-15  211.33  -12.35       -4.84  ...    -0.02        heilung         -5.41
+mule-pk12_-6   123.34   -3.83        3.51  ...    -0.46        heilung          3.50
+mule-pk12_-9   151.47   -6.64        0.77  ...    -0.21        heilung          0.56
+mule-pk12_-12  181.32   -9.50       -2.02  ...    -0.08        heilung         -2.41
+mule-pk12_-15  212.46  -12.41       -4.85  ...    -0.02        heilung         -5.42
+mule-dzt0_-6   123.17   -3.86        3.50  ...    -0.48        heilung          3.49
+mule-dzt0_-9   151.37   -6.67        0.75  ...    -0.22        heilung          0.56
+mule-dzt0_-12  181.23   -9.53       -2.05  ...    -0.09        heilung         -2.42
+mule-dzt0_-15  212.34  -12.46       -4.88  ...    -0.02        heilung         -5.43
+
+[32 rows x 9 columns]
+
+           nmr_db@128  nmr_db@160
+mule            -4.42       -7.55
+mule-fft        -4.52       -7.66
+mule-fft4       -4.53       -7.65
+mule-tm6        -4.10       -7.21
+mule-tm12       -4.37       -7.51
+mule-msh2       -4.44       -7.56
+mule-pk12       -4.30       -7.46
+mule-dzt0       -4.34       -7.50
+
+2112 rows -> eval/results/p43a.csv

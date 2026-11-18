@@ -1,0 +1,6 @@
+numpy>=2.0
+scipy>=1.11
+pandas>=2.0
+soundfile>=0.12
+soxr>=0.3
+cffi>=1.16

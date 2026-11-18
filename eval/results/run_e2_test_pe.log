@@ -1,0 +1,13 @@
+                 kbps  nmr_db  ...         worst_item  worst_nmr_db
+config                         ...                                 
+mule-pe10_-6   119.09   -2.52  ...  b_lebanon_hanover          2.46
+mule-pe10_-9   149.12   -5.46  ...  b_lebanon_hanover         -0.06
+mule-pe10_-12  180.48   -8.44  ...  b_lebanon_hanover         -3.21
+mule-pe10_-15  212.80  -11.44  ...  b_lebanon_hanover         -6.89
+
+[4 rows x 10 columns]
+
+           nmr_db@128  nmr_db@160
+mule-pe10       -3.39       -6.49
+
+120 rows -> eval/results/e2_test_pe.csv

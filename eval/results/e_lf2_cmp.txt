@@ -1,0 +1,60 @@
+
+=== mule-lf8n12r05 vs mule  (66 items)
+  odg      @128: +0.0206 [+0.0087, +0.0352]   @160: +0.0065 [+0.0002, +0.0157]   (+ = better)
+  odg_adv  @128: +0.0231 [+0.0134, +0.0378]   @160: +0.0117 [+0.0061, +0.0224]   (+ = better)
+  nmr_db   @128: +0.2803 [+0.1911, +0.4092]   @160: +0.2789 [+0.1836, +0.4133]   (+ = better)
+  rate change at equal settings: +0.48 %
+  regressions (< -0.05 odg): 0
+  best:
+              d_odg  rate_%
+item                       
+orchestra     0.209   1.493
+triangles     0.189   1.512
+glockenspiel  0.148   3.516
+violin        0.095   1.311
+heilung       0.066   0.422
+
+=== mule-lf8n16 vs mule  (66 items)
+  odg      @128: +0.0202 [+0.0098, +0.0352]   @160: +0.0075 [+0.0017, +0.0198]   (+ = better)
+  odg_adv  @128: +0.0090 [-0.0009, +0.0248]   @160: +0.0048 [-0.0010, +0.0177]   (+ = better)
+  nmr_db   @128: +0.2229 [+0.1211, +0.3467]   @160: +0.2434 [+0.1405, +0.3879]   (+ = better)
+  rate change at equal settings: +1.71 %
+  regressions (< -0.05 odg): 0
+  best:
+              d_odg  rate_%
+item                       
+orchestra     0.188   2.969
+glockenspiel  0.176   6.644
+triangles     0.148   4.839
+violin        0.089   3.052
+trumpet       0.064   3.995
+
+=== mule-lf8n16r05 vs mule  (66 items)
+  odg      @128: +0.0224 [+0.0109, +0.0367]   @160: +0.0088 [+0.0022, +0.0198]   (+ = better)
+  odg_adv  @128: +0.0208 [+0.0107, +0.0361]   @160: +0.0100 [+0.0046, +0.0223]   (+ = better)
+  nmr_db   @128: +0.3478 [+0.2465, +0.4586]   @160: +0.3569 [+0.2603, +0.4919]   (+ = better)
+  rate change at equal settings: +1.30 %
+  regressions (< -0.05 odg): 0
+  best:
+              d_odg  rate_%
+item                       
+orchestra     0.210   1.483
+triangles     0.194   3.604
+glockenspiel  0.167   4.487
+violin        0.098   2.320
+quartet       0.076   3.688
+
+=== mule-lf16n12r05 vs mule  (66 items)
+  odg      @128: +0.0197 [+0.0082, +0.0347]   @160: +0.0043 [-0.0015, +0.0141]   (+ = better)
+  odg_adv  @128: +0.0231 [+0.0126, +0.0400]   @160: +0.0114 [+0.0056, +0.0234]   (+ = better)
+  nmr_db   @128: +0.2896 [+0.1916, +0.4322]   @160: +0.2931 [+0.1881, +0.4382]   (+ = better)
+  rate change at equal settings: +0.82 %
+  regressions (< -0.05 odg): 0
+  best:
+              d_odg  rate_%
+item                       
+orchestra     0.212   1.953
+triangles     0.205   2.011
+glockenspiel  0.151   4.229
+violin        0.088   1.661
+heilung       0.070   0.701

@@ -1,0 +1,60 @@
+
+=== mule-pe8 vs mule  (66 items)
+  odg      @128: +0.0081 [+0.0052, +0.0130]   @160: +0.0146 [+0.0098, +0.0220]   (+ = better)
+  odg_adv  @128: +0.0127 [+0.0060, +0.0231]   @160: +0.0023 [+0.0011, +0.0075]   (+ = better)
+  nmr_db   @128: -0.0030 [-0.0203, +0.0160]   @160: +0.0077 [-0.0090, +0.0274]   (+ = better)
+  rate change at equal settings: +0.78 %
+  regressions (< -0.05 odg): 0
+  best:
+              d_odg  rate_%
+item                       
+b_baroness    0.104   1.943
+b_wolfmother  0.070   2.447
+piano         0.061   1.146
+slayer        0.059   1.342
+female_en     0.053   3.325
+
+=== mule-pe13 vs mule  (66 items)
+  odg      @128: +0.0076 [+0.0050, +0.0112]   @160: +0.0116 [+0.0078, +0.0168]   (+ = better)
+  odg_adv  @128: +0.0096 [+0.0056, +0.0155]   @160: +0.0030 [+0.0018, +0.0056]   (+ = better)
+  nmr_db   @128: +0.0174 [+0.0066, +0.0306]   @160: +0.0224 [+0.0105, +0.0362]   (+ = better)
+  rate change at equal settings: +0.18 %
+  regressions (< -0.05 odg): 0
+  best:
+                  d_odg  rate_%
+item                           
+b_baroness        0.065   0.453
+female_en         0.057   0.963
+piano             0.046   0.327
+b_bat_for_lashes  0.045   0.571
+b_wolfmother      0.041   0.783
+
+=== mule-pe16 vs mule  (66 items)
+  odg      @128: +0.0056 [+0.0036, +0.0078]   @160: +0.0077 [+0.0046, +0.0119]   (+ = better)
+  odg_adv  @128: +0.0059 [+0.0033, +0.0090]   @160: +0.0022 [+0.0012, +0.0040]   (+ = better)
+  nmr_db   @128: +0.0126 [+0.0058, +0.0214]   @160: +0.0164 [+0.0084, +0.0263]   (+ = better)
+  rate change at equal settings: +0.08 %
+  regressions (< -0.05 odg): 0
+  best:
+                  d_odg  rate_%
+item                           
+female_en         0.058   0.457
+b_baroness        0.038   0.150
+b_bat_for_lashes  0.037   0.337
+b_wolfmother      0.033   0.386
+male_en           0.032   0.309
+
+=== mule-pe20 vs mule  (66 items)
+  odg      @128: +0.0027 [+0.0016, +0.0041]   @160: +0.0033 [+0.0016, +0.0056]   (+ = better)
+  odg_adv  @128: +0.0023 [+0.0012, +0.0039]   @160: +0.0010 [+0.0005, +0.0018]   (+ = better)
+  nmr_db   @128: +0.0043 [+0.0020, +0.0071]   @160: +0.0051 [+0.0027, +0.0081]   (+ = better)
+  rate change at equal settings: +0.02 %
+  regressions (< -0.05 odg): 0
+  best:
+                  d_odg  rate_%
+item                           
+female_en         0.035   0.165
+b_bat_for_lashes  0.024   0.174
+male_en           0.022   0.129
+b_baroness        0.016   0.021
+dp_hbfs           0.013   0.076

@@ -1,0 +1,23 @@
+                 kbps  nmr_db  nmr_max_db  ...  odg_adv  worst_item  worst_nmr_db
+config                                     ...                                   
+mule-rd07_-6   112.48   -3.07        3.15  ...    -0.67     heilung          5.95
+mule-rd07_-9   138.52   -5.79        0.48  ...    -0.33     heilung          2.95
+mule-rd07_-12  166.15   -8.56       -2.23  ...    -0.14     heilung         -0.08
+mule-rd07_-15  195.14  -11.38       -4.95  ...    -0.05     heilung         -3.10
+mule-rd14_-6   108.05   -2.71        3.55  ...    -0.77     heilung          6.47
+mule-rd14_-9   134.91   -5.52        0.80  ...    -0.37     heilung          3.32
+mule-rd14_-12  163.15   -8.35       -1.97  ...    -0.16     heilung          0.16
+mule-rd14_-15  192.70  -11.23       -4.75  ...    -0.06     heilung         -2.96
+mule-rd25_-6   101.98   -2.03        4.29  ...    -0.98     heilung          7.43
+mule-rd25_-9   129.88   -4.95        1.46  ...    -0.46     heilung          4.11
+mule-rd25_-12  159.00   -7.86       -1.41  ...    -0.21     heilung          0.75
+mule-rd25_-15  189.29  -10.84       -4.30  ...    -0.08     heilung         -2.56
+
+[12 rows x 9 columns]
+
+           nmr_db@128  nmr_db@160
+mule-rd07       -4.70       -7.94
+mule-rd14       -4.80       -8.03
+mule-rd25       -4.75       -7.96
+
+432 rows -> eval/results/p2_rdoq.csv

@@ -1,0 +1,6 @@
+#!/bin/sh
+# mule-enc: the MULE encoder (C) from the command line, through tools/mule_enc.py and the
+# repository's virtual environment. Put this directory on the PATH (e.g. for the firmware's
+# fw/tools/mktestset.py). Usage: mule-enc [options] input_file output_file.mule (--help)
+D=$(cd "$(dirname "$0")/.." && pwd)
+exec "$D/.venv/bin/python" "$D/tools/mule_enc.py" "$@"

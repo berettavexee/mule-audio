@@ -1,0 +1,137 @@
+
+=== mule-pntc20 vs mule-pe10nf2  (66 items)
+  odg      @128: -0.0057 [-0.0207, +0.0029]   @160: +0.0032 [-0.0062, +0.0062]   (+ = better)
+  odg_adv  @128: +0.0063 [-0.0074, +0.0110]   @160: +0.0040 [-0.0049, +0.0064]   (+ = better)
+  nmr_db   @128: +0.0190 [-0.0382, +0.0676]   @160: +0.0154 [-0.0448, +0.0716]   (+ = better)
+  rate change at equal settings: -2.47 %
+  regressions (< -0.05 odg): 3
+             d_odg  rate_%
+item                      
+violin      -0.119 -10.408
+trumpet     -0.101 -10.776
+harpsichord -0.058  -8.469
+  best:
+                      d_odg  rate_%
+item                               
+triangles             0.031 -10.341
+beethoven5            0.023  -1.928
+b_miranda_sex_garden  0.018  -2.127
+rabbitt               0.013  -0.466
+satie                 0.012  -1.117
+
+=== mule-pntc30 vs mule-pe10nf2  (66 items)
+  odg      @128: -0.0027 [-0.0092, +0.0045]   @160: -0.0079 [-0.0120, +0.0000]   (+ = better)
+  odg_adv  @128: -0.0107 [-0.0175, -0.0034]   @160: -0.0077 [-0.0107, -0.0014]   (+ = better)
+  nmr_db   @128: -0.0735 [-0.1303, -0.0271]   @160: -0.0789 [-0.1378, -0.0308]   (+ = better)
+  rate change at equal settings: +2.30 %
+  regressions (< -0.05 odg): 2
+            d_odg  rate_%
+item                     
+organ_bach -0.079  15.969
+triangles  -0.059  11.295
+  best:
+                  d_odg  rate_%
+item                           
+violin            0.036  10.200
+b_body_count      0.024   0.656
+quartet           0.019   2.026
+pitchpipe_gong5k  0.011   4.950
+wutang            0.010   0.872
+
+=== mule-pnmid2 vs mule-pe10nf2  (66 items)
+  odg      @128: -0.0013 [-0.0179, +0.0013]   @160: +0.0067 [-0.0025, +0.0168]   (+ = better)
+  odg_adv  @128: +0.0079 [-0.0164, +0.0098]   @160: -0.0033 [-0.0103, +0.0046]   (+ = better)
+  nmr_db   @128: -0.4746 [-0.5547, -0.4101]   @160: -0.5028 [-0.5797, -0.4263]   (+ = better)
+  rate change at equal settings: -4.39 %
+  regressions (< -0.05 odg): 2
+               d_odg  rate_%
+item                        
+piano         -0.078  -4.966
+b_franz_liszt -0.054  -5.015
+  best:
+                   d_odg  rate_%
+item                            
+b_joy_division     0.021  -5.078
+b_wolfmother       0.021  -4.555
+slayer             0.021  -4.185
+rabbitt            0.020  -4.656
+b_various_artists  0.018  -4.370
+
+=== mule-pnmid6 vs mule-pe10nf2  (66 items)
+  odg      @128: -0.0128 [-0.0202, -0.0043]   @160: -0.0162 [-0.0208, -0.0059]   (+ = better)
+  odg_adv  @128: -0.0065 [-0.0158, +0.0048]   @160: -0.0071 [-0.0098, +0.0021]   (+ = better)
+  nmr_db   @128: +0.2795 [+0.2041, +0.3576]   @160: +0.3169 [+0.2305, +0.4174]   (+ = better)
+  rate change at equal settings: +4.43 %
+  regressions (< -0.05 odg): 0
+  best:
+                  d_odg  rate_%
+item                           
+piano             0.028   4.958
+b_franz_liszt     0.027   4.753
+glockenspiel      0.023   4.475
+pitchpipe_gong5k  0.023   2.278
+violin            0.019   4.099
+
+=== mule-pnlow8 vs mule-pe10nf2  (66 items)
+  odg      @128: -0.0016 [-0.0083, +0.0030]   @160: +0.0065 [-0.0008, +0.0098]   (+ = better)
+  odg_adv  @128: -0.0042 [-0.0115, +0.0001]   @160: -0.0023 [-0.0086, -0.0007]   (+ = better)
+  nmr_db   @128: +0.0288 [-0.0195, +0.0662]   @160: +0.0277 [-0.0330, +0.0692]   (+ = better)
+  rate change at equal settings: -1.18 %
+  regressions (< -0.05 odg): 2
+           d_odg  rate_%
+item                    
+orchestra -0.105  -1.780
+triangles -0.078  -1.421
+  best:
+               d_odg  rate_%
+item                        
+beethoven5     0.026  -1.213
+b_deep_purple  0.025  -1.128
+b_minuit       0.025  -1.315
+b_wardruna     0.019  -1.118
+b_wolfmother   0.018  -1.177
+
+=== mule-pnlow12 vs mule-pe10nf2  (66 items)
+  odg      @128: -0.0049 [-0.0077, -0.0006]   @160: -0.0081 [-0.0105, -0.0027]   (+ = better)
+  odg_adv  @128: +0.0005 [-0.0032, +0.0058]   @160: -0.0006 [-0.0021, +0.0039]   (+ = better)
+  nmr_db   @128: -0.0757 [-0.1078, -0.0311]   @160: -0.0678 [-0.1021, -0.0146]   (+ = better)
+  rate change at equal settings: +1.20 %
+  regressions (< -0.05 odg): 0
+  best:
+           d_odg  rate_%
+item                    
+triangles  0.062   1.460
+orchestra  0.044   1.590
+satie      0.031   1.817
+heilung    0.025   1.131
+violin     0.017   1.007
+
+=== mule-pntr7 vs mule-pe10nf2  (66 items)
+  odg      @128: -0.0042 [-0.0066, -0.0020]   @160: -0.0035 [-0.0056, -0.0011]   (+ = better)
+  odg_adv  @128: -0.0050 [-0.0076, -0.0027]   @160: -0.0024 [-0.0037, -0.0011]   (+ = better)
+  nmr_db   @128: -0.0396 [-0.0607, -0.0207]   @160: -0.0402 [-0.0594, -0.0224]   (+ = better)
+  rate change at equal settings: +0.13 %
+  regressions (< -0.05 odg): 0
+  best:
+              d_odg  rate_%
+item                       
+b_minuit      0.022  -0.149
+b_body_count  0.015   0.004
+b_wolfmother  0.007   0.136
+slayer        0.004  -0.089
+guitar        0.003  -0.020
+
+=== mule-pntr8 vs mule-pe10nf2  (66 items)
+  odg      @128: -0.0013 [-0.0025, -0.0002]   @160: -0.0010 [-0.0020, +0.0002]   (+ = better)
+  odg_adv  @128: -0.0016 [-0.0031, -0.0002]   @160: -0.0009 [-0.0014, -0.0004]   (+ = better)
+  nmr_db   @128: -0.0111 [-0.0208, -0.0017]   @160: -0.0115 [-0.0204, -0.0033]   (+ = better)
+  rate change at equal settings: +0.03 %
+  regressions (< -0.05 odg): 0
+  best:
+                        d_odg  rate_%
+item                                 
+b_minuit                0.022  -0.145
+b_body_count            0.015  -0.027
+tool                    0.006   0.154
+b_moscow_death_brigade  0.005   0.083
+dp_hbfs                 0.003   0.109

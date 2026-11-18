@@ -1,0 +1,6 @@
+q_db  uniform  trained(cv)  gain
+   -6   116.97      112.85  -3.52 %
+   -9   143.69      139.48  -2.93 %
+  -12   172.16      167.96  -2.44 %
+  -15   201.92      197.89  -2.00 %
+-> py/mule/init_cdf.npz (17414 bytes as uint16 tables, unused coef contexts included)

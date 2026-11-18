@@ -1,0 +1,13 @@
+                      kbps  nmr_db  ...         worst_item  worst_nmr_db
+config                              ...                                 
+mule-lf8n12r05_-6   118.46   -2.44  ...  b_lebanon_hanover          2.59
+mule-lf8n12r05_-9   148.46   -5.37  ...  b_lebanon_hanover          0.10
+mule-lf8n12r05_-12  179.80   -8.35  ...  b_lebanon_hanover         -3.10
+mule-lf8n12r05_-15  212.09  -11.35  ...  b_lebanon_hanover         -6.69
+
+[4 rows x 10 columns]
+
+                nmr_db@128  nmr_db@160
+mule-lf8n12r05       -3.37       -6.47
+
+120 rows -> eval/results/e_lf_test.csv

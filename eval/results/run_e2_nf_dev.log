@@ -1,0 +1,18 @@
+                    kbps  nmr_db  nmr_max_db  ...  odg_adv  worst_item  worst_nmr_db
+config                                        ...                                   
+mule-pe10nf1_-6   106.90   -3.36        3.91  ...    -0.53     heilung          3.91
+mule-pe10nf1_-9   134.01   -6.24        1.09  ...    -0.24     heilung          0.88
+mule-pe10nf1_-12  162.85   -9.15       -1.76  ...    -0.09     heilung         -2.13
+mule-pe10nf1_-15  192.94  -12.11       -4.64  ...    -0.02     heilung         -5.15
+mule-pe10nf2_-6   106.97   -3.40        3.85  ...    -0.52     heilung          3.90
+mule-pe10nf2_-9   134.06   -6.27        1.05  ...    -0.24     heilung          0.88
+mule-pe10nf2_-12  162.89   -9.18       -1.79  ...    -0.09     heilung         -2.13
+mule-pe10nf2_-15  192.97  -12.12       -4.67  ...    -0.02     heilung         -5.15
+
+[8 rows x 9 columns]
+
+              nmr_db@128  nmr_db@160
+mule-pe10nf1       -5.60       -8.86
+mule-pe10nf2       -5.63       -8.89
+
+528 rows -> eval/results/e2_nf_dev.csv

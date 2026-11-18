@@ -1,0 +1,13 @@
+base           q-12: 183.64 kb/s (+0.00 %)  q-9: 153.08 kb/s (+0.00 %)   mean +0.00 %
+rbig0          q-12: 185.02 kb/s (+0.75 %)  q-9: 154.11 kb/s (+0.67 %)   mean +0.71 %
+r3             q-12: 185.00 kb/s (+0.74 %)  q-9: 154.08 kb/s (+0.66 %)   mean +0.70 %
+r3big0         q-12: 188.31 kb/s (+2.54 %)  q-9: 156.64 kb/s (+2.33 %)   mean +2.44 %
+rbig0long      q-12: 188.31 kb/s (+2.54 %)  q-9: 156.64 kb/s (+2.33 %)   mean +2.44 %
+
+per stream (kb/s over all settings; change vs base):
+           b_btype  b_alpha  b_stereo  b_energy  b_alloc  b_amode  b_cesc  b_coef  b_eaesc  b_raw  b_packet
+variant                                                                                                    
+r3            -0.0   -0.001     -0.02     0.048    0.058   -0.002  -0.001   1.101   -0.003    0.0       0.0
+r3big0        -0.0   -0.001     -0.02     0.217    0.224   -0.002   0.010   3.694   -0.005    0.0       0.0
+rbig0          0.0    0.000      0.00     0.048    0.058    0.000  -0.001   1.101   -0.003    0.0       0.0
+rbig0long     -0.0   -0.001     -0.02     0.217    0.224   -0.002   0.010   3.694   -0.005    0.0       0.0

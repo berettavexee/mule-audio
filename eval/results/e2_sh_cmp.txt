@@ -1,0 +1,30 @@
+
+=== mule-shm5 vs mule-pe10  (66 items)
+  odg      @128: +0.0026 [-0.0018, +0.0107]   @160: +0.0042 [+0.0003, +0.0121]   (+ = better)
+  odg_adv  @128: +0.0097 [+0.0028, +0.0178]   @160: +0.0037 [+0.0007, +0.0095]   (+ = better)
+  nmr_db   @128: +0.0108 [-0.0670, +0.1602]   @160: +0.0249 [-0.0578, +0.1557]   (+ = better)
+  rate change at equal settings: +1.19 %
+  regressions (< -0.05 odg): 0
+  best:
+                  d_odg  rate_%
+item                           
+triangles         0.138   0.861
+castanets         0.053   7.414
+female_en         0.038   4.206
+glockenspiel      0.035   1.239
+pitchpipe_gong5k  0.034   3.515
+
+=== mule-shm8 vs mule-pe10  (66 items)
+  odg      @128: -0.0026 [-0.0083, +0.0078]   @160: +0.0019 [-0.0025, +0.0122]   (+ = better)
+  odg_adv  @128: +0.0095 [-0.0002, +0.0218]   @160: +0.0033 [-0.0007, +0.0113]   (+ = better)
+  nmr_db   @128: -0.0268 [-0.1521, +0.1825]   @160: -0.0194 [-0.1378, +0.1661]   (+ = better)
+  rate change at equal settings: +1.91 %
+  regressions (< -0.05 odg): 0
+  best:
+                  d_odg  rate_%
+item                           
+triangles         0.166   1.379
+pitchpipe_gong5k  0.065   5.903
+glockenspiel      0.052   2.005
+female_en         0.044   6.702
+castanets         0.033  11.668

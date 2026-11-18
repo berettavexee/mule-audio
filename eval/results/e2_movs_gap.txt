@@ -1,0 +1,54 @@
+66 items at 128 kb/s (per item interpolation)
+ODG measured mule -0.268  opus -0.207; network on interpolated MOVs: -0.267 / -0.205
+MOV                   mule      opus   ODG gain if mule had opus's value
+BandwidthRefB      873.827   874.871   +0.0014
+BandwidthTestB     833.112   871.351   +0.0253
+Total NMRB         -14.870   -14.030   -0.0331
+WinModDiff1B         8.533     8.508   -0.0012
+ADBB                 0.434    -0.154   +0.0655
+EHSB                 0.259     0.244   +0.0073
+AvgModDiff1B         8.377     8.449   -0.0041
+AvgModDiff2B        33.101    32.158   -0.0012
+RmsNoiseLoudB        0.168     0.160   +0.0016
+MFPDB                0.901     0.915   +0.0039
+RelDistFramesB       0.029     0.030   +0.0020
+items where opus leads most (ODG):
+b_joy_division          0.355
+pitchpipe_gong5k        0.281
+b_wolfmother            0.217
+b_modest_mussorgsky     0.215
+female_en               0.206
+b_miranda_sex_garden    0.190
+b_body_count            0.181
+b_bat_for_lashes        0.175
+b_x                     0.174
+b_deep_purple           0.167
+heilung                 0.159
+slayer                  0.155
+66 items at 160 kb/s (per item interpolation)
+ODG measured mule +nan  opus -0.090; network on interpolated MOVs: +nan / -0.088
+MOV                   mule      opus   ODG gain if mule had opus's value
+BandwidthRefB          nan   874.958   +nan
+BandwidthTestB         nan   871.453   +nan
+Total NMRB             nan   -16.124   +nan
+WinModDiff1B           nan     7.087   +nan
+ADBB                   nan    -0.586   +nan
+EHSB                   nan     0.227   +nan
+AvgModDiff1B           nan     7.038   +nan
+AvgModDiff2B           nan    27.240   +nan
+RmsNoiseLoudB          nan     0.131   +nan
+MFPDB                  nan     0.833   +nan
+RelDistFramesB         nan     0.005   +nan
+items where opus leads most (ODG):
+pitchpipe_gong5k    0.615
+b_joy_division      0.290
+female_en           0.218
+b_wolfmother        0.187
+b_x                 0.141
+slayer              0.133
+b_deep_purple       0.112
+b_bat_for_lashes    0.111
+dp_veridisquo       0.107
+b_baroness          0.106
+glockenspiel        0.100
+dp_digitallove      0.098

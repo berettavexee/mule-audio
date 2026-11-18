@@ -1,0 +1,13 @@
+            kbps  nmr_db  nmr_max_db  ...  odg_adv  worst_item  worst_nmr_db
+config                                ...                                   
+mule_-6   106.26   -3.22        4.07  ...    -0.59     heilung          3.98
+mule_-9   133.36   -6.12        1.24  ...    -0.27     heilung          0.95
+mule_-12  162.17   -9.03       -1.63  ...    -0.10     heilung         -2.07
+mule_-15  192.26  -12.00       -4.52  ...    -0.02     heilung         -5.09
+
+[4 rows x 9 columns]
+
+      nmr_db@128  nmr_db@160
+mule       -5.55       -8.81
+
+264 rows -> eval/results/e2_base_dev.csv

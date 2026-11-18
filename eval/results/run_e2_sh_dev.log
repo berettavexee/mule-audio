@@ -1,0 +1,18 @@
+                 kbps  nmr_db  nmr_max_db  ...  odg_adv  worst_item  worst_nmr_db
+config                                     ...                                   
+mule-shm5_-6   108.38   -3.44        3.82  ...    -0.51     heilung          3.81
+mule-shm5_-9   135.58   -6.40        0.96  ...    -0.23     heilung          0.78
+mule-shm5_-12  164.49   -9.31       -1.90  ...    -0.09     heilung         -2.24
+mule-shm5_-15  194.66  -12.25       -4.79  ...    -0.01     heilung         -5.27
+mule-shm8_-6   109.31   -3.54        3.72  ...    -0.50     heilung          3.81
+mule-shm8_-9   136.56   -6.45        0.88  ...    -0.22     heilung          0.76
+mule-shm8_-12  165.48   -9.37       -1.99  ...    -0.08     heilung         -2.26
+mule-shm8_-15  195.68  -12.30       -4.88  ...    -0.01     heilung         -5.30
+
+[8 rows x 9 columns]
+
+           nmr_db@128  nmr_db@160
+mule-shm5       -5.57       -8.86
+mule-shm8       -5.54       -8.81
+
+528 rows -> eval/results/e2_sh_dev.csv

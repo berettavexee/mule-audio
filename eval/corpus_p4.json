@@ -1,0 +1,422 @@
+[
+ {
+  "name": "b_tomohiko_sagae",
+  "path": "Tomohiko Sagae/Tomohiko Sagae - 2017 - Sensory Deprivation/05 Perverse Mind #1.flac",
+  "start": 140.8,
+  "dur": 15.0,
+  "set": "dev"
+ },
+ {
+  "name": "b_lebanon_hanover",
+  "path": "Lebanon Hanover/Lebanon Hanover - 2013 - Tomb for Two/02 Your Fork Moves.flac",
+  "start": 68.8,
+  "dur": 15.0,
+  "set": "test"
+ },
+ {
+  "name": "b_moscow_death_brigade",
+  "path": "Moscow Death Brigade/Moscow Death Brigade - 2018 - Boltcutter/08 Brother & Sisterhood (remix).flac",
+  "start": 66.0,
+  "dur": 15.0,
+  "set": "dev"
+ },
+ {
+  "name": "b_johannes_brahms",
+  "path": "Johannes Brahms; Wiener Philharmoniker, Carlos Kleiber/Johannes Brahms; Wiener Philharmoniker, Carlos Kleiber - 1981 - Symphonie No. 4/02 Symphonie Nr. 4 e-Moll, op. 98_ II. Andante moderato.flac",
+  "start": 273.6,
+  "dur": 15.0,
+  "set": "test"
+ },
+ {
+  "name": "b_lady_gaga",
+  "path": "Lady Gaga/Lady Gaga - 2009 - The Fame/08 Money Honey.flac",
+  "start": 68.0,
+  "dur": 15.0,
+  "set": "dev"
+ },
+ {
+  "name": "b_steel_panther",
+  "path": "Steel Panther/Steel Panther - 2011 - Balls Out/05 If You Really, Really Love Me.flac",
+  "start": 58.0,
+  "dur": 15.0,
+  "set": "test"
+ },
+ {
+  "name": "b_ludwig_van_beethoven",
+  "path": "Ludwig van Beethoven, Leonard Bernstein; Hilary Hahn, Baltimore Symphony Orchestra, David Zinman/Ludwig van Beethoven, Leonard Bernstein; Hilary Hahn, Baltimore Symphony Orchestra, David Zinman - 1999 - Beethoven_ Concerto for Violin _ Bernstein_ Serenade/03 Concerto for Violin and Orchestra in D major, op. 61_ III. Rondo. Allegro.flac",
+  "start": 236.8,
+  "dur": 15.0,
+  "set": "dev"
+ },
+ {
+  "name": "b_dance_with_the_dead",
+  "path": "Dance With the Dead/Dance With the Dead - 2016 - The Shape/04 Screams and Whispers.flac",
+  "start": 116.0,
+  "dur": 15.0,
+  "set": "test"
+ },
+ {
+  "name": "b_bat_for_lashes",
+  "path": "Bat for Lashes/Bat for Lashes - 2012 - The Haunted Man/04 Oh Yeah.flac",
+  "start": 118.4,
+  "dur": 15.0,
+  "set": "dev"
+ },
+ {
+  "name": "b_crystal_castles",
+  "path": "Crystal Castles/Crystal Castles - 2012 - (III)/03 Wrath of God.flac",
+  "start": 74.8,
+  "dur": 15.0,
+  "set": "test"
+ },
+ {
+  "name": "b_minuit",
+  "path": "Minuit/Minuit - 2015 - Minuit/02 Recule.flac",
+  "start": 105.2,
+  "dur": 15.0,
+  "set": "dev"
+ },
+ {
+  "name": "b_new_order_joy_division",
+  "path": "New Order & Joy Division/New Order & Joy Division - 2011 - Total/07 Temptation.flac",
+  "start": 130.0,
+  "dur": 15.0,
+  "set": "test"
+ },
+ {
+  "name": "b_franz_liszt",
+  "path": "Franz Liszt/Franz Liszt - 2006 - Piano works/04 Ballade n°2.flac",
+  "start": 312.8,
+  "dur": 15.0,
+  "set": "dev"
+ },
+ {
+  "name": "b_eminem",
+  "path": "Eminem/Eminem - 2000 - The Marshall Mathers LP/07 The Way I Am.flac",
+  "start": 116.0,
+  "dur": 15.0,
+  "set": "test"
+ },
+ {
+  "name": "b_x",
+  "path": "Аркона/Аркона - 2007 - От сердца к небу/01 Покровы небесного Старца.flac",
+  "start": 182.4,
+  "dur": 15.0,
+  "set": "dev"
+ },
+ {
+  "name": "b_toru_takemitsu_hiroshi_w",
+  "path": "Toru Takemitsu - Hiroshi Wakasugi - Tokyo Metropolitan Symphony Orchestra/Toru Takemitsu - Hiroshi Wakasugi - Tokyo Metropolitan Symphony Orchestra - 2006 - Toru Takemitsu - Spirit Garden - Orchestral Works/02 November Steps For Biwa, Shakuhachi And Orchestra (1967).flac",
+  "start": 479.6,
+  "dur": 15.0,
+  "set": "test"
+ },
+ {
+  "name": "b_baroness",
+  "path": "Baroness/Baroness - 2023 - Stone/04 Choir.flac",
+  "start": 98.4,
+  "dur": 15.0,
+  "set": "dev"
+ },
+ {
+  "name": "b_spector",
+  "path": "Spector/Spector - 2012 - Enjoy It While It Lasts/05 Friday Night, Don't Ever Let It End.flac",
+  "start": 92.0,
+  "dur": 15.0,
+  "set": "test"
+ },
+ {
+  "name": "b_deep_purple",
+  "path": "Deep Purple/Deep Purple - 2005 - Machine Head/03 Pictures of Home.flac",
+  "start": 122.8,
+  "dur": 15.0,
+  "set": "dev"
+ },
+ {
+  "name": "b_judas_priest",
+  "path": "Judas Priest/Judas Priest - 2001 - Defenders of the Faith/09 Heavy Duty.flac",
+  "start": 58.4,
+  "dur": 15.0,
+  "set": "test"
+ },
+ {
+  "name": "b_modest_mussorgsky",
+  "path": "Modest Mussorgsky/Modest Mussorgsky - 2002 - Pictures at an Exhibition (Valery Gergiev, Wiener Philharmoniker)/07 IV. Bydlo.flac",
+  "start": 70.0,
+  "dur": 15.0,
+  "set": "dev"
+ },
+ {
+  "name": "b_belenos",
+  "path": "Belenos/Belenos - 2017 - Chants de Bataille/07 Galv ar Brezel.flac",
+  "start": 26.8,
+  "dur": 15.0,
+  "set": "test"
+ },
+ {
+  "name": "b_fu_manchu",
+  "path": "Fu Manchu/Fu Manchu - 2018 - Clone of the Universe/07 Il Mostro Atomico.flac",
+  "start": 434.8,
+  "dur": 15.0,
+  "set": "dev"
+ },
+ {
+  "name": "b_carpenter_brut",
+  "path": "Carpenter Brut/Carpenter Brut - 2020 - MANIAC/01 MANIAC.flac",
+  "start": 111.2,
+  "dur": 15.0,
+  "set": "test"
+ },
+ {
+  "name": "b_miranda_sex_garden",
+  "path": "Miranda Sex Garden/Miranda Sex Garden - 2000 - Carnival of Souls/05 Broken Glass.flac",
+  "start": 120.8,
+  "dur": 15.0,
+  "set": "dev"
+ },
+ {
+  "name": "b_foo_fighters",
+  "path": "Foo Fighters/Foo Fighters - 2007 - Echoes, Silence, Patience & Grace/01 The Pretender.flac",
+  "start": 107.6,
+  "dur": 15.0,
+  "set": "test"
+ },
+ {
+  "name": "b_final_light",
+  "path": "Final Light/Final Light - 2022 - Final Light/03 It Came With the Water.flac",
+  "start": 174.8,
+  "dur": 15.0,
+  "set": "dev"
+ },
+ {
+  "name": "b_new_order",
+  "path": "New Order/New Order - 2003 - Substance/06 Thieves Like Us.flac",
+  "start": 158.8,
+  "dur": 15.0,
+  "set": "test"
+ },
+ {
+  "name": "b_wardruna",
+  "path": "Wardruna/Wardruna - 2013 - Runaljod – Yggdrasil/10 Sowelu.flac",
+  "start": 184.0,
+  "dur": 15.0,
+  "set": "dev"
+ },
+ {
+  "name": "b_kompromat",
+  "path": "Kompromat/Kompromat - 2025 - PLДYING _ PRДYING/04 PLAYING _ PRAYING.flac",
+  "start": 105.2,
+  "dur": 15.0,
+  "set": "test"
+ },
+ {
+  "name": "b_death",
+  "path": "Death/Death - 1995 - Symbolic/04 Sacred Serenity.flac",
+  "start": 106.8,
+  "dur": 15.0,
+  "set": "dev"
+ },
+ {
+  "name": "b_korpiklaani",
+  "path": "Korpiklaani/Korpiklaani - 2018 - Kulkija/05 Kotikonnut.flac",
+  "start": 105.6,
+  "dur": 15.0,
+  "set": "test"
+ },
+ {
+  "name": "b_lorde",
+  "path": "Lorde/Lorde - 2017 - Melodrama/04 The Louvre.flac",
+  "start": 108.4,
+  "dur": 15.0,
+  "set": "dev"
+ },
+ {
+  "name": "b_and_one",
+  "path": "And One/And One - 2000 - Virgin Superstar/04 Goodbye Germany.flac",
+  "start": 123.6,
+  "dur": 15.0,
+  "set": "test"
+ },
+ {
+  "name": "b_valient_thorr",
+  "path": "Valient Thorr/Valient Thorr - 2005 - Total Universe Man/05 Intermission_ Thesis of Infinite Measure.flac",
+  "start": 60.0,
+  "dur": 15.0,
+  "set": "dev"
+ },
+ {
+  "name": "b_red_fang",
+  "path": "Red Fang/Red Fang - 2025 - Deep Cuts/01 Antidote.flac",
+  "start": 92.0,
+  "dur": 15.0,
+  "set": "test"
+ },
+ {
+  "name": "b_various_artists",
+  "path": "Various Artists/Various Artists - 2012 - La Musique de Paris Dernière 8/03 Shout (C2C remix).flac",
+  "start": 104.0,
+  "dur": 15.0,
+  "set": "dev"
+ },
+ {
+  "name": "b_garbage",
+  "path": "Garbage/Garbage - 2012 - Not Your Kind of People/06 Felt.flac",
+  "start": 82.8,
+  "dur": 15.0,
+  "set": "test"
+ },
+ {
+  "name": "b_ludwig_van_beethoven38",
+  "path": "Ludwig van Beethoven; David Zinman, Yefim Bronfman, Gil Shaham, Truls Mørk/Ludwig van Beethoven; David Zinman, Yefim Bronfman, Gil Shaham, Truls Mørk - 2006 - Triple Concerto _ Septet/04 Septet, op. 20_ I. Adagio. Allegro con brio.flac",
+  "start": 238.8,
+  "dur": 15.0,
+  "set": "dev"
+ },
+ {
+  "name": "b_astroqueen",
+  "path": "Astroqueen/Astroqueen - 2001 - Into Submission/04 Brain Phase Voyage.flac",
+  "start": 122.0,
+  "dur": 15.0,
+  "set": "test"
+ },
+ {
+  "name": "b_johann_sebastian_bach",
+  "path": "Johann Sebastian Bach/Johann Sebastian Bach - 1999 - The Art of Fugue - Concerto Italiano - Rinaldo Alessandrini/07 Contrapunctus 6 in Style Francese.flac",
+  "start": 139.2,
+  "dur": 15.0,
+  "set": "dev"
+ },
+ {
+  "name": "b_classical",
+  "path": "Classical/Classics at The Movies (Disc A)/04 Canon in D (Ordinary People).flac",
+  "start": 116.0,
+  "dur": 15.0,
+  "set": "test"
+ },
+ {
+  "name": "b_mussorgsky",
+  "path": "Mussorgsky/Mussorgsky - 1988 - Pictures at an Exhibition, Night on Bald Mountain/01 Pictures at an Exhibition.flac",
+  "start": 852.4,
+  "dur": 15.0,
+  "set": "dev"
+ },
+ {
+  "name": "b_zombie_zombie",
+  "path": "Zombie Zombie/Zombie Zombie - 2016 - Slow Futur/04 Extra Life.flac",
+  "start": 249.2,
+  "dur": 15.0,
+  "set": "test"
+ },
+ {
+  "name": "b_clutch",
+  "path": "Clutch/Clutch - 2018 - Book of Bad Decisions/06 Vision Quest.flac",
+  "start": 79.2,
+  "dur": 15.0,
+  "set": "dev"
+ },
+ {
+  "name": "b_max_richter",
+  "path": "Max Richter/Max Richter - 2019 - Voyager_ Essential Max Richter/15 Lullaby From The Westcoast Sleepers.flac",
+  "start": 50.0,
+  "dur": 15.0,
+  "set": "test"
+ },
+ {
+  "name": "b_wolfmother",
+  "path": "Wolfmother/Wolfmother - 2016 - Victorious/04 Pretty Peggy.flac",
+  "start": 91.6,
+  "dur": 15.0,
+  "set": "dev"
+ },
+ {
+  "name": "b_airbourne",
+  "path": "Airbourne/Airbourne - 2010 - No Guts. No Glory/06 White Line Fever.flac",
+  "start": 76.0,
+  "dur": 15.0,
+  "set": "test"
+ },
+ {
+  "name": "b_joy_division",
+  "path": "Joy Division/Joy Division - 1981 - Still/33 The Sound of Music (live at High Wycombe Town Hall, 20th February 1980; sound check).flac",
+  "start": 98.0,
+  "dur": 15.0,
+  "set": "dev"
+ },
+ {
+  "name": "b_salut_cest_cool",
+  "path": "Salut c’est cool/Salut c’est cool - 2015 - Sur le thème des grandes découvertes/05 Je suis en train de rêver.flac",
+  "start": 162.8,
+  "dur": 15.0,
+  "set": "test"
+ },
+ {
+  "name": "b_the_killers",
+  "path": "The Killers/The Killers - 2020 - Imploding the Mirage/04 Caution.flac",
+  "start": 108.0,
+  "dur": 15.0,
+  "set": "dev"
+ },
+ {
+  "name": "b_monster_magnet",
+  "path": "Monster Magnet/Monster Magnet - 2007 - 4-Way Diablo/13 Little Bag of Gloom.flac",
+  "start": 55.2,
+  "dur": 15.0,
+  "set": "test"
+ },
+ {
+  "name": "b_body_count",
+  "path": "Body Count/Body Count - 1994 - Born Dead/09 Surviving the Game.flac",
+  "start": 136.4,
+  "dur": 15.0,
+  "set": "dev"
+ },
+ {
+  "name": "b_gustav_holst",
+  "path": "Gustav Holst; Berliner Philharmoniker, Herbert von Karajan/Gustav Holst; Berliner Philharmoniker, Herbert von Karajan - 1982 - The Planets/03 The Planets, op. 32_ Mercury, the Winged Messenger. Vivace.flac",
+  "start": 102.4,
+  "dur": 15.0,
+  "set": "test"
+ },
+ {
+  "name": "b_tame_impala",
+  "path": "Tame Impala/Tame Impala - 2012 - Lonerism/05 Music to Walk Home By.flac",
+  "start": 124.8,
+  "dur": 15.0,
+  "set": "dev"
+ },
+ {
+  "name": "b_orange_goblin",
+  "path": "Orange Goblin/Orange Goblin - 2010 - The Big Black/01 Scorpionica.flac",
+  "start": 77.6,
+  "dur": 15.0,
+  "set": "test"
+ },
+ {
+  "name": "b_iron_maiden",
+  "path": "Iron Maiden/Iron Maiden - 2021 - Senjutsu/04 Lost in a Lost World.flac",
+  "start": 228.8,
+  "dur": 15.0,
+  "set": "dev"
+ },
+ {
+  "name": "b_evgeny_mravinsky",
+  "path": "Evgeny Mravinsky, Leningrad Philharmonic Orchestra/Evgeny Mravinsky, Leningrad Philharmonic Orchestra - 2000 - Symphonies Nos. 4, 5, 6/03 Symphony No. 4 in F minor, Op. 36 - III. Scherzo. Pizzicato ostinato. Allegro.flac",
+  "start": 141.2,
+  "dur": 15.0,
+  "set": "test"
+ },
+ {
+  "name": "b_arch_enemy",
+  "path": "Arch Enemy/Arch Enemy - 2003 - Anthems of Rebellion/10 End of the Line.flac",
+  "start": 86.4,
+  "dur": 15.0,
+  "set": "dev"
+ },
+ {
+  "name": "b_ludwig_van_beethoven59",
+  "path": "Ludwig van Beethoven; Daniel Barenboim, Gidon Kremer, Anne‐Sophie Mutter, Maurizio Pollini/Ludwig van Beethoven; Daniel Barenboim, Gidon Kremer, Anne‐Sophie Mutter, Maurizio Pollini - 2011 - Complete Concertos/11 Concerto for Piano and Orchestra no. 4 in G major, op. 58_ I. Allegro moderato (cadenza_ Ludwig van Beethoven).flac",
+  "start": 416.0,
+  "dur": 15.0,
+  "set": "test"
+ }
+]

@@ -1,0 +1,13 @@
+            kbps  nmr_db  nmr_max_db  ...  odg_adv  worst_item  worst_nmr_db
+config                                ...                                   
+mule_-6   110.24   -2.87        3.30  ...    -0.69     heilung          6.15
+mule_-9   136.06   -5.56        0.71  ...    -0.34     heilung          3.23
+mule_-12  163.72   -8.28       -1.95  ...    -0.15     heilung          0.28
+mule_-15  192.83  -11.07       -4.64  ...    -0.05     heilung         -2.70
+
+[4 rows x 10 columns]
+
+      nmr_db@128  nmr_db@160
+mule       -4.72       -7.92
+
+144 rows -> eval/results/p3_real.csv

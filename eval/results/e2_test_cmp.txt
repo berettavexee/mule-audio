@@ -1,0 +1,16 @@
+
+=== mule-pe10nf2 vs mule-lf8n12r05  (30 items)
+  odg      @128: +0.0132 [+0.0052, +0.0226]   @160: +0.0185 [+0.0088, +0.0293]   (+ = better)
+  odg_adv  @128: +0.0214 [+0.0048, +0.0367]   @160: +0.0081 [+0.0007, +0.0137]   (+ = better)
+  visqol   @128: -0.0294 [-0.0475, -0.0139]   @160: -0.0302 [-0.0445, -0.0169]   (+ = better)
+  nmr_db   @128: +0.0910 [+0.0493, +0.1436]   @160: +0.0777 [+0.0321, +0.1315]   (+ = better)
+  rate change at equal settings: +0.47 %
+  regressions (< -0.05 odg): 0
+  best:
+                          d_odg  rate_%
+item                                   
+b_new_order_joy_division  0.112   3.155
+b_lebanon_hanover         0.080   1.161
+b_salut_cest_cool         0.058   0.856
+b_orange_goblin           0.056   0.443
+b_monster_magnet          0.055   0.663

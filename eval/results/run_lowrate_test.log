@@ -1,0 +1,23 @@
+             kbps  nmr_db  nmr_max_db  ...  odg_adv         worst_item  worst_nmr_db
+config                                 ...                                          
+mule_-3     90.86    0.38        8.13  ...    -1.04  b_lebanon_hanover          5.02
+mule_0      65.03    3.22       10.95  ...    -2.20  b_lebanon_hanover          7.69
+mule_3      43.08    6.10       13.88  ...    -3.19  b_lebanon_hanover         10.47
+mule_6      28.05    8.76       16.40  ...    -3.32  b_lebanon_hanover         13.35
+mule_9      19.73   10.78       17.90  ...    -2.45  b_lebanon_hanover         15.82
+opus_48     49.67    5.56       13.93  ...    -2.31  b_lebanon_hanover         10.97
+opus_64     66.09    3.44       11.00  ...    -1.61  b_lebanon_hanover          9.17
+opus_80     82.16    1.68        9.35  ...    -1.11  b_lebanon_hanover          7.67
+vorbis_q-1  41.82    7.63       15.01  ...    -3.05  b_lebanon_hanover         13.26
+vorbis_q0   60.48    6.18       13.44  ...    -2.59  b_crystal_castles         10.96
+vorbis_q1   75.33    4.83       12.16  ...    -2.00  b_crystal_castles          9.92
+vorbis_q2   91.64    3.17       10.75  ...    -1.40  b_crystal_castles          8.19
+
+[12 rows x 10 columns]
+
+        nmr_db@128  nmr_db@160
+mule           NaN         NaN
+opus           NaN         NaN
+vorbis         NaN         NaN
+
+360 rows -> eval/results/lowrate_test.csv

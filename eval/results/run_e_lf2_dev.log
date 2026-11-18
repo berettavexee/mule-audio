@@ -1,0 +1,28 @@
+                       kbps  nmr_db  ...  worst_item  worst_nmr_db
+config                               ...                          
+mule-lf8n12r05_-6    106.26   -3.22  ...     heilung          3.98
+mule-lf8n12r05_-9    133.36   -6.12  ...     heilung          0.95
+mule-lf8n12r05_-12   162.17   -9.03  ...     heilung         -2.07
+mule-lf8n12r05_-15   192.26  -12.00  ...     heilung         -5.09
+mule-lf8n16_-6       107.85   -3.34  ...     heilung          3.69
+mule-lf8n16_-9       134.80   -6.22  ...     heilung          0.65
+mule-lf8n16_-12      163.65   -9.15  ...     heilung         -2.38
+mule-lf8n16_-15      193.87  -12.12  ...     heilung         -5.38
+mule-lf8n16r05_-6    107.28   -3.41  ...     heilung          3.58
+mule-lf8n16r05_-9    134.40   -6.30  ...     heilung          0.57
+mule-lf8n16r05_-12   163.26   -9.22  ...     heilung         -2.45
+mule-lf8n16r05_-15   193.36  -12.18  ...     heilung         -5.46
+mule-lf16n12r05_-6   106.72   -3.28  ...     heilung          3.93
+mule-lf16n12r05_-9   133.82   -6.18  ...     heilung          0.92
+mule-lf16n12r05_-12  162.65   -9.09  ...     heilung         -2.10
+mule-lf16n12r05_-15  192.72  -12.05  ...     heilung         -5.12
+
+[16 rows x 9 columns]
+
+                 nmr_db@128  nmr_db@160
+mule-lf8n12r05        -5.55       -8.81
+mule-lf8n16           -5.49       -8.78
+mule-lf8n16r05        -5.62       -8.89
+mule-lf16n12r05       -5.56       -8.83
+
+1056 rows -> eval/results/e_lf2_dev.csv

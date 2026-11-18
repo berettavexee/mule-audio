@@ -1,0 +1,5 @@
+#!/bin/sh
+# mule-gain: ReplayGain tags for Ogg MULE files (tools/mule_gain.py, through the repository's
+# virtual environment). Usage: mule-gain [-a] [-n] [-q] file.mule ...
+D=$(cd "$(dirname "$0")/.." && pwd)
+exec "$D/.venv/bin/python" "$D/tools/mule_gain.py" "$@"

@@ -1,0 +1,16 @@
+
+=== mule-lf8n12r05 vs mule  (30 items)
+  odg      @128: +0.0069 [+0.0019, +0.0127]   @160: +0.0059 [-0.0020, +0.0160]   (+ = better)
+  odg_adv  @128: +0.0197 [+0.0158, +0.0240]   @160: +0.0070 [+0.0056, +0.0083]   (+ = better)
+  visqol   @128: -0.0050 [-0.0091, -0.0005]   @160: -0.0024 [-0.0049, +0.0009]   (+ = better)
+  nmr_db   @128: +0.1974 [+0.1400, +0.2689]   @160: +0.1777 [+0.1221, +0.2487]   (+ = better)
+  rate change at equal settings: +0.32 %
+  regressions (< -0.05 odg): 0
+  best:
+                            d_odg  rate_%
+item                                     
+b_belenos                   0.078   0.978
+b_toru_takemitsu_hiroshi_w  0.060   1.015
+b_gustav_holst              0.036   0.398
+b_crystal_castles           0.011   0.725
+b_salut_cest_cool           0.003   0.342

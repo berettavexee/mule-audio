@@ -1,0 +1,38 @@
+                 kbps  nmr_db  nmr_max_db  ...  odg_adv  worst_item  worst_nmr_db
+config                                     ...                                   
+mule_-6        113.68   -3.09        4.21  ...    -0.57     heilung          4.08
+mule_-9        141.57   -5.89        1.49  ...    -0.27     heilung          1.16
+mule_-12       171.31   -8.73       -1.29  ...    -0.11     heilung         -1.81
+mule_-15       202.33  -11.64       -4.11  ...    -0.03     heilung         -4.81
+mule-rd10_-6   120.57   -3.94        3.40  ...    -0.47     heilung          3.06
+mule-rd10_-9   149.29   -6.81        0.59  ...    -0.21     heilung          0.04
+mule-rd10_-12  179.54   -9.70       -2.23  ...    -0.08     heilung         -2.93
+mule-rd10_-15  210.87  -12.64       -5.09  ...    -0.01     heilung         -5.89
+mule-rd14_-6   113.15   -3.29        4.09  ...    -0.56     heilung          3.80
+mule-rd14_-9   141.54   -6.14        1.30  ...    -0.26     heilung          0.75
+mule-rd14_-12  171.59   -9.04       -1.54  ...    -0.10     heilung         -2.27
+mule-rd14_-15  202.56  -11.98       -4.38  ...    -0.03     heilung         -5.23
+mule-rd20_-6   106.53   -2.62        4.79  ...    -0.67     heilung          4.58
+mule-rd20_-9   134.23   -5.44        2.03  ...    -0.31     heilung          1.60
+mule-rd20_-12  163.69   -8.31       -0.76  ...    -0.13     heilung         -1.46
+mule-rd20_-15  194.30  -11.24       -3.57  ...    -0.04     heilung         -4.44
+mule-ts15_-6   117.29   -3.37        4.00  ...    -0.53     heilung          4.04
+mule-ts15_-9   145.39   -6.17        1.28  ...    -0.25     heilung          1.12
+mule-ts15_-12  175.30   -9.02       -1.50  ...    -0.10     heilung         -1.85
+mule-ts15_-15  206.46  -11.93       -4.33  ...    -0.03     heilung         -4.86
+mule-ts30_-6   109.89   -2.75        4.45  ...    -0.63     heilung          4.12
+mule-ts30_-9   137.45   -5.53        1.75  ...    -0.30     heilung          1.20
+mule-ts30_-12  166.93   -8.35       -1.02  ...    -0.13     heilung         -1.77
+mule-ts30_-15  197.75  -11.24       -3.83  ...    -0.04     heilung         -4.76
+
+[24 rows x 9 columns]
+
+           nmr_db@128  nmr_db@160
+mule            -4.53       -7.65
+mule-rd10       -4.68       -7.83
+mule-rd14       -4.78       -7.92
+mule-rd20       -4.80       -7.95
+mule-ts15       -4.44       -7.56
+mule-ts30       -4.57       -7.69
+
+1584 rows -> eval/results/p44a.csv

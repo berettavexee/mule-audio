@@ -1,0 +1,49 @@
+                    kbps  nmr_db  nmr_max_db  ...   odg_adv  worst_item  worst_nmr_db
+config                                        ...                                    
+mule-athm6_-6     110.39   -3.33        3.94  ... -5.10e-01     heilung          3.92
+mule-athm6_-9     138.65   -6.23        1.10  ... -2.20e-01     heilung          0.87
+mule-athm6_-12    168.34   -9.15       -1.77  ... -7.71e-02     heilung         -2.14
+mule-athm6_-15    199.12  -12.10       -4.67  ... -7.88e-03     heilung         -5.16
+mule-athm3_-6     108.58   -3.32        3.95  ... -5.28e-01     heilung          3.92
+mule-athm3_-9     136.40   -6.22        1.13  ... -2.32e-01     heilung          0.90
+mule-athm3_-12    165.70   -9.13       -1.75  ... -8.54e-02     heilung         -2.14
+mule-athm3_-15    196.24  -12.10       -4.64  ... -1.16e-02     heilung         -5.14
+mule-athp3_-6     105.03   -3.27        4.03  ... -5.81e-01     heilung          3.91
+mule-athp3_-9     131.55   -6.16        1.20  ... -2.77e-01     heilung          0.91
+mule-athp3_-12    159.67   -9.08       -1.67  ... -1.17e-01     heilung         -2.13
+mule-athp3_-15    189.29  -12.05       -4.56  ... -3.03e-02     heilung         -5.14
+mule-athp6_-6     103.28   -3.22        4.11  ... -6.08e-01     heilung          3.90
+mule-athp6_-9     129.07   -6.11        1.27  ... -3.09e-01     heilung          0.88
+mule-athp6_-12    156.57   -9.03       -1.59  ... -1.42e-01     heilung         -2.14
+mule-athp6_-15    185.41  -11.99       -4.48  ... -4.91e-02     heilung         -5.17
+mule-athmean_-6    95.16   -0.19        9.35  ... -1.35e+00   triangles         19.64
+mule-athmean_-9   117.48   -2.16        7.76  ... -9.57e-01   triangles         19.76
+mule-athmean_-12  140.91   -4.26        5.94  ... -6.90e-01   triangles          9.99
+mule-athmean_-15  165.35   -6.33        4.09  ... -5.27e-01   triangles          8.78
+mule-shm3_-6      107.77   -3.41        3.88  ... -5.23e-01     heilung          3.84
+mule-shm3_-9      134.95   -6.32        1.04  ... -2.36e-01     heilung          0.82
+mule-shm3_-12     163.83   -9.27       -1.83  ... -8.91e-02     heilung         -2.21
+mule-shm3_-15     193.98  -12.19       -4.72  ... -1.56e-02     heilung         -5.26
+mule-shm15_-6     107.30   -3.36        3.93  ... -5.34e-01     heilung          3.87
+mule-shm15_-9     134.45   -6.25        1.09  ... -2.44e-01     heilung          0.85
+mule-shm15_-12    163.31   -9.21       -1.78  ... -9.23e-02     heilung         -2.17
+mule-shm15_-15    193.44  -12.14       -4.67  ... -1.80e-02     heilung         -5.21
+mule-shp15_-6     106.49   -3.23        4.04  ... -5.69e-01     heilung          3.96
+mule-shp15_-9     133.58   -6.13        1.20  ... -2.60e-01     heilung          0.94
+mule-shp15_-12    162.38   -9.02       -1.65  ... -1.02e-01     heilung         -2.08
+mule-shp15_-15    192.49  -12.00       -4.55  ... -2.21e-02     heilung         -5.11
+
+[32 rows x 9 columns]
+
+              nmr_db@128  nmr_db@160
+mule-athm6         -5.14       -8.33
+mule-athm3         -5.35       -8.57
+mule-athp3         -5.77       -9.11
+mule-athp6         -5.99       -9.38
+mule-athmean       -3.10       -5.87
+mule-shm3          -5.57       -8.87
+mule-shm15         -5.56       -8.87
+mule-shp15         -5.53       -8.78
+
+2112 rows -> eval/results/e2_gh_dev.csv
+note: 4 decodes needed a delay correction ([-2993, -2661, -1334, 2336] samples)

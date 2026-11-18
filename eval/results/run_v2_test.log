@@ -1,0 +1,13 @@
+            kbps  nmr_db  nmr_max_db  ...  odg_adv         worst_item  worst_nmr_db
+config                                ...                                          
+mule_-6   118.14   -2.20        5.59  ...    -0.52  b_lebanon_hanover          2.90
+mule_-9   147.87   -5.14        2.68  ...    -0.22  b_lebanon_hanover          0.36
+mule_-12  179.20   -8.12       -0.27  ...    -0.08  b_lebanon_hanover         -2.83
+mule_-15  211.60  -11.12       -3.26  ...    -0.01  b_lebanon_hanover         -6.35
+
+[4 rows x 10 columns]
+
+      nmr_db@128  nmr_db@160
+mule       -3.17       -6.29
+
+120 rows -> eval/results/v2_test.csv
