@@ -1,0 +1,10 @@
+66 items, 942 s; coefficient symbols 68.7 kb/s (58.6 % of all bits)
+frames                        coefs %   bits %  bit/coef
+long, inter (valid = 1)          90.4     91.7     1.252
+long, no inter (valid = 0)        6.7      5.2     0.964
+short                             2.9      3.0     1.282
+long frames by band group (bit/coef: inter / no inter):
+  bands  0- 7: 2.486 / 2.268  (no-inter share of the group's bits 5.0 %)
+  bands  8-13: 1.580 / 1.393  (no-inter share of the group's bits 5.0 %)
+  bands 14-17: 1.248 / 1.030  (no-inter share of the group's bits 5.2 %)
+  bands 18-21: 0.866 / 0.639  (no-inter share of the group's bits 6.1 %)

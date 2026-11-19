@@ -1,0 +1,18 @@
+               kbps  nmr_db  nmr_max_db  ...   mms2f  worst_item  worst_nmr_db
+config                                   ...                                  
+mule_-6      106.85   -3.14        4.00  ...   92.56     heilung          3.96
+mule_-9      133.98   -6.08        1.16  ...  110.90     heilung          0.95
+mule_-12     162.82   -9.01       -1.70  ...  121.35     heilung         -2.09
+mule_-15     192.92  -11.96       -4.59  ...  123.62     heilung         -5.13
+mule-rv_-6   106.86   -3.16        3.99  ...   92.52     heilung          3.96
+mule-rv_-9   134.00   -6.10        1.15  ...  110.90     heilung          0.94
+mule-rv_-12  162.88   -9.01       -1.71  ...  121.17     heilung         -2.12
+mule-rv_-15  193.02  -11.95       -4.60  ...  123.07     heilung         -5.15
+
+[8 rows x 11 columns]
+
+         nmr_db@128  nmr_db@160
+mule          -5.43       -8.72
+mule-rv       -5.45       -8.72
+
+528 rows -> eval/results/m3_dev.csv

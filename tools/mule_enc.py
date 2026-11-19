@@ -22,9 +22,9 @@ from mule import native, oggfile, params, replaygain  # noqa: E402
 
 VERSION = "mule-enc 1.0 (mule-audio, stream format v2)"
 # quality setting (noise relative to the masking threshold, dB) -> mean rate over 30 tracks drawn
-# at random from a music library (eval/results/e2_test_pe.csv); a requested bitrate is matched
+# at random from a music library (format v3: eval/results/v3_test.csv); a requested bitrate is matched
 # on this curve (log-linear), so it is a library average, not a per-file rate (VBR)
-RATE_CURVE = [(-6.0, 119.1), (-9.0, 149.1), (-12.0, 180.5), (-15.0, 212.8)]
+RATE_CURVE = [(-6.0, 120.0), (-9.0, 149.7), (-12.0, 180.7), (-15.0, 212.6)]
 Q_MIN, Q_MAX = -30.0, 6.0
 SOURCE_TAGS = ["title", "artist", "album", "date", "tracknumber", "genre", "comment"]
 

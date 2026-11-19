@@ -1,0 +1,8 @@
+18:13:45 M6 search: 33 dev items, qualities (-7.0, -10.0), popsize 10, 20 generations
+18:14:24 production: objective -0.3160 (odg -0.3007, odg_adv -0.3313, 2f 104.81)
+18:20:19 gen 1: best of gen -0.3095, best so far -0.3095 (+0.0065 over production) tcap_db=21.5 mid_db=3.21 fft_noise_db=3.31 rd_lambda=1.58 tcq_rdl=0.374
+18:26:04 gen 2: best of gen -0.2853, best so far -0.2853 (+0.0307 over production) tcap_db=26.6 mid_db=4.83 fft_noise_db=3.79 rd_lambda=1.24 tcq_rdl=0.492
+18:31:58 gen 3: best of gen -0.2904, best so far -0.2853 (+0.0307 over production) tcap_db=26.6 mid_db=4.83 fft_noise_db=3.79 rd_lambda=1.24 tcq_rdl=0.492
+18:37:34 gen 4: best of gen -0.2833, best so far -0.2833 (+0.0326 over production) tcap_db=25.7 mid_db=3.98 fft_noise_db=2.51 rd_lambda=1.37 tcq_rdl=0.318
+/usr/lib/python3.14/multiprocessing/resource_tracker.py:396: UserWarning: resource_tracker: There appear to be 5 leaked semaphore objects to clean up at shutdown: {'/mp-6gp1yojm', '/mp-cafxy_hr', '/mp-7etf942c', '/mp-czqks1cw', '/mp-p7tikngq'}
+  warnings.warn(

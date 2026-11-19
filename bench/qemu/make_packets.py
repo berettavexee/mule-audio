@@ -1,6 +1,8 @@
 """Writes packets.h (MULEHead + audio packets of an excerpt, C encoder) for the QEMU benchmark,
 and prints the PC fixed-point decoder's output hash to compare with the target's.
-Usage: python bench/qemu/make_packets.py ITEM Q_DB SECONDS"""
+Usage: python bench/qemu/make_packets.py ITEM Q_DB SECONDS
+MULE_PARAMS (environment) sets encoder settings over the production's, e.g.
+"tcq_states=32"."""
 import os
 import sys
 
@@ -16,7 +18,8 @@ from mule import native, oggfile, params as E   # noqa: E402
 def main(item="abba", q="-12", seconds="10"):
     x, fs = sf.read(os.path.join(ROOT, "data", "corpus", item + ".wav"), always_2d=True)
     x = x[: int(float(seconds) * fs)]
-    data, nbytes = native.c_encode(x, E.Params(q_db=float(q)))
+    extra = {k: int(v) for k, v in (kv.split("=") for kv in filter(None, os.environ.get("MULE_PARAMS", "").split(",")))}
+    data, nbytes = native.c_encode(x, E.Params(q_db=float(q), **extra))
     pk = [p for p, _ in oggfile.packets(data)]
     head, audio = pk[0], pk[2:]
     offs = np.cumsum([0] + [len(p) for p in audio])

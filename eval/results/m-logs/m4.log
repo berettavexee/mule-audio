@@ -1,0 +1,6 @@
+66 dev items, all bits 110411 kbit
+(a) alpha: energy bits with the chosen weight 5800 kbit, with the best weight per frame (oracle, static costs) 5737 kbit: -1.08 % of those bits, -0.057 % of all bits
+(b) M/S: 21.3 % of band-to-band transitions between consecutive long frames switch L/R <-> M/S (351484 of 1653432)
+    energy residual bits per band: switched 3.99, kept 3.11
+    coefficient bit/coef (inter frames): switched 1.349, kept 1.270
+    excess of switched bands over kept ones: 1057 kbit = 0.96 % of all bits (upper bound of what keeping the representation could save, before the stereo gain it gives up)

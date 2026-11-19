@@ -35,6 +35,10 @@ class Params:
     fine_nb: int = 12           # below this band only
     pre_db: float = 10.0        # pre-echo control, mask rise per long frame (0: off)
     nf_bias: int = 0            # noise-filled bands' energy lower (1.5 dB steps)
+    tcq_states: int = 64        # trellis states (8, 16, 32, 64), format v3
+    tcq_chain: int = 1          # trellis state across the bands, one Viterbi (0: comparisons only)
+    coef_a8: int = 1            # 8-symbol coefficient alphabet (0: 16 symbols, comparisons only)
+    tcq_rd_states: int = 8      # encoder speed: trellis of the RD choice's estimates (0: tcq_states)
 
 
 # the model streams in the decoder's order: (name, symbols, contexts) (core/models.c)

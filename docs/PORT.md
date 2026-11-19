@@ -58,6 +58,9 @@ Extrait abba, 10 s, q −12 (150,6 kb/s, 432 trames) :
 |---|---|---|---|---|
 | première version | 1 250 000 | 816 000 | 435 000 | 1 420 000 |
 | **optimisée** | **922 000** | 584 000 | 338 000 | 1 044 000 |
+| format v3 (19/11/2026, 152,8 kb/s) | 840 050 | — | — | 951 400 |
+
+Format v3 : le décodeur lit la v3 et la v2 ; 49 368 octets d'état. Il n'est pas encore porté sur l'appareil : les mesures des §9 et suivants sont celles de la v2.
 
 Optimisations, toutes sans effet sur la sortie (empreinte identique, tests verts) :
 - recherche de symbole par bornes successives, avec une multiplication par candidat ;

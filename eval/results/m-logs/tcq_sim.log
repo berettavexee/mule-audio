@@ -1,0 +1,10 @@
+16 states: best masks ['0b1101', '0b1100', '0b1011'] (MSE at step 1 0.0639; 8 states 0b110: 0.0646)
+32 states: best masks ['0b10111', '0b10010', '0b11010'] (MSE at step 1 0.0631; 8 states 0b110: 0.0646)
+200 frames of 928 Laplacian samples in MULE's 22 long-frame bands; MSE gain over a uniform scalar quantizer at equal entropy (dB)
+quantizer                          1.00b   1.25b   1.50b   2.00b
+8 states, restart (v2)            -0.492  -0.060  +0.284  +0.671
+8 states, chain (16)              -0.482  +0.029  +0.417  +0.820
+16 states, restart                -0.486  -0.021  +0.309  +0.701
+16 states, chain                  -0.446  +0.115  +0.486  +0.888
+32 states, restart                -0.486  -0.004  +0.359  +0.733
+32 states, chain                  -0.410  +0.165  +0.572  +0.948

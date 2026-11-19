@@ -1,4 +1,4 @@
-# MULE : format du flux, version 2
+# MULE : format du flux, version 3
 
 Ce document est **normatif** pour le décodeur. Les implémentations de référence sont le décodeur `core/dec.c`, en entiers seulement, et l'encodeur `core/enc.c`. **La sortie du décodeur de référence est normative au bit près** : c'est elle que joue le lecteur, et un autre décodeur conforme doit donner les mêmes échantillons sur 16 bits. Tout ce qui n'est pas décrit ici, comme la psychoacoustique, l'allocation, la stéréo ou la commutation de blocs, relève des **choix de l'encodeur** : le décodeur se contente de lire.
 
@@ -18,12 +18,12 @@ Un flux logique Ogg (RFC 3533), qui contient dans l'ordre :
 
 La **granule** d'une page est le nombre d'échantillons par canal que le décodeur a produits à la fin du dernier paquet achevé sur cette page, **pre_skip compris**. La dernière page (drapeau EOS) a pour granule `pre_skip + longueur`. Le lecteur coupe au début les `pre_skip` premiers échantillons, et à la fin tout ce qui dépasse la granule de fin, ce qui donne une lecture sans blanc.
 
-### MULEHead (20 octets)
+### MULEHead (22 octets ; 20 en v2)
 
 | Octets | Champ | Valeur |
 |---|---|---|
 | 0–7 | signature | `MULEHead` |
-| 8 | version | 2 (quantification TCQ de la forme ; historique des versions au §7) |
+| 8 | version | 3 (treillis en chaîne de 8 à 64 états, coefficients sur 8 symboles ; historique au §7). Le décodeur de référence lit aussi la v2 (en-tête de 20 octets, sans les octets 20 et 21) |
 | 9 | canaux | 2 |
 | 10–11 | pre_skip | 1024 |
 | 12–15 | fréquence | 44100 (le format n'est réglé que pour 44,1 kHz) |
@@ -31,6 +31,8 @@ La **granule** d'une page est le nombre d'échantillons par canal que le décode
 | 17 | trames entre paquets clés | indicatif (40) |
 | 18 | trames par paquet | indicatif (4) |
 | 19 | jeu de CDF initiales | 2 = `core/init_cdf.h` actuel (v2, entraîné sur les statistiques de la TCQ). **Le décodeur refuse un flux dont il n'a pas les tables** : les CDF initiales font partie du format, et un réentraînement produira un nouvel identifiant |
+| 20 | taille du treillis | log2 du nombre d'états : 3 à 6 (8 à 64 états) ; l'encodeur écrit 6. v2 : 8 états |
+| 21 | drapeaux | bit 0 `MULE_TCQ_CHAIN` : l'état du treillis se poursuit d'une bande à l'autre (§5.3) ; bit 1 `MULE_COEF_A8` : coefficients sur 8 symboles (§3, §5.3). L'encodeur écrit les deux (3) ; les autres valeurs ne servent qu'aux comparaisons. Bits 2 à 7 : 0, sinon le flux est refusé. v2 : 0 |
 
 ### MULETags
 
@@ -78,7 +80,7 @@ Chaque symbole garde donc une fréquence d'au moins 4.
 - pour chaque `i` de 1 à n−1 : si `i > s`, `cdf[i] += (32768 − cdf[i]) >> rate` ; sinon `cdf[i] −= cdf[i] >> rate` ;
 - `count = min(count + 1, 32)`.
 
-**Initialisation** au paquet clé : les CDF entraînées de `core/init_cdf.h` avec `count = 16`, ou la CDF uniforme `cdf[i] = 32768·i / n` avec `count = 0` pour un flux sans table.
+**Initialisation** au paquet clé : les CDF entraînées de `core/init_cdf.h` avec `count = 16` (avec `MULE_COEF_A8`, celles des flux `coef` et `cesc` viennent de `core/init_cdf_a8.h`), ou la CDF uniforme `cdf[i] = 32768·i / n` avec `count = 0` pour un flux sans table.
 
 | Flux | Symboles | Contextes |
 |---|---|---|
@@ -89,7 +91,7 @@ Chaque symbole garde donc une fréquence d'au moins 4.
 | alloc | 16 | 6 |
 | amode | 2 | 1 |
 | cesc | 16 | 16 |
-| coef | 16 | 96 |
+| coef | 8 (16 sans `MULE_COEF_A8`, et en v2) | 96 |
 | eaesc | 16 | 1 |
 
 `classe(b) = 0` si b < 8, `1` si b < 16, `2` sinon.
@@ -168,16 +170,25 @@ Pour chaque bande b avec `Q[b] > −100` :
 - `n_b` valeurs : `lcg = 1664525·lcg + 1013904223 (mod 2^32)`, puis `z_i = (lcg >> 16) − 32768` ;
 - `X_i = z_i · rms_b · sqrt(n_b / Σz²)`.
 
-**Sinon** : quantification **TCQ** (treillis à 8 états, celui de JPEG 2000 partie 2). Pas `Δ = 2^((9 − a[b])/4)`, `ac = min(a[b] div 3, 15)`. L'état `t` du treillis vaut **0 au début de chaque bande**.
+**Sinon** : quantification **TCQ**, treillis de `N` états (`N = 2^octet20`, 64 pour l'encodeur ; 8 en v2). Pas `Δ = 2^((9 − a[b])/4)`, `ac = min(a[b] div 3, 15)`.
 
-Tables du treillis, pour l'état `t` et la branche `br` ∈ {0, 1} :
+**État initial.** L'état `t` du treillis vaut 0 au début de chaque groupe (§5 : la trame longue, ou chaque groupe de fenêtres d'une trame courte) de chaque canal. Avec `MULE_TCQ_CHAIN`, il se poursuit d'une bande codée à la suivante du même groupe : chaque bande commence dans l'état où la précédente bande codée (`a > 0`) a fini ; les bandes silencieuses et les bandes de bruit ne le changent pas. Sans ce drapeau (et en v2), `t = 0` au début de chaque bande.
+
+**Treillis.** Avec le masque `μ = {8 : 0x6, 16 : 0xD, 32 : 0x17, 64 : 0x33}[N]` et `par(v)` la parité du nombre de bits à 1 de `v`, pour l'état `t` et la branche `br` ∈ {0, 1} :
+
+```
+SUIVANT[t][br] = (2·t + br) mod N
+SOUSENS[t][br] = (t & 1) + 2·(br ⊕ par(t & μ))
+```
+
+Pour `N = 8`, ce sont les tables de JPEG 2000 partie 2 (celles de la v2) :
 
 ```
 SUIVANT[t][br]    = {0,1} {2,3} {4,5} {6,7} {0,1} {2,3} {4,5} {6,7}
 SOUSENS[t][br]    = {0,2} {1,3} {2,0} {3,1} {2,0} {3,1} {0,2} {1,3}
 ```
 
-Un niveau `k` (entier signé) appartient au sous-ensemble `j = k mod 4` (reste dans 0..3). Depuis l'état `t`, l'état suivant est `SUIVANT[t][br]`, pour la branche `br` telle que `SOUSENS[t][br] = j`. Les états pairs n'utilisent que des niveaux pairs, les états impairs que des niveaux impairs.
+Un niveau `k` (entier signé) appartient au sous-ensemble `j = k mod 4` (reste dans 0..3). Depuis l'état `t`, l'état suivant est `SUIVANT[t][br]`, pour la branche `br` telle que `SOUSENS[t][br] = j`. Les états pairs n'utilisent que des niveaux pairs, les états impairs que des niveaux impairs. Le décodeur de référence remplit à l'initialisation une table de `N × 4` octets (état suivant selon `k mod 4`).
 - **Prédiction inter-trame**, si la trame est longue, `valide[c]` et `a_prev[b] > 0` (état inter-trame de c) :
   - `e = Q_prev[b] − Q[b] + a[b] − a_prev[b]` ;
   - pour le coefficient d'indice `k` : `v = |y_prev[k]| · {256, 304, 362, 431}[e & 3]` ;
@@ -188,8 +199,9 @@ Un niveau `k` (entier signé) appartient au sous-ensemble `j = k mod 4` (reste d
 m = 2·queue1 + queue2 ;  si prédiction inter-trame : m = (m + 3·pm + 1) >> 1
 nc = {0,1,2,3,3,4,4,4,4}[m] si m < 9, sinon 5
 s = M(coef, 6·ac + nc)
-si s < 15 : u = s
-sinon     : k = M(cesc, ac) ;  u = 15 + 2^k − 1 + R(k)      (R(0) = 0)
+E = 7 avec MULE_COEF_A8 (alphabet de 8 symboles), 15 sinon (16 symboles, et v2)
+si s < E : u = s
+sinon    : k = M(cesc, ac) ;  u = E + 2^k − 1 + R(k)        (R(0) = 0)
 si t pair : |k| = 2u ;      signe lu (R(1) = 1 : négatif) seulement si u > 0
 si t impair : |k| = 2u + 1 ; signe toujours lu
 t = état suivant après le niveau k (tables ci-dessus)
@@ -243,3 +255,4 @@ Historique (aucun fichier v0 ou v1 conservé ; le décodeur refuse les versions 
 - **v0** : 480 contextes `coef`, avec l'index `5·(6·ac + nc)`, dont 96 seulement étaient atteignables ;
 - **v1** : 96 contextes, compression identique au bit près. Quantification **scalaire** `X = y·Δ·rms_b` (|y| codé, signe si |y| > 0), table de CDF 1 ;
 - **v2** (P4, 17/11/2026) : quantification **TCQ** (§5.3), table de CDF 2 entraînée sur 200 extraits indépendants. Gain mesuré sur le jeu de test, à débit égal, par rapport à v1 avec le même encodeur : ODG +0,06 à 128 kb/s et +0,04 à 160, sans régression (`docs/VARIANTS-BC.md`). En écoute ABX, transparent à 160 kb/s sur les 6 extraits critiques (`eval/results/G2-ABX.md`).
+- **v3** (19/11/2026) : en-tête de 22 octets (octets 20 et 21) ; treillis de 64 états dont l'état se poursuit d'une bande à l'autre (Viterbi conjoint sur le groupe dans l'encodeur) ; coefficients sur 8 symboles, échappement à 7, avec leurs propres CDF initiales (`core/init_cdf_a8.h`, liées au drapeau, l'octet 19 restant à 2). Sur le jeu de test, à débit égal contre la v2 : ODG +0,036 à 128 kb/s et +0,015 à 160, ODG avancé +0,041 et +0,017, une régression (`eval/results/B-LOG.md`). Décodeur : −8 % d'instructions sur Cortex-M3 (`eval/results/C-LOG.md`).

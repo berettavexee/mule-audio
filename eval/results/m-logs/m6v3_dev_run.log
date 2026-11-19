@@ -1,0 +1,18 @@
+                 kbps  nmr_db  nmr_max_db  ...      zimt  worst_item  worst_nmr_db
+config                                     ...                                    
+mule-c64_-6    107.69   -3.44        3.86  ...  4.44e-04     heilung          3.68
+mule-c64_-9    134.42   -6.33        1.05  ...  2.35e-04     heilung          0.67
+mule-c64_-12   163.02   -9.24       -1.82  ...  1.33e-04     heilung         -2.33
+mule-c64_-15   193.01  -12.21       -4.72  ...  7.91e-05     heilung         -5.34
+mule-m6v3_-6   101.74   -2.81        4.48  ...  5.12e-04     heilung          4.06
+mule-m6v3_-9   128.29   -5.71        1.66  ...  2.61e-04     heilung          1.04
+mule-m6v3_-12  156.85   -8.66       -1.24  ...  1.45e-04     heilung         -2.03
+mule-m6v3_-15  186.90  -11.64       -4.15  ...  8.54e-05     heilung         -5.10
+
+[8 rows x 12 columns]
+
+           nmr_db@128  nmr_db@160
+mule-c64        -5.63       -8.94
+mule-m6v3       -5.67       -8.98
+
+528 rows -> eval/results/m6v3_dev.csv

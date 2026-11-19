@@ -9,7 +9,10 @@ External tools (both need 48 kHz input; files are resampled with soxr VHQ):
   VISQOL=/path/to/visqol (default: third_party/visqol/bazel-bin/visqol, audio mode, its built-in
          SVR model; VISQOL_MODEL overrides the model)                   -> "visqol" (MOS-LQO, 1..5)
   PEAQ=/path/to/peaq (GstPEAQ; default third_party/peaq-install/bin/peaq) -> "odg" (basic
-       version, -4..0) and "odg_adv" (advanced version)
+       version, -4..0), "odg_adv" (advanced version) and "mms2f" (the 2f-model, ~0..100, from
+       two MOVs of the basic version: relative comparisons only, see mms_2f)
+  Zimtohrli (pyohrli, from third_party/zimtohrli) -> "zimt" (distance, lower is better; ZIMT=0
+       turns it off)
 """
 import os
 import re
@@ -163,10 +166,29 @@ def external(ref, deg, fs):
             if os.path.isdir(plug):
                 env["GST_PLUGIN_PATH"] = plug + os.pathsep + env.get("GST_PLUGIN_PATH", "")
             for key, extra in (("odg", []), ("odg_adv", ["--advanced"])):
-                txt = _run_retry([peaq, *extra, r, g], env=env)
+                txt = _run_retry([peaq, *extra, r, g], env=dict(env, PEAQ_MOVS="1") if not extra else env)
                 m = re.search(r"Objective Difference Grade:\s*([-\d.]+)", txt)
                 out[key] = float(m.group(1)) if m else float("nan")
+                if not extra:
+                    out["mms2f"] = mms_2f(_mov(txt, "AvgModDiff1B"), _mov(txt, "ADBB"))
     return out
+
+
+def _mov(txt, name):
+    """The last value of a MOV printed by the local GstPEAQ (PEAQ_MOVS), NaN if absent"""
+    m = re.findall(rf"^\s*{re.escape(name)}:\s*([-\d.einf]+)", txt, re.M)
+    return float(m[-1]) if m else float("nan")
+
+
+def mms_2f(avg_mod_diff1, adb):
+    """The 2f-model (Kastner and Herre, WASPAA 2019): an estimated MUSHRA score from two MOVs of
+    PEAQ Basic. Its constants were fitted on another PEAQ implementation: with GstPEAQ the score
+    is only meaningful relatively (codec A against codec B, variant against base). Not clipped to
+    0..100 (unlike seabass-2f), so that near transparency differences stay visible."""
+    if not np.isfinite(avg_mod_diff1) or not np.isfinite(adb):
+        return float("nan")
+    s = 56.1345 / (1 + (-0.0282 * avg_mod_diff1 - 0.8628) ** 2) - 27.1451 * adb + 86.3515
+    return float(s)
 
 
 def subsonic(x, fs, fc=20.0):
@@ -200,4 +222,22 @@ def evaluate(ref_path, deg_path):
     res = {"delay": lag, "snr_db": snr_db(ref, deg)}
     res.update(nmr(ref, deg, fs))
     res.update(external(ref, deg, fs))
+    res.update(zimtohrli(ref, deg, fs))
     return res
+
+
+def zimtohrli(ref, deg, fs):
+    """Zimtohrli (Google; third_party/zimtohrli, its pyohrli module installed in the venv):
+    "zimt", the distance (0 = identical, lower is better), mean of the channels, at 48 kHz.
+    {} if pyohrli is missing or ZIMT=0."""
+    if os.environ.get("ZIMT", "1") == "0":
+        return {}
+    try:
+        import pyohrli
+    except ImportError:
+        return {}
+    z = pyohrli.Pyohrli()
+    r48 = soxr.resample(ref, fs, 48000, quality="VHQ")
+    d48 = soxr.resample(deg, fs, 48000, quality="VHQ")
+    d = [z.distance(np.clip(r48[:, c], -1, 1), np.clip(d48[:, c], -1, 1)) for c in range(ref.shape[1])]
+    return {"zimt": float(np.mean(d))}

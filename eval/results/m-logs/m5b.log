@@ -1,0 +1,3 @@
+47441120 coefficients whose line is predicted in the next frame (dev)
+  profitable flips (optimistic): 0.12 % of them
+  bits saved 14 kbit = 0.02 % of coefficient bits, 0.01 % of all bits; distortion change -257 (D/2)^2 units

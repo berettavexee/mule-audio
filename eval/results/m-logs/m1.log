@@ -1,0 +1,6 @@
+66 dev items, q -7 (default); key packet every N frames (23.2 ms each)
+   N  interval     kb/s    vs 40
+  20     0.46s   116.00    +0.34 %
+  40     0.93s   115.61    +0.00 %
+  80     1.86s   115.41    -0.17 %
+ 160     3.72s   115.32    -0.26 %

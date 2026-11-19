@@ -99,6 +99,14 @@ double mule_stream_cost_init(int nsyms, int nctx, const int32_t *ctx, const int3
                              int64_t len, const int64_t *resets, int64_t nresets,
                              const uint16_t *init)
 {
+    return mule_stream_cost_each(nsyms, nctx, ctx, sym, len, resets, nresets, init, NULL);
+}
+
+/* See mule.h: mule_stream_cost_init, each symbol's bits also written to each[i] (if not NULL). */
+double mule_stream_cost_each(int nsyms, int nctx, const int32_t *ctx, const int32_t *sym,
+                             int64_t len, const int64_t *resets, int64_t nresets,
+                             const uint16_t *init, double *each)
+{
     mule_model *ms = malloc(sizeof *ms * (size_t)nctx);
     if (!ms)
         return -1.0;
@@ -118,7 +126,10 @@ double mule_stream_cost_init(int nsyms, int nctx, const int32_t *ctx, const int3
         uint32_t start, freq;
         mule_model *m = &ms[ctx[i]];
         mule_model_range(m, sym[i], &start, &freq);
-        bits += MULE_PROB_BITS - log2((double)freq);
+        double b = MULE_PROB_BITS - log2((double)freq);
+        bits += b;
+        if (each)
+            each[i] = b;
         mule_model_update(m, sym[i]);
     }
     free(ms);

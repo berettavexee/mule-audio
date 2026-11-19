@@ -1,0 +1,4 @@
+47441120 coefficients predicted from the previous long frame (dev)
+  context changed by y_prev +-1: 72.7 % of them
+  mean |bits change| per coefficient: 0.1211 bit
+  upper bound of M5 (each next coefficient given its cheaper neighbour, free): 6.95 % of these coefficients' bits

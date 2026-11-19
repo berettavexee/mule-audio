@@ -1,0 +1,61 @@
+21:19:31 M6 search: 33 dev items, rates (120.0, 136.0) around 128, popsize 8, 10 generations, base {'tcq_chain': 1, 'tcq_states': 64}
+/usr/lib/python3/dist-packages/cffi/cparser.py:163: UserWarning: Global variable 'mule_model_every' in cdef(): for consistency with C it should have a storage class specifier (usually 'extern')
+  warnings.warn("Global variable '%s' in cdef(): for consistency "
+/usr/lib/python3/dist-packages/cffi/cparser.py:163: UserWarning: Global variable 'mule_model_rate_adj' in cdef(): for consistency with C it should have a storage class specifier (usually 'extern')
+  warnings.warn("Global variable '%s' in cdef(): for consistency "
+/usr/lib/python3/dist-packages/cffi/cparser.py:163: UserWarning: Global variable 'mule_model_every' in cdef(): for consistency with C it should have a storage class specifier (usually 'extern')
+  warnings.warn("Global variable '%s' in cdef(): for consistency "
+/usr/lib/python3/dist-packages/cffi/cparser.py:163: UserWarning: Global variable 'mule_model_rate_adj' in cdef(): for consistency with C it should have a storage class specifier (usually 'extern')
+  warnings.warn("Global variable '%s' in cdef(): for consistency "
+/usr/lib/python3/dist-packages/cffi/cparser.py:163: UserWarning: Global variable 'mule_model_every' in cdef(): for consistency with C it should have a storage class specifier (usually 'extern')
+  warnings.warn("Global variable '%s' in cdef(): for consistency "
+/usr/lib/python3/dist-packages/cffi/cparser.py:163: UserWarning: Global variable 'mule_model_rate_adj' in cdef(): for consistency with C it should have a storage class specifier (usually 'extern')
+  warnings.warn("Global variable '%s' in cdef(): for consistency "
+/usr/lib/python3/dist-packages/cffi/cparser.py:163: UserWarning: Global variable 'mule_model_every' in cdef(): for consistency with C it should have a storage class specifier (usually 'extern')
+  warnings.warn("Global variable '%s' in cdef(): for consistency "
+/usr/lib/python3/dist-packages/cffi/cparser.py:163: UserWarning: Global variable 'mule_model_rate_adj' in cdef(): for consistency with C it should have a storage class specifier (usually 'extern')
+  warnings.warn("Global variable '%s' in cdef(): for consistency "
+/usr/lib/python3/dist-packages/cffi/cparser.py:163: UserWarning: Global variable 'mule_model_every' in cdef(): for consistency with C it should have a storage class specifier (usually 'extern')
+  warnings.warn("Global variable '%s' in cdef(): for consistency "
+/usr/lib/python3/dist-packages/cffi/cparser.py:163: UserWarning: Global variable 'mule_model_rate_adj' in cdef(): for consistency with C it should have a storage class specifier (usually 'extern')
+  warnings.warn("Global variable '%s' in cdef(): for consistency "
+/usr/lib/python3/dist-packages/cffi/cparser.py:163: UserWarning: Global variable 'mule_model_every' in cdef(): for consistency with C it should have a storage class specifier (usually 'extern')
+  warnings.warn("Global variable '%s' in cdef(): for consistency "
+/usr/lib/python3/dist-packages/cffi/cparser.py:163: UserWarning: Global variable 'mule_model_rate_adj' in cdef(): for consistency with C it should have a storage class specifier (usually 'extern')
+  warnings.warn("Global variable '%s' in cdef(): for consistency "
+/usr/lib/python3/dist-packages/cffi/cparser.py:163: UserWarning: Global variable 'mule_model_every' in cdef(): for consistency with C it should have a storage class specifier (usually 'extern')
+  warnings.warn("Global variable '%s' in cdef(): for consistency "
+/usr/lib/python3/dist-packages/cffi/cparser.py:163: UserWarning: Global variable 'mule_model_rate_adj' in cdef(): for consistency with C it should have a storage class specifier (usually 'extern')
+  warnings.warn("Global variable '%s' in cdef(): for consistency "
+/usr/lib/python3/dist-packages/cffi/cparser.py:163: UserWarning: Global variable 'mule_model_every' in cdef(): for consistency with C it should have a storage class specifier (usually 'extern')
+  warnings.warn("Global variable '%s' in cdef(): for consistency "
+/usr/lib/python3/dist-packages/cffi/cparser.py:163: UserWarning: Global variable 'mule_model_rate_adj' in cdef(): for consistency with C it should have a storage class specifier (usually 'extern')
+  warnings.warn("Global variable '%s' in cdef(): for consistency "
+/usr/lib/python3/dist-packages/cffi/cparser.py:163: UserWarning: Global variable 'mule_model_every' in cdef(): for consistency with C it should have a storage class specifier (usually 'extern')
+  warnings.warn("Global variable '%s' in cdef(): for consistency "
+/usr/lib/python3/dist-packages/cffi/cparser.py:163: UserWarning: Global variable 'mule_model_rate_adj' in cdef(): for consistency with C it should have a storage class specifier (usually 'extern')
+  warnings.warn("Global variable '%s' in cdef(): for consistency "
+/usr/lib/python3/dist-packages/cffi/cparser.py:163: UserWarning: Global variable 'mule_model_every' in cdef(): for consistency with C it should have a storage class specifier (usually 'extern')
+  warnings.warn("Global variable '%s' in cdef(): for consistency "
+/usr/lib/python3/dist-packages/cffi/cparser.py:163: UserWarning: Global variable 'mule_model_rate_adj' in cdef(): for consistency with C it should have a storage class specifier (usually 'extern')
+  warnings.warn("Global variable '%s' in cdef(): for consistency "
+/usr/lib/python3/dist-packages/cffi/cparser.py:163: UserWarning: Global variable 'mule_model_every' in cdef(): for consistency with C it should have a storage class specifier (usually 'extern')
+  warnings.warn("Global variable '%s' in cdef(): for consistency "
+/usr/lib/python3/dist-packages/cffi/cparser.py:163: UserWarning: Global variable 'mule_model_rate_adj' in cdef(): for consistency with C it should have a storage class specifier (usually 'extern')
+  warnings.warn("Global variable '%s' in cdef(): for consistency "
+/usr/lib/python3/dist-packages/cffi/cparser.py:163: UserWarning: Global variable 'mule_model_every' in cdef(): for consistency with C it should have a storage class specifier (usually 'extern')
+  warnings.warn("Global variable '%s' in cdef(): for consistency "
+/usr/lib/python3/dist-packages/cffi/cparser.py:163: UserWarning: Global variable 'mule_model_rate_adj' in cdef(): for consistency with C it should have a storage class specifier (usually 'extern')
+  warnings.warn("Global variable '%s' in cdef(): for consistency "
+21:24:31 production: objective -0.2716 (odg -0.2482, odg_adv -0.2950, 2f 110.30; q -7.19 -> 120.9, q -8.71 -> 134.9 kb/s)
+22:07:12 gen 1: best of gen -0.2712, best so far -0.2712 (+0.0004 over production) tcap_db=21.6 mid_db=3.75 fft_noise_db=3.06 rd_lambda=1.87 tcq_rdl=0.599
+22:54:11 gen 2: best of gen -0.2782, best so far -0.2712 (+0.0004 over production) tcap_db=21.6 mid_db=3.75 fft_noise_db=3.06 rd_lambda=1.87 tcq_rdl=0.599
+23:40:29 gen 3: best of gen -0.2691, best so far -0.2691 (+0.0025 over production) tcap_db=23.1 mid_db=3.74 fft_noise_db=4.89 rd_lambda=2.11 tcq_rdl=0.563
+00:50:54 gen 4: best of gen -0.2689, best so far -0.2689 (+0.0027 over production) tcap_db=19.7 mid_db=3.63 fft_noise_db=3.48 rd_lambda=2.02 tcq_rdl=0.502
+01:31:08 gen 5: best of gen -0.2708, best so far -0.2689 (+0.0027 over production) tcap_db=19.7 mid_db=3.63 fft_noise_db=3.48 rd_lambda=2.02 tcq_rdl=0.502
+02:08:13 gen 6: best of gen -0.2695, best so far -0.2689 (+0.0027 over production) tcap_db=19.7 mid_db=3.63 fft_noise_db=3.48 rd_lambda=2.02 tcq_rdl=0.502
+02:47:57 gen 7: best of gen -0.2706, best so far -0.2689 (+0.0027 over production) tcap_db=19.7 mid_db=3.63 fft_noise_db=3.48 rd_lambda=2.02 tcq_rdl=0.502
+03:31:33 gen 8: best of gen -0.2675, best so far -0.2675 (+0.0041 over production) tcap_db=23.3 mid_db=4.21 fft_noise_db=4.89 rd_lambda=2.66 tcq_rdl=0.443
+04:15:59 gen 9: best of gen -0.2689, best so far -0.2675 (+0.0041 over production) tcap_db=23.3 mid_db=4.21 fft_noise_db=4.89 rd_lambda=2.66 tcq_rdl=0.443
+04:59:47 gen 10: best of gen -0.2679, best so far -0.2675 (+0.0041 over production) tcap_db=23.3 mid_db=4.21 fft_noise_db=4.89 rd_lambda=2.66 tcq_rdl=0.443
+04:59:47 search done

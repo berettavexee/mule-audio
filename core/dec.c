@@ -30,6 +30,9 @@ static const int64_t POW4[4] = {256, 304, 362, 431};   /* 2^(i/4) in Q8: inter-f
 struct mule_dec_state {
     int channels, pre_skip;
     uint32_t rate;
+    int tcq_chain;                      /* v3: the trellis state runs on across the bands */
+    int coef_t;                         /* the coefficient escape symbol: 15 (v2), 7 (v3 a8) */
+    uint8_t tcq_next[MULE_TCQ_MAXS][4]; /* next state from (state, k mod 4) (v2: 8 states) */
     mule_models ms;                     /* the adaptive models (reset at each key packet) */
     int qprev[2][MULE_NB], aprev[2][MULE_NB];   /* last energies and allocations (prediction) */
     uint16_t ylong[2][MULE_F];          /* previous long frame's index u, saturated at 65535 */
@@ -72,12 +75,22 @@ static void take(mule_dec *d, uint32_t slot, uint32_t start, uint32_t freq)
         d->x = (d->x << 16) | rd16(d);
 }
 
+#ifdef MULE_STATS                        /* measurement build only (eval/dec_stats.sh) */
+uint64_t mule_stat_calls[MULE_S_COUNT], mule_stat_search[MULE_S_COUNT], mule_stat_update[MULE_S_COUNT];
+uint64_t mule_stat_raw;
+#endif
+
 /* One symbol of stream `stream`, context `ctx`, with its adaptive model (updated). */
 static int sym(mule_dec *d, int stream, int ctx)
 {
     mule_model *m = &d->ms.m[mule_stream_off[stream] + ctx];
     uint32_t slot = d->x & (MULE_PROB_ONE - 1), start = 0, freq = 0;
     int s = mule_model_find(m, slot, &start, &freq);
+#ifdef MULE_STATS
+    mule_stat_calls[stream]++;
+    mule_stat_search[stream] += (uint64_t)(s + 1);
+    mule_stat_update[stream] += (uint64_t)(m->n - 1);
+#endif
     if (s < 0) {                        /* cannot happen with a valid model */
         d->err = 1;
         return 0;
@@ -90,6 +103,9 @@ static int sym(mule_dec *d, int stream, int ctx)
 /* `bits` raw bits (1 .. 15), coded with a uniform distribution. */
 static uint32_t raw(mule_dec *d, int bits)
 {
+#ifdef MULE_STATS
+    mule_stat_raw++;
+#endif
     uint32_t slot = d->x & (MULE_PROB_ONE - 1);
     uint32_t v = slot >> (MULE_PROB_BITS - bits);
     take(d, slot, v << (MULE_PROB_BITS - bits), 1u << (MULE_PROB_BITS - bits));
@@ -360,7 +376,7 @@ static int16_t to_sample(int32_t v)
  * long frame, the noise generator's seed. */
 static void reset_key(mule_dec *d)
 {
-    mule_models_reset(&d->ms);
+    mule_models_reset_a8(&d->ms, d->coef_t == 7);
     for (int c = 0; c < 2; c++)
         for (int b = 0; b < MULE_NB; b++) {
             d->qprev[c][b] = MULE_Q_RESET;
@@ -457,6 +473,7 @@ static void decode_frame(mule_dec *d, int16_t *out)
             }
             memcpy(d->aprev[c], a, sizeof a);
             /* coefficients */
+            int tst_run = 0;                    /* v3 chain: the state across the group's bands */
             for (int b = 0; b < MULE_NB; b++) {
                 int n = band_count(&grp[g], b);
                 if (q[b] <= MULE_QMIN)          /* silent band */
@@ -470,7 +487,7 @@ static void decode_frame(mule_dec *d, int16_t *out)
                 }
                 int ac = a[b] / 3 < 15 ? a[b] / 3 : 15;
                 int inter = inter_ok && d->along[c][b] > 0;
-                int tst = 0;                                /* TCQ state, 0 at each band */
+                int tst = d->tcq_chain ? tst_run : 0;       /* TCQ state: 0 at each band (v2) */
                 int e = inter ? d->qlong[c][b] - q[b] + a[b] - d->along[c][b] : 0;
                 int64_t ipw = POW4[e & 3];                  /* inter-frame rescaling, per band */
                 int ish = floor_div(e, 4);
@@ -489,16 +506,16 @@ static void decode_frame(mule_dec *d, int16_t *out)
                     int ctx = ac * 6 + nc_map(mctx);
                     int s = sym(d, MULE_S_COEF, ctx);
                     int64_t mag = s;
-                    if (s == 15) {                          /* escape: Exp-Golomb */
+                    if (s == d->coef_t) {                   /* escape: Exp-Golomb */
                         int k = sym(d, MULE_S_CESC, ac);
-                        mag = 15 + (int64_t)(1u << k) - 1 + (k ? raw(d, k) : 0);
+                        mag = d->coef_t + (int64_t)(1u << k) - 1 + (k ? raw(d, k) : 0);
                     }
                     /* TCQ: the state gives the level's parity (odd states have no zero) */
                     int even = !(tst & 1);
                     int64_t k = even ? 2 * mag : 2 * mag + 1;
                     if ((!even || mag) && raw(d, 1))
                         k = -k;
-                    tst = mule_tcq_step(tst, k);
+                    tst = d->tcq_next[tst][k & 3];
                     X[idx] = coef_value(k, &bs);
                     if (type == 0)
                         ycur[idx] = (uint16_t)(mag < 65535 ? mag : 65535);
@@ -510,6 +527,7 @@ static void decode_frame(mule_dec *d, int16_t *out)
                         idx += 128 - w;
                     }
                 }
+                tst_run = tst;
             }
         }
         if (type == 0) {                        /* the inter-frame context of the next frame */
@@ -551,7 +569,15 @@ static void decode_frame(mule_dec *d, int16_t *out)
  * CDF table). */
 mule_dec *mule_dec_init(void *mem, size_t size, const uint8_t *h, int len)
 {
-    if (size < sizeof(mule_dec) || len < MULE_HEAD_LEN || memcmp(h, "MULEHead", 8) || h[8] != MULE_VERSION)
+    if (size < sizeof(mule_dec) || len < MULE_HEAD_LEN_V2 || memcmp(h, "MULEHead", 8))
+        return NULL;
+    int n = 8, flags = 0;               /* v2: 8 states, restarted in each band, 16 symbols */
+    if (h[8] == MULE_VERSION) {         /* v3: the trellis's size, chaining, alphabet */
+        if (len < MULE_HEAD_LEN || h[20] < 3 || h[20] > 6 || (h[21] & ~(MULE_TCQ_CHAIN | MULE_COEF_A8)))
+            return NULL;
+        n = 1 << h[20];
+        flags = h[21];
+    } else if (h[8] != 2 || len < MULE_HEAD_LEN_V2)
         return NULL;
     if (h[9] != 2 || h[16] != MULE_NB || h[19] != mule_init_cdf_id)
         return NULL;
@@ -560,6 +586,11 @@ mule_dec *mule_dec_init(void *mem, size_t size, const uint8_t *h, int len)
     d->channels = h[9];
     d->pre_skip = h[10] | h[11] << 8;
     d->rate = (uint32_t)h[12] | (uint32_t)h[13] << 8 | (uint32_t)h[14] << 16 | (uint32_t)h[15] << 24;
+    for (int st = 0; st < n; st++)
+        for (int j = 0; j < 4; j++)
+            d->tcq_next[st][j] = (uint8_t)mule_tcq_step_n(st, j, n, mule_tcq_mask(n));
+    d->tcq_chain = flags & MULE_TCQ_CHAIN;
+    d->coef_t = flags & MULE_COEF_A8 ? 7 : 15;
     reset_key(d);
     return d;
 }

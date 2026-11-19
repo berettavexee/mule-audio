@@ -34,7 +34,7 @@ def job(args):
 
 
 def summary(df):
-    cols = [c for c in ["kbps", "nmr_db", "nmr_max_db", "adf", "snr_db", "visqol", "odg", "odg_adv"]
+    cols = [c for c in ["kbps", "nmr_db", "nmr_max_db", "adf", "snr_db", "visqol", "odg", "odg_adv", "mms2f", "zimt"]
             if c in df]
     g = df.groupby("config", sort=False)[cols].mean()
     worst = df.loc[df.groupby("config", sort=False)["nmr_db"].idxmax(), ["config", "item", "nmr_db"]]

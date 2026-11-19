@@ -1,0 +1,6 @@
+66 items, 942 s, all bits 117.2 kb/s, coefficient symbols (current) 68.7 kb/s
+rule                               coef kb/s   coef %  total %  items better
+current                                68.73    +0.00    +0.00      0/66
+two-sided (n-1, n+1)                   68.43    -0.43    -0.25     48/66
+
+energies, 9195 packets of 4 long frames: residual entropy of frames 1-3 3.227 -> 3.335 bit/band (+3.3 %, +0.12 % of all bits)

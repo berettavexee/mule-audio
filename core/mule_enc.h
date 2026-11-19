@@ -42,6 +42,14 @@ typedef struct {
                          * many dB above the previous long frame's (10); 0 off */
     int nf_bias;        /* noise-filled bands' energy sent this many 1.5 dB steps lower (0; PEAQ
                          * and ViSQOL disagree, E2-LOG.md: left to a listening test) */
+    int tcq_states;     /* trellis of 8, 16, 32 or 64 states (64; header byte 20) */
+    int tcq_chain;      /* 1: the trellis state runs on across a group's bands, one Viterbi over
+                         * them (needs tcq_rd and rd_lambda); 0: restarted at 0 in each band, for
+                         * comparisons only (1; header flag MULE_TCQ_CHAIN) */
+    int coef_a8;        /* coefficient alphabet of 8 symbols, escape at 7; 0: 16 symbols, escape
+                         * at 15, for comparisons only (1; header flag MULE_COEF_A8) */
+    int tcq_rd_states;  /* encoder speed: the trellis of the RD choice's per-band estimates
+                         * (a-1, a, a+1), 8 to 64; 0: tcq_states (8) */
 } mule_enc_params;
 
 void mule_enc_defaults(mule_enc_params *p);
@@ -54,6 +62,19 @@ int mule_encode(const double *pcm, int64_t L, const mule_enc_params *p,
  * frame_start[0..frames]. Arrays malloc'd (mule_free). For tests and comparisons. */
 int mule_encode_ops(const double *pcm, int64_t L, const mule_enc_params *p, int32_t **model,
                     uint32_t **val, int64_t *n, int64_t **frame_start, int *frames);
+/* mule_encode_ops, plus a trace of the coefficient and energy symbols for the context
+ * measurements (eval/ctx_lab.py): ntrace records of MULE_TRACE_W int32 (free with mule_free).
+ * Coefficient record: 0, op index, frame, channel, block type, band, line, allocation class,
+ * tail1, tail2, inter, e (rescale exponent), y_prev (|index| of the last long frame), |index|,
+ * context, y_prev rescaled (before the cap; -1 if not inter), TCQ level (signed, D/2 units),
+ * value before quantization (D/2 units, x256), the Viterbi's rate weight (x1e4), trellis state
+ * after this coefficient.
+ * Energy record: 1, op index, frame, channel, block type, band, Q, prediction, residual, context,
+ * alpha, group, key, previous Q, M/S (1) or L/R (0), then 0s. */
+#define MULE_TRACE_W 20
+int mule_encode_trace(const double *pcm, int64_t L, const mule_enc_params *p, int32_t **model,
+                      uint32_t **val, int64_t *n, int64_t **frame_start, int *frames,
+                      int32_t **trace, int64_t *ntrace);
 void mule_free(void *p);
 
 #endif

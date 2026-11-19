@@ -1,0 +1,39 @@
+##### dev, held-out half
+
+=== mule-m6v3 vs mule-c64  (33 items)
+  odg      @128: -0.0021 [-0.0137, +0.0069]   @160: -0.0025 [-0.0093, +0.0167]   (+ = better)
+  odg_adv  @128: +0.0087 [-0.0060, +0.0216]   @160: -0.0033 [-0.0040, +0.0100]   (+ = better)
+  mms2f    @128: -0.2854 [-1.1509, +0.9144]   @160: -0.2986 [-2.2517, +3.9226]   (+ = better)
+  visqol   @128: -0.0015 [-0.0034, +0.0001]   @160: -0.0017 [-0.0023, -0.0004]   (+ = better)
+  nmr_db   @128: +0.0681 [+0.0228, +0.1010]   @160: +0.0475 [+0.0099, +0.0933]   (+ = better)
+  rate change at equal settings: -4.26 %
+  regressions (< -0.05 odg): 1
+        d_odg  rate_%
+item                 
+violin -0.116  -8.574
+  best:
+               d_odg  rate_%
+item                        
+triangles      0.027  -7.097
+wutang         0.021  -3.238
+orchestra      0.015  -3.568
+male_en        0.014  -2.447
+emerson_fugue  0.012  -6.317
+##### test
+
+=== mule-m6v3 vs mule-c64  (30 items)
+  odg      @128: -0.0047 [-0.0109, +0.0011]   @160: -0.0052 [-0.0111, +0.0004]   (+ = better)
+  odg_adv  @128: +0.0006 [-0.0046, +0.0060]   @160: -0.0001 [-0.0039, +0.0041]   (+ = better)
+  mms2f    @128: -1.0361 [-1.7800, -0.2652]   @160: -1.7756 [-3.7260, -0.1672]   (+ = better)
+  visqol   @128: -0.0047 [-0.0082, -0.0013]   @160: -0.0019 [-0.0047, +0.0014]   (+ = better)
+  nmr_db   @128: +0.0596 [+0.0160, +0.1042]   @160: +0.0656 [+0.0182, +0.1158]   (+ = better)
+  rate change at equal settings: -4.14 %
+  regressions (< -0.05 odg): 0
+  best:
+                          d_odg  rate_%
+item                                   
+b_lebanon_hanover         0.027  -2.461
+b_carpenter_brut          0.006  -5.473
+b_salut_cest_cool         0.003  -5.705
+b_classical               0.002  -6.326
+b_new_order_joy_division  0.000  -3.092

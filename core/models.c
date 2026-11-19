@@ -2,6 +2,7 @@
  * trained tables of core/init_cdf.h. */
 #include "mule.h"
 #include "init_cdf.h"
+#include "init_cdf_a8.h"
 
 const int mule_init_cdf_id = MULE_INIT_CDF_ID;
 const int mule_stream_nsyms[MULE_S_COUNT] = {2, 4, 2, 16, 16, 2, 16, 16, 16};
@@ -12,9 +13,21 @@ const int mule_stream_off[MULE_S_COUNT] = {0, 1, 2, 5, 14, 20, 21, 37, 133};
  * context, or the uniform one for a stream without table. */
 void mule_models_reset(mule_models *ms)
 {
+    mule_models_reset_a8(ms, 0);
+}
+
+/* mule_models_reset; a8 (format v3 flag MULE_COEF_A8): the coefficient models have 8 symbols
+ * (escape at 7) and the escape orders their own table (core/init_cdf_a8.h). */
+void mule_models_reset_a8(mule_models *ms, int a8)
+{
     for (int s = 0; s < MULE_S_COUNT; s++) {
         const uint16_t *init = mule_init_cdf[s];
         int n = mule_stream_nsyms[s];
+        if (a8 && s == MULE_S_COEF) {
+            init = mule_init_coef8;
+            n = 8;
+        } else if (a8 && s == MULE_S_CESC)
+            init = mule_init_cesc8;
         for (int c = 0; c < mule_stream_nctx[s]; c++) {
             mule_model *m = &ms->m[mule_stream_off[s] + c];
             if (init)

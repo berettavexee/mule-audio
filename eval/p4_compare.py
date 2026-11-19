@@ -46,7 +46,7 @@ def main():
         sub = df[df.item.isin(common)]
         print(f"\n=== {vs} vs {a.base}  ({len(common)} items)")
         for metric in a.metric:
-            sign = -1 if metric.startswith("nmr") else 1          # NMR: lower is better
+            sign = -1 if metric.startswith(("nmr", "zimt")) else 1   # NMR, Zimtohrli: lower is better
             row = []
             for r in a.rates:
                 d0 = sign * (at(sub, vs, metric, r) - at(sub, a.base, metric, r))

@@ -54,6 +54,48 @@ void mule_enc_defaults(mule_enc_params *p)
     p->fine_nb = 12;
     p->pre_db = 10.0;           /* axis 2 (eval/results/E2-LOG.md) */
     p->nf_bias = 0;
+    p->tcq_states = 64;         /* format v3 (eval/results/B-LOG.md, C-LOG.md) */
+    p->tcq_chain = 1;
+    p->coef_a8 = 1;
+    p->tcq_rd_states = 8;       /* encoder speed x2, same quality (eval/results/B-LOG.md) */
+}
+
+/* ---------------------------------------------------------------- measurement trace */
+
+/* Encoder-only trace of the coefficient and energy symbols, for the context measurements
+ * (eval/ctx_lab.py); NULL (the default) records nothing and changes nothing in the stream.
+ * One record of MULE_TRACE_W int32 per symbol, see mule_encode_trace (mule_enc.h). Not
+ * thread-safe: one traced encode at a time per process. */
+typedef struct {
+    int32_t *r;
+    int64_t n, cap;
+    int err, frame, ch;
+} trace_t;
+static trace_t *g_trace;
+static int coef_t = 15;         /* coefficient escape symbol: 15 (v2), 7 (v3 coef_a8); per encode */
+
+/* Appends one record (missing fields 0). */
+static void trace_add(const int32_t *rec)
+{
+    trace_t *t = g_trace;
+    if (t->err)
+        return;
+    if (t->n == t->cap) {
+        int64_t cap = t->cap ? 2 * t->cap : 1 << 16;
+        int32_t *r = realloc(t->r, sizeof(int32_t) * MULE_TRACE_W * (size_t)cap);
+        if (!r) {
+            t->err = 1;
+            return;
+        }
+        t->r = r;
+        t->cap = cap;
+    }
+    memcpy(t->r + MULE_TRACE_W * t->n++, rec, sizeof(int32_t) * MULE_TRACE_W);
+}
+
+static int32_t clip32(int64_t v)
+{
+    return v > INT32_MAX ? INT32_MAX : (int32_t)v;
 }
 
 /* ---------------------------------------------------------------- coding operations */
@@ -563,59 +605,88 @@ typedef struct {
     const mule_enc_params *pr;
 } band_in;
 
-/* Axis 3 (E-LOG.md): the TCQ Viterbi with the rate of the tracked models. Each survivor carries its tails (the two
- * previous magnitudes) for the coefficient contexts; pm[i] the inter-frame term (-1: none).
- * Distortion (x - k)^2 in (D/2)^2 units, rate weight lam (same units), per bit. */
-static void tcq_viterbi_rd(const double *x, int n, double lam, const ops_t *o, int ac,
-                           const int64_t *pm, int64_t t1_0, int64_t t2_0, int64_t *kout)
+/* Axis 3 (E-LOG.md) and point 16 (V3-IDEAS): the TCQ Viterbi with the rate of the tracked
+ * models, over a chain of n coefficients x[i], each in its band's D/2 units: cost
+ * w[i] (x - k)^2 + c * bits, bits from the coefficient contexts of each survivor's tails (the two
+ * previous magnitudes), pm[i] the inter-frame term (-1: none), ac[i] the allocation class. One
+ * band (w = 1, c = its lambda) is axis 3's Viterbi; a group's coded bands chained (w = the
+ * band's noise unit over its mask) is point 16's. Trellis of ns states (mask), from state st0;
+ * the levels in kout, the end state returned. */
+static int tcq_viterbi_chain(const double *x, const double *w, const int *ac, int n, double c,
+                             const ops_t *o, const int64_t *pm, int64_t t1_0, int64_t t2_0, int ns,
+                             int mask, int st0, int64_t *kout)
 {
-    static double lev[176][8];
-    static int back[176][8];
-    double cost[8], nc[8];
-    int64_t t1[8], t2[8], n1[8], n2[8];
-    double sc[6][16], esc[16];
-    for (int c = 0; c < 6; c++)
-        for (int v = 0; v < 16; v++)
-            sc[c][v] = sym_bits(o, MULE_S_COEF, ac * 6 + c, v);
-    for (int v = 0; v < 16; v++)
-        esc[v] = sym_bits(o, MULE_S_CESC, ac, v) + v;
-    for (int s = 0; s < 8; s++) {
-        cost[s] = s ? 1e300 : 0.0;
+    static double lev[MULE_F][MULE_TCQ_MAXS];
+    static int back[MULE_F][MULE_TCQ_MAXS];
+    static double sc[16][6][16], esc[16][16];
+    double cost[MULE_TCQ_MAXS], nc[MULE_TCQ_MAXS];
+    int64_t t1[MULE_TCQ_MAXS], t2[MULE_TCQ_MAXS], n1[MULE_TCQ_MAXS], n2[MULE_TCQ_MAXS];
+    int have[16] = {0};
+    for (int i = 0; i < n; i++)
+        if (!have[ac[i]]) {
+            int a = ac[i];
+            have[a] = 1;
+            for (int cx = 0; cx < 6; cx++)
+                for (int v = 0; v <= coef_t; v++)
+                    sc[a][cx][v] = sym_bits(o, MULE_S_COEF, a * 6 + cx, v);
+            for (int v = 0; v < 16; v++)
+                esc[a][v] = sym_bits(o, MULE_S_CESC, a, v) + v;
+        }
+    for (int s = 0; s < ns; s++) {
+        cost[s] = s == st0 ? 0.0 : 1e300;
         t1[s] = t1_0;
         t2[s] = t2_0;
     }
+    /* The three candidate levels of each subset j (k mod 4 = j; the states of j's parity) depend
+     * on the coefficient only: computed once per coefficient, not per state (same arithmetic,
+     * same order of operations: the same result to the bit). */
+    double ck[4][3], cd[4][3], ce[4][3];
+    int64_t cm[4][3];
+    int cs[4][3], cx_[4][3], cv[4][3], cesc_[4][3];
     for (int i = 0; i < n; i++) {
-        for (int t = 0; t < 8; t++)
+        for (int j = 0; j < 4; j++) {
+            int even = !(j & 1);                /* the states using subset j have j's parity */
+            double k0 = nearbyint((x[i] - j) / 4.0) * 4 + j;
+            for (int d = 0; d < 3; d++) {
+                double k = k0 + 4 * (d - 1);
+                double ak = fabs(k);
+                int64_t mag = even ? (int64_t)ak / 2 : ((int64_t)ak - 1) / 2;
+                ck[j][d] = k;
+                cv[j][d] = mag >= 0;
+                cm[j][d] = mag;
+                cx_[j][d] = (int)(mag < coef_t ? mag : coef_t);
+                cesc_[j][d] = mag >= coef_t;
+                ce[j][d] = mag >= coef_t ? esc[ac[i]][ilog2((uint32_t)(mag - coef_t) + 1)] : 0.0;
+                cs[j][d] = !even || ak > 0;
+                cd[j][d] = w[i] * (x[i] - k) * (x[i] - k);
+            }
+        }
+        for (int t = 0; t < ns; t++)
             nc[t] = 1e300;
-        for (int s = 0; s < 8; s++) {
+        for (int s = 0; s < ns; s++) {
             if (cost[s] >= 1e300)
                 continue;
-            int even = !(s & 1);
             int64_t mctx = 2 * t1[s] + t2[s];
             if (pm[i] >= 0)
                 mctx = (mctx + 3 * pm[i] + 1) >> 1;
-            const double *row = sc[nc_map(mctx)];
+            const double *row = sc[ac[i]][nc_map(mctx)];
             for (int br = 0; br < 2; br++) {
-                int j = mule_tcq_subset[s][br];
-                double k0 = nearbyint((x[i] - j) / 4.0) * 4 + j;
-                int t = mule_tcq_next[s][br];
-                for (int dk = -4; dk <= 4; dk += 4) {
-                    double k = k0 + dk;
-                    double ak = fabs(k);
-                    int64_t mag = even ? (int64_t)ak / 2 : ((int64_t)ak - 1) / 2;
-                    if (mag < 0)
+                int j = mule_tcq_sub(s, br, mask);
+                int t = (2 * s + br) & (ns - 1);
+                for (int d = 0; d < 3; d++) {
+                    if (!cv[j][d])
                         continue;
-                    double r = row[mag < 15 ? mag : 15];
-                    if (mag >= 15)
-                        r += esc[ilog2((uint32_t)(mag - 15) + 1)];
-                    if (!even || ak > 0)
+                    double r = row[cx_[j][d]];
+                    if (cesc_[j][d])
+                        r += ce[j][d];
+                    if (cs[j][d])
                         r += 1;
-                    double c = cost[s] + (x[i] - k) * (x[i] - k) + lam * r;
-                    if (c < nc[t]) {
-                        nc[t] = c;
+                    double cc = cost[s] + cd[j][d] + c * r;
+                    if (cc < nc[t]) {
+                        nc[t] = cc;
                         back[i][t] = s;
-                        lev[i][t] = k;
-                        n1[t] = mag;
+                        lev[i][t] = ck[j][d];
+                        n1[t] = cm[j][d];
                         n2[t] = t1[s];
                     }
                 }
@@ -626,37 +697,39 @@ static void tcq_viterbi_rd(const double *x, int n, double lam, const ops_t *o, i
         memcpy(t2, n2, sizeof t2);
     }
     int s = 0;
-    for (int t = 1; t < 8; t++)
+    for (int t = 1; t < ns; t++)
         if (cost[t] < cost[s])
             s = t;
+    int end = s;
     for (int i = n - 1; i >= 0; i--) {
         kout[i] = (int64_t)lev[i][s];
         s = back[i][s];
     }
+    return end;
 }
 
-/* The TCQ Viterbi over the 8-state trellis (spec 5.3) for samples x (units of D/2) from state 0:
+/* The TCQ Viterbi (spec 5.3) for samples x (units of D/2) from state st0, trellis of ns states:
  * the levels k minimising sum (x - k)^2 + lam R(k), R a static approximation of the rate. */
-static void tcq_viterbi(const double *x, int n, double lam, int64_t *kout)
+static void tcq_viterbi(const double *x, int n, double lam, int ns, int mask, int st0, int64_t *kout)
 {
-    static double lev[176][8];
-    static int back[176][8];
-    double cost[8], nc[8];
-    for (int s = 0; s < 8; s++)
-        cost[s] = s ? 1e300 : 0.0;
+    static double lev[MULE_F][MULE_TCQ_MAXS];
+    static int back[MULE_F][MULE_TCQ_MAXS];
+    double cost[MULE_TCQ_MAXS], nc[MULE_TCQ_MAXS];
+    for (int s = 0; s < ns; s++)
+        cost[s] = s == st0 ? 0.0 : 1e300;
     for (int i = 0; i < n; i++) {
-        for (int t = 0; t < 8; t++)
+        for (int t = 0; t < ns; t++)
             nc[t] = 1e300;
-        for (int s = 0; s < 8; s++) {
+        for (int s = 0; s < ns; s++) {
             if (cost[s] >= 1e300)
                 continue;
             for (int br = 0; br < 2; br++) {
-                int j = mule_tcq_subset[s][br];
+                int j = mule_tcq_sub(s, br, mask);
                 double k = nearbyint((x[i] - j) / 4.0) * 4 + j;
                 double m = floor(fabs(k) / 2);
                 double r = 1.0 + 1.6 * log2(1.0 + m) + (k != 0);
                 double c = cost[s] + (x[i] - k) * (x[i] - k) + lam * r;
-                int t = mule_tcq_next[s][br];
+                int t = (2 * s + br) & (ns - 1);
                 if (c < nc[t]) {
                     nc[t] = c;
                     back[i][t] = s;
@@ -667,7 +740,7 @@ static void tcq_viterbi(const double *x, int n, double lam, int64_t *kout)
         memcpy(cost, nc, sizeof cost);
     }
     int s = 0;
-    for (int t = 1; t < 8; t++)
+    for (int t = 1; t < ns; t++)
         if (cost[t] < cost[s])
             s = t;
     for (int i = n - 1; i >= 0; i--) {
@@ -676,39 +749,64 @@ static void tcq_viterbi(const double *x, int n, double lam, int64_t *kout)
     }
 }
 
+/* A coded band's Viterbi inputs at allocation a: samples in D/2 units, the inter-frame terms,
+ * its allocation class, its noise unit u (D/2 rms) and lambda. */
+static void band_prep(const band_in *in, int a, double *xt, int64_t *pmv, int *ac, double *u,
+                      double *lam)
+{
+    int n = band_n(in->g, in->b);
+    double D = pow(2.0, (MULE_A0 - a) / 4.0);
+    *ac = a / 3 < 15 ? a / 3 : 15;
+    for (int i = 0; i < n; i++) {
+        int idx = coef_index(in->g, in->b, i);
+        xt[i] = in->Y[idx] / in->rms / (D / 2);
+        pmv[i] = -1;
+        if (in->inter) {
+            int64_t v = (int64_t)in->ylong[idx] * POW4[in->e & 3];
+            int sh = floor_div(in->e, 4);
+            int64_t p = sh >= 0 ? (v << (sh < 8 ? sh : 8)) >> 8 : v >> (8 - sh);
+            pmv[i] = p > 31 ? 31 : p;
+        }
+    }
+    *u = (D / 2) * in->rms;                     /* (D/2)^2 rms^2: the noise of one unit */
+    *lam = in->pr ? in->pr->tcq_rdl * in->pr->rd_lambda * in->mtq / (*u * *u) : 0.0;
+}
+
 /* One band's coefficients at allocation a: TCQ levels (Viterbi), then their symbols with the
  * decoder's contexts. emit: the operations are appended (ycur gets a long frame's indices);
  * else bits and noise (the band's squared error) are returned, costed with the tracked models,
  * for the RD choice. tail1, tail2 (the two previous indices) are updated either way. */
 static void band_code(const band_in *in, int a, int64_t *tail1, int64_t *tail2, ops_t *o, int emit,
-                      int *ycur, double *bits, double *noise)
+                      int *ycur, double *bits, double *noise, const int64_t *klev, int *tst_io)
 {
     int n = band_n(in->g, in->b);
     double D = pow(2.0, (MULE_A0 - a) / 4.0);
-    int ac = a / 3 < 15 ? a / 3 : 15;
-    double nb = 0, ns = 0;
-    int64_t kt[176];
-    int tst = 0;
+    int ac;
+    double nb = 0, ns = 0, u, lam;
+    int64_t kt[176], pmv[176];
+    int tst = tst_io ? *tst_io : 0;
+    int nst = in->pr ? in->pr->tcq_states : 8;
+    if (!emit && in->pr && in->pr->tcq_rd_states)   /* the RD choice's estimate: a smaller trellis */
+        nst = in->pr->tcq_rd_states;
+    int mask = mule_tcq_mask(nst);
     double xt[176];
-    for (int i = 0; i < n; i++)
-        xt[i] = in->Y[coef_index(in->g, in->b, i)] / in->rms / (D / 2);
-    if (in->pr && in->pr->tcq_rd && o->mr) {
-        int64_t pmv[176];
+    band_prep(in, a, xt, pmv, &ac, &u, &lam);
+    double lam_used = in->tcq_lam;              /* the Viterbi's rate weight (trace only) */
+    if (klev)                                   /* levels chosen by the group's chained Viterbi */
+        memcpy(kt, klev, sizeof(int64_t) * (size_t)n);
+    else if (in->pr && in->pr->tcq_rd && o->mr) {
+        double w[176];
+        int acs[176];
         for (int i = 0; i < n; i++) {
-            pmv[i] = -1;
-            if (in->inter) {
-                int idx = coef_index(in->g, in->b, i);
-                int64_t v = (int64_t)in->ylong[idx] * POW4[in->e & 3];
-                int sh = floor_div(in->e, 4);
-                int64_t p = sh >= 0 ? (v << (sh < 8 ? sh : 8)) >> 8 : v >> (8 - sh);
-                pmv[i] = p > 31 ? 31 : p;
-            }
+            w[i] = 1.0;
+            acs[i] = ac;
         }
-        double u = (D / 2) * in->rms;           /* (D/2)^2 rms^2: the noise of one unit */
-        double lam = in->pr->tcq_rdl * in->pr->rd_lambda * in->mtq / (u * u);
-        tcq_viterbi_rd(xt, n, lam, o, ac, pmv, *tail1, *tail2, kt);
+        lam_used = lam;
+        tcq_viterbi_chain(xt, w, acs, n, lam, o, pmv, *tail1, *tail2, nst, mask, tst, kt);
     } else
-        tcq_viterbi(xt, n, in->tcq_lam, kt);
+        tcq_viterbi(xt, n, in->tcq_lam, nst, mask, tst, kt);
+    if (klev)
+        lam_used = lam;
     for (int i = 0; i < n; i++) {
         int idx = coef_index(in->g, in->b, i);
         double xn = in->Y[idx] / in->rms;
@@ -718,7 +816,7 @@ static void band_code(const band_in *in, int a, int64_t *tail1, int64_t *tail2, 
         int64_t mag = even ? ak / 2 : (ak - 1) / 2;
         int need_sign = !even || ak > 0, neg = k < 0;
         double rec = (double)ak * D / 2;
-        tst = mule_tcq_step(tst, k);
+        tst = mule_tcq_step_n(tst, k, nst, mask);
         int64_t mctx = 2 * *tail1 + *tail2;
         if (in->inter) {
             int64_t v = (int64_t)in->ylong[idx] * POW4[in->e & 3];
@@ -728,13 +826,28 @@ static void band_code(const band_in *in, int a, int64_t *tail1, int64_t *tail2, 
                 pm = 31;
             mctx = (mctx + 3 * pm + 1) >> 1;
         }
-        int ctx = ac * 6 + nc_map(mctx), s = mag < 15 ? (int)mag : 15;
+        int ctx = ac * 6 + nc_map(mctx), s = mag < coef_t ? (int)mag : coef_t;
+        if (emit && g_trace) {
+            int64_t yl = 0, pm = -1;
+            if (in->inter) {
+                yl = in->ylong[idx];
+                int64_t v = (int64_t)in->ylong[idx] * POW4[in->e & 3];
+                int sh = floor_div(in->e, 4);
+                pm = sh >= 0 ? (v << (sh < 8 ? sh : 8)) >> 8 : v >> (8 - sh);
+            }
+            int32_t rec[MULE_TRACE_W] = {0, clip32(o->n), g_trace->frame, g_trace->ch, in->type, in->b,
+                                         idx, ac, clip32(*tail1), clip32(*tail2), in->inter, in->e,
+                                         (int32_t)yl, clip32(mag), ctx, clip32(pm),
+                                         clip32(k), (int32_t)lrint(xt[i] * 256),
+                                         (int32_t)lrint(lam_used * 1e4), (int32_t)tst};
+            trace_add(rec);
+        }
         if (emit)
             put(o, MULE_S_COEF, ctx, s);
         else
             nb += sym_bits(o, MULE_S_COEF, ctx, s);
-        if (mag >= 15) {
-            uint32_t v = (uint32_t)(mag - 15);
+        if (mag >= coef_t) {
+            uint32_t v = (uint32_t)(mag - coef_t);
             int ek = ilog2(v + 1);              /* escape: Exp-Golomb order */
             if (emit) {
                 put(o, MULE_S_CESC, ac, ek);
@@ -762,6 +875,8 @@ static void band_code(const band_in *in, int a, int64_t *tail1, int64_t *tail2, 
         *bits = nb;
     if (noise)
         *noise = ns * in->rms * in->rms;     /* absolute noise energy of the band */
+    if (tst_io)
+        *tst_io = tst;
 }
 
 /* The encoder's copy of the decoder's state, plus the pre-echo control's last masks. */
@@ -940,6 +1055,8 @@ static void encode_frame(const mule_enc_params *pr, const psy_t *psy_l, const ps
     for (int c = 0; c < 2; c++) {
         int64_t tail1 = 0, tail2 = 0;
         int inter_ok = type == 0 && s->lvalid[c];
+        if (g_trace)
+            g_trace->ch = c;
         int ycur[F];
         memset(ycur, 0, sizeof ycur);
         int a[NB] = {0};
@@ -984,7 +1101,7 @@ static void encode_frame(const mule_enc_params *pr, const psy_t *psy_l, const ps
                         in.e = in.inter ? s->qlong[c][b] - q[b] + cand - s->along[c][b] : 0;
                         int64_t c1 = t1, c2 = t2;
                         double bits, noise;
-                        band_code(&in, cand, &c1, &c2, o, 0, NULL, &bits, &noise);
+                        band_code(&in, cand, &c1, &c2, o, 0, NULL, &bits, &noise, NULL, NULL);
                         int d = cand - ap[b];
                         bits += sym_bits(o, MULE_S_ALLOC, band_class(b) + 3, d >= -7 && d <= 7 ? d + 7 : 15);
                         double j = noise / (mk * tq * n) + pr->rd_lambda * bits / n;
@@ -1011,6 +1128,12 @@ static void encode_frame(const mule_enc_params *pr, const psy_t *psy_l, const ps
             for (int b = 0; b < NB; b++) {
                 int pred = floor_div(alpha * s->qprev[c][b] + (32 - alpha) * left, 32);
                 int r = q[b] - pred;
+                if (g_trace) {
+                    int32_t rec[MULE_TRACE_W] = {1, clip32(o->n), g_trace->frame, c, type, b, q[b], pred, r,
+                                                 band_class(b) * 3 + (abs(rprev) < 2 ? abs(rprev) : 2), alpha, g,
+                                                 key, s->qprev[c][b], ms[b], 0, 0, 0, 0, 0};
+                    trace_add(rec);
+                }
                 signed_ops(o, MULE_S_ENERGY, band_class(b) * 3 + (abs(rprev) < 2 ? abs(rprev) : 2), r);
                 left = q[b];
                 rprev = r;
@@ -1029,16 +1152,48 @@ static void encode_frame(const mule_enc_params *pr, const psy_t *psy_l, const ps
             }
             memcpy(s->aprev[c], a, sizeof a);
             /* coefficients */
+            band_in bins[NB];
             for (int b = 0; b < NB; b++) {
                 if (q[b] <= MULE_QMIN || a[b] == 0)
                     continue;
                 double rms = pow(2.0, q[b] / 4.0);
                 int inter = inter_ok && s->along[c][b] > 0;
                 double mk = ms[b] ? (MK[0][g][b] < MK[1][g][b] ? MK[0][g][b] : MK[1][g][b]) : MK[c][g][b];
-                band_in in = {Y[c], &grp[g], b, type, inter,
-                              inter ? s->qlong[c][b] - q[b] + a[b] - s->along[c][b] : 0, s->ylong[c], rms,
-                              0.0, pr->tcq_lam, mk * tq, pr};
-                band_code(&in, a[b], &tail1, &tail2, o, 1, ycur, NULL, NULL);
+                bins[b] = (band_in){Y[c], &grp[g], b, type, inter,
+                                    inter ? s->qlong[c][b] - q[b] + a[b] - s->along[c][b] : 0, s->ylong[c],
+                                    rms, 0.0, pr->tcq_lam, mk * tq, pr};
+            }
+            /* point 16: one Viterbi over the group's coded bands, the trellis state running on */
+            int chain = pr->tcq_chain && pr->tcq_rd && o->mr;
+            static int64_t ck[MULE_F];
+            int cstart[NB];
+            if (chain) {
+                static double cx[MULE_F], cw[MULE_F];
+                static int cac[MULE_F];
+                static int64_t cpm[MULE_F];
+                int m = 0;
+                for (int b = 0; b < NB; b++) {
+                    cstart[b] = m;
+                    if (q[b] <= MULE_QMIN || a[b] == 0)
+                        continue;
+                    int ac, n = band_n(&grp[g], b);
+                    double u, lam;
+                    band_prep(&bins[b], a[b], cx + m, cpm + m, &ac, &u, &lam);
+                    for (int i = 0; i < n; i++) {
+                        cw[m + i] = u * u / bins[b].mtq;
+                        cac[m + i] = ac;
+                    }
+                    m += n;
+                }
+                tcq_viterbi_chain(cx, cw, cac, m, pr->tcq_rdl * pr->rd_lambda, o, cpm, tail1, tail2,
+                                  pr->tcq_states, mule_tcq_mask(pr->tcq_states), 0, ck);
+            }
+            int tst_run = 0;
+            for (int b = 0; b < NB; b++) {
+                if (q[b] <= MULE_QMIN || a[b] == 0)
+                    continue;
+                band_code(&bins[b], a[b], &tail1, &tail2, o, 1, ycur, NULL, NULL, chain ? ck + cstart[b] : NULL,
+                          pr->tcq_chain ? &tst_run : NULL);
             }
         }
         if (type == 0) {
@@ -1162,6 +1317,7 @@ static void le32(uint8_t *p, uint32_t v)
 static int encode_ops(const double *pcm, int64_t L, const mule_enc_params *pr, int T, ops_t *out,
                       int64_t *fstart)
 {
+    coef_t = pr->coef_a8 ? 7 : 15;
     uint8_t *types = malloc((size_t)T);
     mdct_t ml = {0}, msh = {0};
     ops_t o = {0};
@@ -1191,6 +1347,8 @@ static int encode_ops(const double *pcm, int64_t L, const mule_enc_params *pr, i
     double seg[MULE_N_LONG], tmp[MULE_N_LONG];
     for (int t = 0; t < T; t++) {
         fstart[t] = o.n;
+        if (g_trace)
+            g_trace->frame = t;
         int key = t % pr->keyframe == 0;
         if (key) {
             for (int c = 0; c < 2; c++)
@@ -1200,7 +1358,7 @@ static int encode_ops(const double *pcm, int64_t L, const mule_enc_params *pr, i
                 }
             s->lvalid[0] = s->lvalid[1] = 0;
             if (o.mr)
-                mule_models_reset(o.mr);
+                mule_models_reset_a8(o.mr, coef_t == 7);
         }
         int type = types[t];
         for (int c = 0; c < 2; c++) {
@@ -1257,7 +1415,10 @@ int mule_encode_ops(const double *pcm, int64_t L, const mule_enc_params *pr, int
                     uint32_t **val, int64_t *n, int64_t **frame_start, int *frames)
 {
     int T = (int)((L + F - 1) / F) + 1;
-    if (pr->keyframe <= 0 || pr->keyframe % 4)
+    if (pr->keyframe <= 0 || pr->keyframe % 4 ||
+        (pr->tcq_states != 8 && pr->tcq_states != 16 && pr->tcq_states != 32 && pr->tcq_states != 64) ||
+        (pr->tcq_rd_states && pr->tcq_rd_states != 8 && pr->tcq_rd_states != 16 && pr->tcq_rd_states != 32 &&
+         pr->tcq_rd_states != 64))
         return -1;
     ops_t o = {0};
     int64_t *fstart = malloc(sizeof(int64_t) * (size_t)(T + 1));
@@ -1273,6 +1434,29 @@ int mule_encode_ops(const double *pcm, int64_t L, const mule_enc_params *pr, int
     return 0;
 }
 
+/* See mule_enc.h: mule_encode_ops plus the measurement trace. */
+int mule_encode_trace(const double *pcm, int64_t L, const mule_enc_params *pr, int32_t **model,
+                      uint32_t **val, int64_t *n, int64_t **frame_start, int *frames,
+                      int32_t **trace, int64_t *ntrace)
+{
+    trace_t t = {0};
+    g_trace = &t;
+    int r = mule_encode_ops(pcm, L, pr, model, val, n, frame_start, frames);
+    g_trace = NULL;
+    if (r || t.err) {
+        free(t.r);
+        if (!r) {
+            free(*model);
+            free(*val);
+            free(*frame_start);
+        }
+        return -1;
+    }
+    *trace = t.r;
+    *ntrace = t.n;
+    return 0;
+}
+
 /* See mule_enc.h: the whole Ogg MULE file. MULEHead, MULETags (the tags, over several pages if
  * needed), then packets of up to 4 frames (fewer before a key frame, or when a packet would
  * exceed MULE_PACKET_MAX), in pages of about 4 KiB, the last page's granule giving the length.
@@ -1282,7 +1466,10 @@ int mule_encode(const double *pcm, int64_t L, const mule_enc_params *pr,
                 size_t *audio_bytes)
 {
     int T = (int)((L + F - 1) / F) + 1;
-    if (pr->keyframe <= 0 || pr->keyframe % 4)
+    if (pr->keyframe <= 0 || pr->keyframe % 4 ||
+        (pr->tcq_states != 8 && pr->tcq_states != 16 && pr->tcq_states != 32 && pr->tcq_states != 64) ||
+        (pr->tcq_rd_states && pr->tcq_rd_states != 8 && pr->tcq_rd_states != 16 && pr->tcq_rd_states != 32 &&
+         pr->tcq_rd_states != 64))
         return -1;
     ops_t o = {0};
     int64_t *fstart = malloc(sizeof(int64_t) * (size_t)(T + 1));
@@ -1297,6 +1484,8 @@ int mule_encode(const double *pcm, int64_t L, const mule_enc_params *pr,
     uint8_t head[MULE_HEAD_LEN];
     memcpy(head, "MULEHead", 8);
     head[8] = MULE_VERSION;
+    head[20] = (uint8_t)(pr->tcq_states == 64 ? 6 : pr->tcq_states == 32 ? 5 : pr->tcq_states == 16 ? 4 : 3);
+    head[21] = (uint8_t)((pr->tcq_chain ? MULE_TCQ_CHAIN : 0) | (pr->coef_a8 ? MULE_COEF_A8 : 0));
     head[9] = 2;
     head[10] = MULE_PRE_SKIP & 255;
     head[11] = MULE_PRE_SKIP >> 8;
@@ -1344,7 +1533,7 @@ int mule_encode(const double *pcm, int64_t L, const mule_enc_params *pr,
             }
         int key = t % pr->keyframe == 0;
         if (key)
-            mule_models_reset(models);
+            mule_models_reset_a8(models, coef_t == 7);
         uint8_t *p = malloc(MULE_PACKET_MAX);
         if (!p) {
             rc = -1;

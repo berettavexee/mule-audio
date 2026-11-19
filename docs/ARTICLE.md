@@ -27,9 +27,9 @@ Pour chaque bande, l'encodeur choisit aussi une **allocation** *a*, qui fixe le 
 
 ## Quantifier en treillis
 
-La forme de chaque bande est quantifiée par **TCQ** (*Trellis-Coded Quantization*, quantification en treillis), la méthode de JPEG 2000 partie 2. Au lieu d'arrondir chaque coefficient indépendamment, l'encodeur parcourt une machine à 8 états. Chaque état n'autorise qu'une moitié des niveaux de reconstruction : selon le chemin suivi dans le treillis, le décodeur sait laquelle. Le pas effectif est ainsi divisé par deux sans payer le bit supplémentaire. L'encodeur cherche le meilleur chemin par l'**algorithme de Viterbi**, en pesant l'erreur de chaque niveau contre son coût exact en bits. Pour le décodeur, c'est presque gratuit : une table de transitions et un test de parité par coefficient.
+La forme de chaque bande est quantifiée par **TCQ** (*Trellis-Coded Quantization*, quantification en treillis), la méthode de JPEG 2000 partie 2. Au lieu d'arrondir chaque coefficient indépendamment, l'encodeur parcourt une machine à 64 états. Chaque état n'autorise qu'une moitié des niveaux de reconstruction : selon le chemin suivi dans le treillis, le décodeur sait laquelle. Le pas effectif est ainsi divisé par deux sans payer le bit supplémentaire. L'encodeur cherche le meilleur chemin par l'**algorithme de Viterbi**, en pesant l'erreur de chaque niveau contre son coût exact en bits. Pour le décodeur, c'est presque gratuit : une table de transitions et un test de parité par coefficient. Depuis la version 3, l'état du treillis ne repart plus de zéro à chaque bande : un seul Viterbi parcourt toutes les bandes codées de la trame, ce qui a rapporté +0,036 d'ODG à 128 kb/s par rapport aux 8 états de la version 2.
 
-À l'écoute en ABX, la TCQ a fait la différence. À 160 kb/s, elle était transparente sur les 6 extraits critiques testés, contre 5 sur 6 pour la quantification scalaire. Elle est donc devenue l'unique quantificateur du format, en version 2.
+À l'écoute en ABX, la TCQ a fait la différence. À 160 kb/s, elle était transparente sur les 6 extraits critiques testés, contre 5 sur 6 pour la quantification scalaire. Elle est donc devenue l'unique quantificateur du format, en version 2, et a été agrandie en version 3.
 
 ## Le codage entropique : rANS et modèles adaptatifs
 
@@ -58,7 +58,7 @@ Le décodeur de l'appareil est écrit **en virgule fixe** : coefficients sur 32 
 - **Transformée inverse** : l'IMDCT passe par une FFT complexe de 512 points, confiée à l'**accélérateur matériel** du baladeur (HIFIACC).
 - **Exactitude** : ce décodeur est la référence du format. Sa sortie est identique au bit près sur le PC, dans l'émulateur du firmware et sur le Cortex-M3 émulé sous QEMU.
 - **Encombrement** : l'image du codec occupe 30 Kio de code et de tables, et 91 Kio de mémoire de travail, tampons compris.
-- **Charge de calcul** : environ 0,9 million d'instructions par trame. Sur l'appareil, en lisant un album entier à 139 kb/s, le cœur B tourne en moyenne à **59 MHz**, comme pour Opus, sans aucun sous-remplissage.
+- **Charge de calcul** : environ 0,9 million d'instructions par trame en version 2, 0,84 million en version 3 (QEMU ; la version 3 n'est pas encore portée sur l'appareil). Sur l'appareil, en lisant un album entier à 139 kb/s, le cœur B tourne en moyenne à **59 MHz**, comme pour Opus, sans aucun sous-remplissage.
 
 ## Résultats
 
@@ -68,6 +68,6 @@ Mesures sur 30 extraits jamais utilisés pour régler l'encodeur, à débit éga
 |---|---|---|---|---|
 | Vorbis | −0,45 | −0,16 | −0,63 / −0,34 | 4,47 |
 | Opus | **−0,12** | **0,00** | −0,45 / −0,24 | 4,54 |
-| **MULE** | −0,23 | −0,05 | **−0,41 / −0,16** | **4,60** |
+| **MULE** (v3) | −0,17 | −0,01 | **−0,36 / −0,14** | **4,61** |
 
-MULE dépasse nettement Vorbis et rivalise avec Opus. Il est devant ce dernier en ODG avancé et en ViSQOL, et derrière en ODG de base. À l'écoute, il est transparent dès 128 kb/s, et indiscernable d'Opus au même débit, y compris sur les extraits où PEAQ voit le plus grand écart (écoute G3). C'est désormais le débit par défaut de l'encodeur. Le tout pour un décodeur deux fois plus petit en code que celui de Vorbis, et qui n'a besoin d'aucun calcul flottant.
+MULE dépasse nettement Vorbis et rivalise avec Opus. Il est devant ce dernier en ODG avancé et en ViSQOL, et derrière en ODG de base. À l'écoute (version 2), il est transparent dès 128 kb/s, et indiscernable d'Opus au même débit, y compris sur les extraits où PEAQ voit le plus grand écart (écoute G3). C'est désormais le débit par défaut de l'encodeur. Le tout pour un décodeur deux fois plus petit en code que celui de Vorbis, et qui n'a besoin d'aucun calcul flottant.

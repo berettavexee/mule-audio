@@ -1,0 +1,4 @@
+66 dev items, all bits 117.2 kb/s
+  alphabet 16: coefficient bits (with escapes) 69.69 kb/s, +0.00 % of all bits; escapes 0.37 % of symbols
+  alphabet  8: coefficient bits (with escapes) 69.69 kb/s, +0.00 % of all bits; escapes 1.40 % of symbols
+  alphabet  4: coefficient bits (with escapes) 70.16 kb/s, +0.40 % of all bits; escapes 6.13 % of symbols

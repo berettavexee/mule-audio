@@ -24,6 +24,9 @@ def _params_cdef():
 ffi.cdef("""
 double mule_stream_cost(int nsyms, int nctx, const int32_t *ctx, const int32_t *sym, int64_t len,
                         const int64_t *resets, int64_t nresets);
+double mule_stream_cost_each(int nsyms, int nctx, const int32_t *ctx, const int32_t *sym,
+                             int64_t len, const int64_t *resets, int64_t nresets,
+                             const uint16_t *init, double *each);
 double mule_stream_cost_init(int nsyms, int nctx, const int32_t *ctx, const int32_t *sym,
                              int64_t len, const int64_t *resets, int64_t nresets,
                              const uint16_t *init);
@@ -48,6 +51,9 @@ int mule_encode(const double *pcm, int64_t L, const mule_enc_params *p,
                 const char *const *tags, int ntags, uint8_t **out, size_t *out_len,
                 size_t *audio_bytes);
 void mule_free(void *p);
+int mule_encode_trace(const double *pcm, int64_t L, const mule_enc_params *p, int32_t **model,
+                      uint32_t **val, int64_t *n, int64_t **frame_start, int *frames,
+                      int32_t **trace, int64_t *ntrace);
 int mule_encode_ops(const double *pcm, int64_t L, const mule_enc_params *p, int32_t **model,
                     uint32_t **val, int64_t *n, int64_t **frame_start, int *frames);
 """.replace("%MULE_ENC_PARAMS%", _params_cdef()))
@@ -89,6 +95,26 @@ def stream_cost(nsyms, nctx, ctx, sym, resets=(), init=None):
                                      ffi.from_buffer("int64_t[]", res), len(res),
                                      ffi.from_buffer("uint16_t[]", init) if init is not None
                                      else ffi.NULL)
+
+
+def stream_cost_each(nsyms, nctx, ctx, sym, resets=(), init=None):
+    """stream_cost, as each symbol's bits (float64 array)."""
+    ctx = np.ascontiguousarray(ctx, dtype=np.int32)
+    sym = np.ascontiguousarray(sym, dtype=np.int32)
+    out = np.zeros(len(sym))
+    if not len(sym):
+        return out
+    assert 0 <= ctx.min() and ctx.max() < nctx and 0 <= sym.min() and sym.max() < nsyms
+    res = np.ascontiguousarray(sorted(resets), dtype=np.int64)
+    if init is not None:
+        init = np.ascontiguousarray(init, dtype=np.uint16)
+        assert init.shape == (nctx, nsyms + 1)
+    lib.mule_stream_cost_each(nsyms, nctx, ffi.from_buffer("int32_t[]", ctx),
+                              ffi.from_buffer("int32_t[]", sym), len(sym),
+                              ffi.from_buffer("int64_t[]", res), len(res),
+                              ffi.from_buffer("uint16_t[]", init) if init is not None else ffi.NULL,
+                              ffi.from_buffer("double[]", out))
+    return out
 
 
 def counts_to_cdf(counts, prior=0.5):
@@ -190,6 +216,10 @@ def c_params(params):
     p.fine_nb = params.fine_nb
     p.pre_db = params.pre_db
     p.nf_bias = params.nf_bias
+    p.tcq_states = params.tcq_states
+    p.tcq_chain = params.tcq_chain
+    p.coef_a8 = params.coef_a8
+    p.tcq_rd_states = params.tcq_rd_states
     return p
 
 
@@ -224,5 +254,31 @@ def c_ops(x, params):
            np.frombuffer(ffi.buffer(v[0], 4 * n[0]), np.uint32).copy(),
            np.frombuffer(ffi.buffer(fs[0], 8 * (T[0] + 1)), np.int64).copy())
     for q in (m[0], v[0], fs[0]):
+        lib.mule_free(q)
+    return out
+
+
+TRACE_FIELDS = {
+    "coef": ["kind", "op", "frame", "ch", "type", "band", "line", "ac", "tail1", "tail2", "inter", "e",
+             "yprev", "mag", "ctx", "pm", "level", "x256", "lam1e4", "tstate"],
+    "energy": ["kind", "op", "frame", "ch", "type", "band", "q", "pred", "r", "ctx", "alpha", "group",
+               "key", "qprev", "ms", "_1", "_2", "_3", "_4", "_5"],
+}
+
+
+def c_trace(x, params):
+    """C encoder's coding operations and its measurement trace (mule_encode_trace, mule_enc.h):
+    (model, val, frame_start, trace) with trace an (n, 20) int32 array, fields TRACE_FIELDS."""
+    x = np.ascontiguousarray(x, np.float64)
+    p = c_params(params)
+    m, v, fs = ffi.new("int32_t **"), ffi.new("uint32_t **"), ffi.new("int64_t **")
+    tr, n, nt, T = ffi.new("int32_t **"), ffi.new("int64_t *"), ffi.new("int64_t *"), ffi.new("int *")
+    if lib.mule_encode_trace(ffi.from_buffer("double[]", x), len(x), p, m, v, n, fs, T, tr, nt):
+        raise RuntimeError("mule_encode_trace failed")
+    out = (np.frombuffer(ffi.buffer(m[0], 4 * n[0]), np.int32).copy(),
+           np.frombuffer(ffi.buffer(v[0], 4 * n[0]), np.uint32).copy(),
+           np.frombuffer(ffi.buffer(fs[0], 8 * (T[0] + 1)), np.int64).copy(),
+           np.frombuffer(ffi.buffer(tr[0], 80 * nt[0]), np.int32).reshape(-1, 20).copy())
+    for q in (m[0], v[0], fs[0], tr[0]):
         lib.mule_free(q)
     return out

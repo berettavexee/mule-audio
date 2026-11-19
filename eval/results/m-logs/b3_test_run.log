@@ -1,0 +1,23 @@
+                kbps  nmr_db  ...         worst_item  worst_nmr_db
+config                        ...                                 
+mule_-6       119.09   -2.52  ...  b_lebanon_hanover          2.47
+mule_-9       149.12   -5.46  ...  b_lebanon_hanover         -0.04
+mule_-12      180.48   -8.43  ...  b_lebanon_hanover         -3.19
+mule_-15      212.80  -11.43  ...  b_lebanon_hanover         -6.87
+mule-c32_-6   119.75   -2.75  ...  b_lebanon_hanover          2.49
+mule-c32_-9   149.46   -5.67  ...  b_lebanon_hanover          0.05
+mule-c32_-12  180.67   -8.63  ...  b_lebanon_hanover         -2.98
+mule-c32_-15  212.79  -11.60  ...  b_lebanon_hanover         -6.22
+mule-c64_-6   119.79   -2.76  ...  b_lebanon_hanover          2.85
+mule-c64_-9   149.46   -5.68  ...  b_lebanon_hanover          0.53
+mule-c64_-12  180.60   -8.66  ...  b_lebanon_hanover         -3.08
+mule-c64_-15  212.69  -11.62  ...  b_lebanon_hanover         -5.82
+
+[12 rows x 12 columns]
+
+          nmr_db@128  nmr_db@160
+mule           -3.39       -6.49
+mule-c32       -3.56       -6.67
+mule-c64       -3.57       -6.69
+
+360 rows -> eval/results/b3_test.csv

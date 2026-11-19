@@ -1,0 +1,34 @@
+tracing 200 train items...
+  10/200
+  20/200
+  30/200
+  40/200
+  50/200
+  60/200
+  70/200
+  80/200
+  90/200
+  100/200
+  110/200
+  120/200
+  130/200
+  140/200
+  150/200
+  160/200
+  170/200
+  180/200
+  190/200
+  200/200
+tracing 66 dev items...
+  10/66
+  20/66
+  30/66
+  40/66
+  50/66
+  60/66
+  66/66
+settings {'tcq_chain': 1, 'tcq_states': 64}; odd-state share 43.9 %
+66 items, 942 s, all bits 117.8 kb/s, coefficient symbols (current) 68.1 kb/s
+rule                               coef kb/s   coef %  total %  items better
+current                                68.13    +0.00    +0.00      0/66
+parity of the state (192)              67.69    -0.66    -0.38     58/66

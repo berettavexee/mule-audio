@@ -1,0 +1,42 @@
+
+=== mule-c32 vs mule  (30 items)
+  odg      @128: +0.0317 [+0.0145, +0.0479]   @160: +0.0141 [+0.0045, +0.0243]   (+ = better)
+  odg_adv  @128: +0.0358 [+0.0242, +0.0520]   @160: +0.0151 [+0.0104, +0.0226]   (+ = better)
+  mms2f    @128: +4.5677 [+3.3167, +5.8876]   @160: +2.2398 [-0.3901, +4.1779]   (+ = better)
+  visqol   @128: +0.0035 [+0.0018, +0.0054]   @160: +0.0015 [+0.0004, +0.0027]   (+ = better)
+  zimt     @128: +0.0000 [-0.0000, +0.0000]   @160: +0.0000 [-0.0000, +0.0000]   (+ = better)
+  nmr_db   @128: +0.1674 [+0.1421, +0.1900]   @160: +0.1787 [+0.1486, +0.2005]   (+ = better)
+  rate change at equal settings: +0.23 %
+  regressions (< -0.05 odg): 1
+                   d_odg  rate_%
+item                            
+b_lebanon_hanover -0.083   0.209
+  best:
+                          d_odg  rate_%
+item                                   
+b_evgeny_mravinsky        0.085   0.318
+b_ludwig_van_beethoven59  0.074   0.136
+b_max_richter             0.059   0.103
+b_crystal_castles         0.052   0.043
+b_classical               0.039   0.291
+
+=== mule-c64 vs mule  (30 items)
+  odg      @128: +0.0379 [+0.0203, +0.0579]   @160: +0.0206 [+0.0083, +0.0323]   (+ = better)
+  odg_adv  @128: +0.0405 [+0.0279, +0.0581]   @160: +0.0174 [+0.0122, +0.0252]   (+ = better)
+  mms2f    @128: +5.6368 [+4.2394, +7.3165]   @160: +4.3408 [+1.9264, +6.5147]   (+ = better)
+  visqol   @128: +0.0048 [+0.0025, +0.0075]   @160: +0.0023 [+0.0012, +0.0037]   (+ = better)
+  zimt     @128: +0.0000 [-0.0000, +0.0000]   @160: +0.0000 [-0.0000, +0.0000]   (+ = better)
+  nmr_db   @128: +0.1810 [+0.1244, +0.2196]   @160: +0.2030 [+0.1481, +0.2393]   (+ = better)
+  rate change at equal settings: +0.22 %
+  regressions (< -0.05 odg): 1
+                   d_odg  rate_%
+item                            
+b_lebanon_hanover   -0.1   0.203
+  best:
+                          d_odg  rate_%
+item                                   
+b_evgeny_mravinsky        0.095   0.248
+b_ludwig_van_beethoven59  0.084   0.110
+b_gustav_holst            0.058   0.335
+b_max_richter             0.056   0.091
+b_crystal_castles         0.054  -0.005

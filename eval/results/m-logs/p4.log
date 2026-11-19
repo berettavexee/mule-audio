@@ -1,0 +1,7 @@
+check: first-coefficient states all 0: True; odd-state share 40.2 %
+66 items, 942 s, all bits 117.2 kb/s, coefficient symbols (current) 68.7 kb/s
+rule                               coef kb/s   coef %  total %  items better
+current                                68.73    +0.00    +0.00      0/66
+parity of the state (192)              68.23    -0.72    -0.42     60/66
+full state (768)                       68.36    -0.53    -0.31     50/66
+exit 0

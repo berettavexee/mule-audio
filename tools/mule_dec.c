@@ -222,5 +222,14 @@ done:                                           /* one way out: everything freed
     free(pk);
     free(pstart);
     free(data);
+#ifdef MULE_STATS                       /* measurement build: symbol statistics on stderr */
+    {
+        extern uint64_t mule_stat_calls[], mule_stat_search[], mule_stat_update[], mule_stat_raw;
+        for (int st = 0; st < MULE_S_COUNT; st++)
+            fprintf(stderr, "stat %d %llu %llu %llu\n", st, (unsigned long long)mule_stat_calls[st],
+                    (unsigned long long)mule_stat_search[st], (unsigned long long)mule_stat_update[st]);
+        fprintf(stderr, "stat raw %llu\n", (unsigned long long)mule_stat_raw);
+    }
+#endif
     return rc;
 }

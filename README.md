@@ -22,8 +22,8 @@ not work, read on.
 | Ogg container, gapless granules, comment header | Vorbis / Opus | `MULETags` is `OpusTags` with another name |
 | Band energies coded apart from a normalized shape, noise filling | Opus (CELT) | energy is always right, even when the shape is coarse |
 | Pre-echo control in the psychoacoustic model | AAC | the only pre-echo idea that worked (see below) |
-| Shape quantizer: 8-state trellis-coded quantization (TCQ) | JPEG 2000 part 2 | the one original-ish part |
-| Entropy coding: rANS with adaptive multi-symbol CDFs | rANS (J. Duda), CDF adaptation as in AV1 | 134 adaptive models, trained initial tables |
+| Shape quantizer: trellis-coded quantization (TCQ), 64 states, one trellis running across the bands | JPEG 2000 part 2, VVC | the one original-ish part |
+| Entropy coding: rANS with adaptive multi-symbol CDFs | rANS (J. Duda), CDF adaptation as in AV1 | 134 adaptive models, trained initial tables, 8-symbol alphabet for the coefficients |
 | Decoder in integers only, bit-exact everywhere | necessity | the target has no FPU |
 
 Why hasn’t anyone tried this combination before? Back when Opus was being developed, most of these techniques were tied up in software patents. For some of them, that’s no longer the case, and I couldn’t care less.
@@ -38,22 +38,25 @@ annoying *(good)*, −4 = very annoying (shit). ViSQOL (Virtual Speech Quality O
 |---|---|---|---|---|---|
 | Vorbis (libvorbis) | −0.45 | −0.16 | −0.63 / −0.34 | 4.47 | −2.32 |
 | Opus (libopus) | **−0.12** | **0.00** | −0.45 / −0.24 | 4.54 | **−0.59** |
-| MULE | −0.22 | −0.03 | **−0.39 / −0.16** | **4.60** | −1.66 |
+| MULE v2 | −0.22 | −0.03 | −0.39 / −0.16 | 4.60 | −1.66 |
+| MULE v3 | −0.17 | −0.01 | **−0.36 / −0.14** | **4.61** | −1.29 |
 
 In plain words:
 - **at 128 kb/s and above**, MULE beats Vorbis everywhere, loses to Opus on PEAQ's basic score,
   and wins on the advanced score and ViSQOL. In blind ABX tests (16 trials per excerpt, on the six
-  excerpts where PEAQ saw the biggest gap), I could tell MULE at 128 kb/s neither from
-  the original nor from Opus at the same rate (best score 11/16; 12 is needed);
+  excerpts where PEAQ saw the biggest gap), I could tell MULE v2 at 128 kb/s neither from
+  the original nor from Opus at the same rate (best score 11/16; 12 is needed). v3 closed about
+  40 % of the remaining PEAQ gap; nobody listened to it, since nobody could hear the old one;
 - **at 64 kb/s**, the mule sits down in the road. Opus is far better: it has a decade of tools for
   low rates (bandwidth reduction, intensity stereo, band folding) that MULE never got;
-- **on the device**, MULE decodes a whole album at 139 kb/s with core B at **59 MHz** on average
+- **on the device**, MULE v2 decodes a whole album at 139 kb/s with core B at **59 MHz** on average
   (Opus: 50 to 55 MHz), in 30 KiB of code and tables (Opus: 71 KiB) and 91 KiB of RAM (Opus:
   73 KiB). Its output is the same, bit for bit, on the PC, on the firmware's emulator and on a
-  Cortex-M3 under QEMU.
+  Cortex-M3 under QEMU. The v3 decoder needs 8 % fewer instructions under QEMU; it has not
+  been ported to the player yet.
 
 So, officially: a codec that is worse than Opus on almost every count, and sometimes as good.
-This is a surprise; outperforming Vorbis was by any means a sure thing. Coming close to Opus 
+This is a surprise; outperforming Vorbis was by no means a sure thing. Coming close to Opus
 was unexpected.
 
 ### Why so many machines, and so few ears
@@ -90,6 +93,32 @@ the trellis state giving the parity, a Viterbi search in the encoder) gained abo
 coefficient. It was also the difference in blind listening at 160 kb/s: transparent on 6 critical
 excerpts out of 6, against 5 out of 6 with the scalar quantizer. Making the Viterbi use the real
 adaptive-model costs (with each survivor's contexts) added a little more.
+
+**A bigger trellis, if it runs across the bands (format v3).** The v2 trellis restarted from
+state 0 at the start of every band, and took three coefficients to open its paths: a real loss
+in bands of 8. Simply carrying the state from one band to the next gained nothing; what worked
+was one Viterbi search over all the coded bands of a frame, choosing where a band ends together
+with where the next one starts, and then more states: 64 instead of 8. At equal rate on the test
+set, +0.036 ODG at 128 kb/s and +0.015 at 160 kb/s, all metrics agreeing: the biggest encoder
+gain since TCQ itself. The decoder pays with a 256-byte table, nothing else. The encoder pays
+with a Viterbi eight times wider; estimating the allocation choices on a small trellis, and
+computing each subset's candidates once per coefficient, brought it back to about 4 times real
+time (v2: 6). A 48-state trellis was tried too, because why not: worse than 32 states, since
+good trellises come from convolutional codes and those like powers of two.
+
+The same release halved the coefficients' alphabet (8 symbols and an escape instead of 16),
+for no loss of rate: the decoder updates half as many CDF entries, and uses 8 % fewer
+instructions than v2 on the Cortex-M3 (`spec/FORMAT.md`, `eval/results/B-LOG.md`, `C-LOG.md`).
+
+**The last gap to Opus, window by window.** Where does MULE still lose to Opus on PEAQ's basic
+score? Everywhere a little (three windows out of four) and mostly in loud, dense, distorted
+rock. MULE's coding noise there is *lower* than Opus's in every frequency region, by the
+internal model; what PEAQ dislikes is the temporal envelope inside each band (its modulation
+difference). More short blocks made it worse. A Haar transform inside the long frames' bands,
+trading frequency resolution for time resolution where needed (CELT's `tf_change`, roughly),
+did exactly what was hoped on rock (+0.026 ODG at a fixed level) and cost bits everywhere else;
+choosing the level frame by frame left +0.003 on the development set, below the threshold.
+Abandoned (`eval/results/D-LOG.md`, `H-LOG.md`).
 
 **Pre-echo, a collection of dead ends.** PEAQ's diagnostic variables (MOVs) said that what was
 left of the gap to Opus came from frames where the noise is concentrated: attacks in long frames,
@@ -155,9 +184,19 @@ variant of MULE was built and measured, and it lost to the trellis: see `docs/VA
 I left with no grasp of PVQ and a very nice entropy coder. It also happens to be fast to decode,
 which mattered on the player, and the compression comes from the modelling:
 the contexts are worth about 13 %, the adaptation about 4 % on top of trained tables. And on the
-Cortex-M3, this part costs more than the transform: **63 % of the decoder's instructions** go to
+Cortex-M3, this part costs more than the transform: **63 % of the v2 decoder's instructions** go to
 finding each symbol in its CDF and updating up to 16 entries afterwards, more than the inverse
 MDCT and the synthesis together. That is where cycles would be saved, if they ever had to be.
+
+**The last squeeze.** A round of eight measurements asked whether the format or the
+encoder still had easy gains: smoother inter-frame contexts, contexts looking at the next frame,
+interpolated energies, rarer key packets, a frame-wide Viterbi on the allocations, a Viterbi on
+the frame decisions, the TCQ looking one frame ahead, and a CMA-ES tuning of the encoder's knobs.
+None reached its threshold (2 % of the rate for a format change, +0.01 ODG for the encoder); the
+best was a 0.25 % saving that would have cost 4 KiB of RAM. The mule has been squeezed. The
+tuning run taught one more lesson about measurement: an "equal-rate" objective whose two
+measuring points both sat above the target rate let the optimizer win by extrapolation, and it
+found that bias long before any real gain (`eval/results/M-LOG.md`).
 
 **Fuzzing pays.** Coverage-guided fuzzing of the device decoder found, within minutes, that a
 damaged stream could produce a negative allocation and make the decoder write outside its model

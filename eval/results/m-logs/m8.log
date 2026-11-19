@@ -1,0 +1,11 @@
+66 items, 942 s, all bits 117.2 kb/s, coefficient symbols (current) 68.7 kb/s
+rule                               coef kb/s   coef %  total %  items better
+current                                68.73    +0.00    +0.00      0/66
+ema a=0 (y_prev, float rescale)        68.86    +0.20    +0.12      8/66
+ema a=0.5 k=1.0                        68.62    -0.15    -0.09     33/66
+ema a=0.7 k=1.0                        68.79    +0.09    +0.05     25/66
+ema a=0.85 k=1.0                       69.18    +0.66    +0.39     12/66
+ema a=0.5 k=0.5                        68.84    +0.17    +0.10     16/66
+ema a=0.7 k=0.5                        69.01    +0.40    +0.24     11/66
+ema a=0.85 k=0.5                       69.36    +0.92    +0.54      4/66
+max(y_prev, ema a=0.5)                 68.54    -0.27    -0.16     36/66

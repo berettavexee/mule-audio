@@ -1,0 +1,7 @@
+17:51:26 start m3 runs
+18:11:43 end m3 runs (exit 0)
+18:12:21 end m3 compare (exit 0)
+18:13:44 start m6 search
+18:38:06 m6 search stopped by hand: the objective extrapolated below both qualities (fixed: rate-bracketed qualities)
+18:40:22 start m6 search (rate-bracketed)
+19:13:38 end m6 search: stopped at the user's request after 2 of 15 generations (best +0.0006 over production)

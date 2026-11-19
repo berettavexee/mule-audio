@@ -55,7 +55,7 @@ class Mule:
     (build/mule-dec). Name mule[-variant]_<q_db>, e.g. mule_-9, mule-g8_-9 (VARIANTS below)."""
 
     ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    VARIANTS = {                # over params.Params; "" = production
+    VARIANTS = {                # over params.Params; "" = production (format v3)
         "": {},
         "g8": {"groups": "8"},
         "g1": {"groups": "1"},
@@ -63,6 +63,18 @@ class Mule:
         "ms": {"stereo": "ms"},
         "kf20": {"keyframe": 20},
         "kf80": {"keyframe": 80},
+        # production = format v3 (64 chained states, 8-symbol coefficients) since 19/11/2026;
+        # v2's coding tools (8 states restarted in each band, 16 symbols), in a v3 header:
+        "v2": {"tcq_states": 8, "tcq_chain": 0, "coef_a8": 0},
+        # points 16-17 and 13 as measured (B-LOG.md, C-LOG.md); c64a8 = production
+        "c8": {"tcq_states": 8, "coef_a8": 0}, "c16": {"tcq_states": 16, "coef_a8": 0, "tcq_rd_states": 0},
+        "c32": {"tcq_states": 32, "coef_a8": 0, "tcq_rd_states": 0},
+        "s32": {"tcq_states": 32, "tcq_chain": 0, "coef_a8": 0, "tcq_rd_states": 0},
+        "c64": {"coef_a8": 0, "tcq_rd_states": 0},
+        "c64a8": {"tcq_rd_states": 0},
+        # encoder speed: the RD choice's estimates on a smaller trellis (8 by default since 19/11/2026)
+        "rd8": {"tcq_rd_states": 8}, "rd16": {"tcq_rd_states": 16}, "rd32": {"tcq_rd_states": 32}, "rd64": {"tcq_rd_states": 0},
+        "c32rd8": {"tcq_states": 32, "tcq_rd_states": 8}, "c32a8": {"tcq_states": 32, "tcq_rd_states": 0},
         "rd0": {"rd_lambda": 0.0},
         "l0": {"tcq_lam": 0.0},
         "l015": {"tcq_lam": 0.15},
@@ -115,6 +127,12 @@ class Mule:
 
     def __init__(self, variant, q):
         from mule import params
+        if variant.startswith("m6") and variant not in self.VARIANTS:   # a M6 search's best point
+            import json
+            tag = variant[2:]                   # "m6v3" -> m6_best_v3.json (m6_tune.py --tag v3)
+            path = os.path.join(self.ROOT, "eval", "results", f"m6_best_{tag}.json" if tag else "m6_best.json")
+            self.VARIANTS[variant] = {k: (int(v) if k.startswith("tcq_") and k != "tcq_rdl" else v)
+                                      for k, v in json.load(open(path)).items()}
         self.params = params.Params(q_db=q, **self.VARIANTS[variant])
         self.name = f"mule{'-' + variant if variant else ''}_{q:g}"
 
