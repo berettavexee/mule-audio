@@ -1,5 +1,5 @@
-/* MULE C encoder (core/enc.c). With rd_lambda, tcq_rd, fine_p and pre_db off it makes the
- * decisions of py/mule/encoder.py (the Python prototype), exactly (tests/test_cenc.py). */
+/* MULE encoder API (core/enc.c and its modules, core/enc_int.h). The settings below, their
+ * production values in mule_enc_defaults; py/mule/params.py mirrors them for Python. */
 #ifndef MULE_ENC_H
 #define MULE_ENC_H
 
@@ -58,7 +58,7 @@ void mule_enc_defaults(mule_enc_params *p);
 int mule_encode(const double *pcm, int64_t L, const mule_enc_params *p,
                 const char *const *tags, int ntags, uint8_t **out, size_t *out_len,
                 size_t *audio_bytes);
-/* The coding operations only (as py/mule/encoder.py's Ops): model index or -nbits, value;
+/* The coding operations only: model index (>= 0) or -nbits (a raw value), and the value;
  * frame_start[0..frames]. Arrays malloc'd (mule_free). For tests and comparisons. */
 int mule_encode_ops(const double *pcm, int64_t L, const mule_enc_params *p, int32_t **model,
                     uint32_t **val, int64_t *n, int64_t **frame_start, int *frames);
@@ -70,7 +70,10 @@ int mule_encode_ops(const double *pcm, int64_t L, const mule_enc_params *p, int3
  * value before quantization (D/2 units, x256), the Viterbi's rate weight (x1e4), trellis state
  * after this coefficient.
  * Energy record: 1, op index, frame, channel, block type, band, Q, prediction, residual, context,
- * alpha, group, key, previous Q, M/S (1) or L/R (0), then 0s. */
+ * alpha, group, key, previous Q, M/S (1) or L/R (0), then 0s.
+ * Band record (every band of each coded channel and group, after its allocation): 2, op index,
+ * frame, channel, block type, band, allocation a, M/S, group, 1000 log10 of the band's mask and
+ * of its coded channel's power per coefficient, Q, the group's first and end window, then 0s. */
 #define MULE_TRACE_W 20
 int mule_encode_trace(const double *pcm, int64_t L, const mule_enc_params *p, int32_t **model,
                       uint32_t **val, int64_t *n, int64_t **frame_start, int *frames,

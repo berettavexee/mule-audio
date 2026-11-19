@@ -16,6 +16,7 @@ from mule_enc import decoded  # noqa: E402
 
 
 def main():
+    """The command line: ReplayGain 2.0 tags, per track and, with -a, per album."""
     ap = argparse.ArgumentParser(prog="mule-gain", description="ReplayGain tags for Ogg MULE files.")
     ap.add_argument("files", nargs="+")
     ap.add_argument("-a", "--album", action="store_true", help="also the album gain: the files given are one album")
@@ -33,7 +34,7 @@ def main():
         meters.append(m)
         datas.append(data)
     album = replaygain.Meter.merge(meters) if a.album else None
-    for path, data, m in zip(a.files, datas, meters):
+    for path, data, m in zip(a.files, datas, meters, strict=True):
         rg = replaygain.tags(m.loudness(), m.peak, album)
         if not a.quiet:
             print(f"{path}: track {rg['REPLAYGAIN_TRACK_GAIN']} ({m.loudness():.2f} LUFS), peak "

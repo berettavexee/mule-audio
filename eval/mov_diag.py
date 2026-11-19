@@ -1,44 +1,74 @@
-"""PEAQ basic MOVs of Opus 128 and MULE at the same rate, whole items (frame_diag.mule_at), to see
-which model output separates them. TR (environment) set the transient detector's ratio in the
-experiment of 19/11/2026 (a scratch build only; ignored otherwise).
-    python eval/mov_diag.py item1,item2,..."""
-import sys, os, re, tempfile, numpy as np, pandas as pd, soundfile as sf
-sys.path[:0]=["eval","py"]
-import frame_diag as F, metrics, refcodecs, corpus
+"""PEAQ basic model outputs (MOVs) of Opus at 128 kb/s and of MULE at the same rate on each item
+(frame_diag.mule_at), whole items: which of PEAQ's variables separate the two codecs
+(eval/results/D-LOG.md). Also the share of MULE's short frames.
+
+    python eval/mov_diag.py item1,item2,...       (items of the test set)
+
+The transient-detector experiment of D-LOG.md (TR) needed a scratch build of the encoder with a
+settable detector threshold; it is not part of the codec."""
+import os
+import re
+import sys
+import tempfile
 from concurrent.futures import ProcessPoolExecutor
-MOVS=["BandwidthRefB","BandwidthTestB","TotalNMRB","WinModDiff1B","ADBB","EHSB","AvgModDiff1B","AvgModDiff2B","RmsNoiseLoudB","MFPDB","RelDistFramesB"]
-def movs(ref,deg,fs):
+
+import pandas as pd
+import soundfile as sf
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path[:0] = [HERE, os.path.join(os.path.dirname(HERE), "py")]
+import corpus        # noqa: E402
+import frame_diag    # noqa: E402
+import metrics       # noqa: E402
+import refcodecs     # noqa: E402
+
+MOVS = ["BandwidthRefB", "BandwidthTestB", "TotalNMRB", "WinModDiff1B", "ADBB", "EHSB",
+        "AvgModDiff1B", "AvgModDiff2B", "RmsNoiseLoudB", "MFPDB", "RelDistFramesB"]
+
+
+def movs(ref, deg, fs):
+    """PEAQ basic's ODG and MOVs of deg against ref (local GstPEAQ with PEAQ_MOVS)."""
     with tempfile.TemporaryDirectory() as d:
-        r,g=os.path.join(d,"r.wav"),os.path.join(d,"g.wav")
-        metrics._to48k(ref,fs,r); metrics._to48k(deg,fs,g)
-        env=dict(os.environ, PEAQ_MOVS="1"); peaq=metrics._PEAQ_DEFAULT
-        env["GST_PLUGIN_PATH"]=os.path.join(os.path.dirname(os.path.dirname(peaq)),"lib","gstreamer-1.0")
-        txt=metrics._run_retry([peaq,r,g],env=env)
-    out={m:metrics._mov(txt,m) for m in MOVS}
-    m=re.search(r"Objective Difference Grade:\s*([-\d.]+)",txt); out["odg"]=float(m.group(1))
+        r, g = os.path.join(d, "r.wav"), os.path.join(d, "g.wav")
+        metrics._to48k(ref, fs, r)
+        metrics._to48k(deg, fs, g)
+        peaq = metrics._PEAQ_DEFAULT
+        env = dict(os.environ, PEAQ_MOVS="1",
+                   GST_PLUGIN_PATH=os.path.join(os.path.dirname(os.path.dirname(peaq)), "lib", "gstreamer-1.0"))
+        txt = metrics._run_retry([peaq, r, g], env=env)
+    out = {m: metrics._mov(txt, m) for m in MOVS}
+    m = re.search(r"Objective Difference Grade:\s*([-\d.]+)", txt)
+    out["odg"] = float(m.group(1)) if m else float("nan")
     return out
-def job(a):
-    name,wav=a
-    from mule import native
-    if 'TR' in os.environ:
-        native.lib.mule_tr_ratio_db=float(os.environ['TR'])
-    x,fs=sf.read(wav,dtype="float64",always_2d=True)
+
+
+def job(item):
+    """One item: rows (item, codec, MOVs...) for Opus and MULE, and MULE's short-frame share."""
+    name, wav = item
+    x, fs = sf.read(wav, dtype="float64", always_2d=True)
     with tempfile.TemporaryDirectory() as work:
-        od,_,ok=refcodecs.run("opus_128",wav,work)
-        md,q,mk,_=F.mule_at(x,wav,ok,work); _=_.values
-        ref0=metrics.subsonic(x,fs); rows=[]
-        res={}
-        res["short"]={"odg":float((_>0).mean())}
-        for tag,p in (("opus",od),("mule",md)):
-            y,fs2=metrics.load(p)
-            if fs2!=fs:
-                import soxr; y=soxr.resample(y,fs2,fs,quality="VHQ")
-            r,y,lag=metrics.align(ref0,metrics.subsonic(y,fs))
-            res[tag]=movs(r,y,fs)
-        return [dict(item=name,codec=t,**v) for t,v in res.items()]
-if __name__=="__main__":
-    keep=sys.argv[1].split(",")
-    items=[it for it in corpus.items("test") if it[0] in keep]
-    with ProcessPoolExecutor(len(items)) as ex: rows=[r for rs in ex.map(job,items) for r in rs]
-    d=pd.DataFrame(rows).set_index(["item","codec"])
+        odec, _enc, okbps = refcodecs.run("opus_128", wav, work)
+        mdec, _q, _kbps, ftype = frame_diag.mule_at(x, wav, okbps, work)
+        ref0 = metrics.subsonic(x, fs)
+        res = {"short": {"odg": float((ftype.values > 0).mean())}}
+        for tag, path in (("opus", odec), ("mule", mdec)):
+            y, fs2 = metrics.load(path)
+            if fs2 != fs:
+                import soxr
+                y = soxr.resample(y, fs2, fs, quality="VHQ")
+            r, y, _lag = metrics.align(ref0, metrics.subsonic(y, fs))
+            res[tag] = movs(r, y, fs)
+    return [dict(item=name, codec=t, **v) for t, v in res.items()]
+
+
+def main():
+    keep = sys.argv[1].split(",")
+    items = [it for it in corpus.items("test") if it[0] in keep]
+    with ProcessPoolExecutor(len(items)) as ex:
+        rows = [r for rs in ex.map(job, items) for r in rs]
+    d = pd.DataFrame(rows).set_index(["item", "codec"])
     print(d.round(3).T.to_string())
+
+
+if __name__ == "__main__":
+    main()

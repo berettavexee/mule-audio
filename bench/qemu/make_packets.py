@@ -16,6 +16,7 @@ from mule import native, oggfile, params as E   # noqa: E402
 
 
 def main(item="abba", q="-12", seconds="10"):
+    """Writes bench/qemu/packets.h for an excerpt and prints the PC decoder's hash."""
     x, fs = sf.read(os.path.join(ROOT, "data", "corpus", item + ".wav"), always_2d=True)
     x = x[: int(float(seconds) * fs)]
     extra = {k: int(v) for k, v in (kv.split("=") for kv in filter(None, os.environ.get("MULE_PARAMS", "").split(",")))}

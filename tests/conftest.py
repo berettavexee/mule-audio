@@ -1,3 +1,4 @@
+"""pytest: the package py/mule importable from the tests."""
 import os
 import sys
 

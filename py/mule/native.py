@@ -60,9 +60,8 @@ int mule_encode_ops(const double *pcm, int64_t L, const mule_enc_params *p, int3
 
 
 def _load():
-    src = [os.path.join(ROOT, "core", f) for f in
-           ("model.c", "model.h", "models.c", "rans.c", "dec.c", "enc.c", "mule.h", "mule_enc.h",
-            "init_cdf.h", "fx_tables.h")]
+    import glob
+    src = glob.glob(os.path.join(ROOT, "core", "*.[ch]")) + [os.path.join(ROOT, "Makefile")]
     os.makedirs(os.path.dirname(LIB), exist_ok=True)
     # one rebuild at a time: the workers of an evaluation import this together (a race once
     # left a truncated library, "file too short")
@@ -147,9 +146,11 @@ class Models:
         self.p = ffi.gc(lib.mule_models_alloc(), lib.mule_models_free)
 
     def reset(self):
+        """Back to the initial models (the trained tables), as at a key packet."""
         lib.mule_models_reset(self.p)
 
     def copy(self):
+        """An independent copy of these models (their adaptation state included)."""
         o = Models()
         lib.mule_models_copy(o.p, self.p)
         return o
@@ -263,6 +264,8 @@ TRACE_FIELDS = {
              "yprev", "mag", "ctx", "pm", "level", "x256", "lam1e4", "tstate"],
     "energy": ["kind", "op", "frame", "ch", "type", "band", "q", "pred", "r", "ctx", "alpha", "group",
                "key", "qprev", "ms", "_1", "_2", "_3", "_4", "_5"],
+    "band": ["kind", "op", "frame", "ch", "type", "band", "a", "ms", "group", "mask_mdb", "pow_mdb", "q",
+             "k0", "k1", "_1", "_2", "_3", "_4", "_5", "_6"],
 }
 
 

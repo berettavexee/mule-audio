@@ -75,7 +75,7 @@ static void take(mule_dec *d, uint32_t slot, uint32_t start, uint32_t freq)
         d->x = (d->x << 16) | rd16(d);
 }
 
-#ifdef MULE_STATS                        /* measurement build only (eval/dec_stats.sh) */
+#ifdef MULE_STATS                        /* measurement build only (-DMULE_STATS: tools/mule_dec.c prints the counts; eval/results/C-LOG.md) */
 uint64_t mule_stat_calls[MULE_S_COUNT], mule_stat_search[MULE_S_COUNT], mule_stat_update[MULE_S_COUNT];
 uint64_t mule_stat_raw;
 #endif
@@ -252,6 +252,19 @@ void mule_dec_set_fft(int (*fft)(int32_t *re, int32_t *im, int bits))
     fft_hook = fft;
 }
 
+/* a + b and a - b on 32 bits, wrapping as the Cortex-M3 does (two's complement, defined in C
+ * through unsigned arithmetic): a valid stream never overflows (the transform's headroom), a
+ * malformed one gives wrong samples, never undefined behaviour (tools/fuzz). */
+static inline int32_t wadd(int32_t a, int32_t b)
+{
+    return (int32_t)((uint32_t)a + (uint32_t)b);
+}
+
+static inline int32_t wsub(int32_t a, int32_t b)
+{
+    return (int32_t)((uint32_t)a - (uint32_t)b);
+}
+
 /* In-place complex FFT (forward, unscaled) of n = 64 or 512 points. The input is in bit-reversed
  * order already, as HIFIACC wants it; twiddles exp(-2 i pi k / 512) in Q31. */
 static void fx_fft(int32_t *re, int32_t *im, int n)
@@ -264,10 +277,10 @@ static void fx_fft(int32_t *re, int32_t *im, int n)
                 int a = i + k, b = a + len / 2;
                 int32_t vr = (int32_t)((re[b] * wr - im[b] * wi) >> 31);
                 int32_t vi = (int32_t)((re[b] * wi + im[b] * wr) >> 31);
-                re[b] = re[a] - vr;
-                im[b] = im[a] - vi;
-                re[a] += vr;
-                im[a] += vi;
+                re[b] = wsub(re[a], vr);
+                im[b] = wsub(im[a], vi);
+                re[a] = wadd(re[a], vr);
+                im[a] = wadd(im[a], vi);
             }
     }
 }
@@ -408,14 +421,10 @@ static int coef_index(const group *g, int b, int i)
     return (g->k0 + i / w) * 128 + EDGES[b] + i % w;
 }
 
-/* One frame (spec 5): block type and groups, energy prediction weight, stereo flags; for each
- * coded channel and group the energies (5.1), allocations (5.2) and coefficients (5.3: noise or
- * TCQ levels with their contexts); inverse M/S; synthesis; 1024 samples per channel to out.
- * Returns early with err set on a damaged stream (energies or allocations out of range). */
-static void decode_frame(mule_dec *d, int16_t *out)
+/* The groups of windows of a frame of block type `type` (spec 5): the long frame's one window,
+ * or the short windows cut where the 7-bit mask says. The number of groups. */
+static int read_groups(mule_dec *d, int type, group *grp)
 {
-    int type = sym(d, MULE_S_BTYPE, 0);
-    group grp[MULE_N_SUB];
     int ng = 0;
     if (type == 0) {
         grp[ng++] = (group){0, 0, 1};
@@ -429,6 +438,108 @@ static void decode_frame(mule_dec *d, int16_t *out)
             }
         grp[ng++] = (group){1, k0, MULE_N_SUB};
     }
+    return ng;
+}
+
+/* The energies q of channel c, group g (spec 5.1): predicted from the previous frame and the
+ * band below (weight alpha), plus the coded residuals. -1 if out of bounds (not a valid
+ * stream). */
+static int read_energies(mule_dec *d, int c, int alpha, int *q)
+{
+    int left = d->qprev[c][0], rprev = 0;
+    for (int b = 0; b < MULE_NB; b++) {
+        int s = sym(d, MULE_S_ENERGY, band_class(b) * 3 + (iabs(rprev) < 2 ? iabs(rprev) : 2));
+        int r = signed_val(d, s);
+        int pred = floor_div(alpha * d->qprev[c][b] + (32 - alpha) * left, 32);
+        q[b] = pred + r;
+        if (q[b] < MULE_QMIN || q[b] > MULE_QMAX)
+            return -1;
+        left = q[b];
+        rprev = r;
+    }
+    memcpy(d->qprev[c], q, sizeof(int) * MULE_NB);
+    return 0;
+}
+
+/* The allocations a of channel c (spec 5.2): from the band below or from the previous frame
+ * (mode), plus the coded differences. -1 if out of bounds (not a valid stream). */
+static int read_allocations(mule_dec *d, int c, int *a)
+{
+    int mode = sym(d, MULE_S_AMODE, 0);
+    for (int b = 0; b < MULE_NB; b++) {
+        int s = sym(d, MULE_S_ALLOC, band_class(b) + 3 * mode);
+        int dv = signed_val(d, s);
+        int ref = mode ? d->aprev[c][b] : (b ? a[b - 1] : d->aprev[c][0]);
+        a[b] = ref + dv;
+        if (a[b] < 0 || a[b] > MULE_AMAX)
+            return -1;
+    }
+    memcpy(d->aprev[c], a, sizeof(int) * MULE_NB);
+    return 0;
+}
+
+/* The coefficients of one coded band b (a > 0) of channel c in group g (spec 5.3), into X; a
+ * long frame's indices into ycur. inter: the inter-frame prediction applies (e its exponent);
+ * tail1, tail2: the two previous indices; tst: the trellis state at the band's start. The
+ * trellis state at its end. */
+static int read_band(mule_dec *d, coef_t *X, uint16_t *ycur, const group *gr, int c, int b, int q,
+                     int a, int inter, int e, int64_t *tail1, int64_t *tail2, int tst)
+{
+    int n = band_count(gr, b), type = gr->type;
+    int ac = a / 3 < 15 ? a / 3 : 15;
+    int64_t ipw = POW4[e & 3];                  /* inter-frame rescaling, per band */
+    int ish = floor_div(e, 4);
+    band_scale bs = scale_of(q, a);
+    int w = EDGES[b + 1] - EDGES[b], col = 0;   /* short groups: window by window */
+    int idx = coef_index(gr, b, 0);
+    int64_t t1 = *tail1, t2 = *tail2;
+    for (int i = 0; i < n; i++) {
+        int64_t mctx = 2 * t1 + t2;
+        if (inter) {                            /* the same coefficient, last frame */
+            int64_t v = (int64_t)d->ylong[c][idx] * ipw;
+            int64_t pm = ish >= 0 ? (v << (ish < 8 ? ish : 8)) >> 8 : v >> (8 - ish);
+            if (pm > 31)
+                pm = 31;
+            mctx = (mctx + 3 * pm + 1) >> 1;
+        }
+        int ctx = ac * 6 + nc_map(mctx);
+        int s = sym(d, MULE_S_COEF, ctx);
+        int64_t mag = s;
+        if (s == d->coef_t) {                   /* escape: Exp-Golomb */
+            int k = sym(d, MULE_S_CESC, ac);
+            mag = d->coef_t + (int64_t)(1u << k) - 1 + (k ? raw(d, k) : 0);
+        }
+        /* TCQ: the state gives the level's parity (odd states have no zero) */
+        int even = !(tst & 1);
+        int64_t k = even ? 2 * mag : 2 * mag + 1;
+        if ((!even || mag) && raw(d, 1))
+            k = -k;
+        tst = d->tcq_next[tst][k & 3];
+        X[idx] = coef_value(k, &bs);
+        if (type == 0)
+            ycur[idx] = (uint16_t)(mag < 65535 ? mag : 65535);
+        t2 = t1;
+        t1 = mag;
+        idx++;
+        if (type && ++col == w) {               /* next short window */
+            col = 0;
+            idx += 128 - w;
+        }
+    }
+    *tail1 = t1;
+    *tail2 = t2;
+    return tst;
+}
+
+/* One frame (spec 5): block type and groups, energy prediction weight, stereo flags; for each
+ * coded channel and group the energies (5.1), allocations (5.2) and coefficients (5.3: noise or
+ * TCQ levels with their contexts); inverse M/S; synthesis; 1024 samples per channel to out.
+ * Returns early with err set on a damaged stream (energies or allocations out of range). */
+static void decode_frame(mule_dec *d, int16_t *out)
+{
+    int type = sym(d, MULE_S_BTYPE, 0);
+    group grp[MULE_N_SUB];
+    int ng = read_groups(d, type, grp);
     int ai = sym(d, MULE_S_ALPHA, 0);
     int ms[MULE_NB];
     for (int b = 0; b < MULE_NB; b++)
@@ -443,91 +554,25 @@ static void decode_frame(mule_dec *d, int16_t *out)
         memset(ycur, 0, sizeof d->ycur);
         int q[MULE_NB] = {0}, a[MULE_NB] = {0};
         for (int g = 0; g < ng; g++) {
-            /* energies: predicted from the previous frame and the band below */
-            int alpha = g == 0 ? ALPHAS[ai] : 26;
-            int left = d->qprev[c][0], rprev = 0;
-            for (int b = 0; b < MULE_NB; b++) {
-                int s = sym(d, MULE_S_ENERGY, band_class(b) * 3 + (iabs(rprev) < 2 ? iabs(rprev) : 2));
-                int r = signed_val(d, s);
-                int pred = floor_div(alpha * d->qprev[c][b] + (32 - alpha) * left, 32);
-                q[b] = pred + r;
-                if (q[b] < MULE_QMIN || q[b] > MULE_QMAX) {   /* not a valid stream (5.1) */
-                    d->err = 1;
-                    return;
-                }
-                left = q[b];
-                rprev = r;
+            if (read_energies(d, c, g == 0 ? ALPHAS[ai] : 26, q) || read_allocations(d, c, a)) {
+                d->err = 1;                     /* not a valid stream (5.1, 5.2) */
+                return;
             }
-            memcpy(d->qprev[c], q, sizeof q);
-            /* allocations: from the band below or from the previous frame (mode) */
-            int mode = sym(d, MULE_S_AMODE, 0);
-            for (int b = 0; b < MULE_NB; b++) {
-                int s = sym(d, MULE_S_ALLOC, band_class(b) + 3 * mode);
-                int dv = signed_val(d, s);
-                int ref = mode ? d->aprev[c][b] : (b ? a[b - 1] : d->aprev[c][0]);
-                a[b] = ref + dv;
-                if (a[b] < 0 || a[b] > MULE_AMAX) {           /* not a valid stream (5.2) */
-                    d->err = 1;
-                    return;
-                }
-            }
-            memcpy(d->aprev[c], a, sizeof a);
-            /* coefficients */
             int tst_run = 0;                    /* v3 chain: the state across the group's bands */
             for (int b = 0; b < MULE_NB; b++) {
-                int n = band_count(&grp[g], b);
                 if (q[b] <= MULE_QMIN)          /* silent band */
                     continue;
                 if (a[b] == 0) {                /* noise at the band's energy */
-                    int idx[176];
+                    int n = band_count(&grp[g], b), idx[176];
                     for (int i = 0; i < n; i++)
                         idx[i] = coef_index(&grp[g], b, i);
                     noise_band(d, X, idx, n, q[b]);
                     continue;
                 }
-                int ac = a[b] / 3 < 15 ? a[b] / 3 : 15;
                 int inter = inter_ok && d->along[c][b] > 0;
-                int tst = d->tcq_chain ? tst_run : 0;       /* TCQ state: 0 at each band (v2) */
                 int e = inter ? d->qlong[c][b] - q[b] + a[b] - d->along[c][b] : 0;
-                int64_t ipw = POW4[e & 3];                  /* inter-frame rescaling, per band */
-                int ish = floor_div(e, 4);
-                band_scale bs = scale_of(q[b], a[b]);
-                int w = EDGES[b + 1] - EDGES[b], col = 0;   /* short groups: window by window */
-                int idx = coef_index(&grp[g], b, 0);
-                for (int i = 0; i < n; i++) {
-                    int64_t mctx = 2 * tail1 + tail2;
-                    if (inter) {                            /* the same coefficient, last frame */
-                        int64_t v = (int64_t)d->ylong[c][idx] * ipw;
-                        int64_t pm = ish >= 0 ? (v << (ish < 8 ? ish : 8)) >> 8 : v >> (8 - ish);
-                        if (pm > 31)
-                            pm = 31;
-                        mctx = (mctx + 3 * pm + 1) >> 1;
-                    }
-                    int ctx = ac * 6 + nc_map(mctx);
-                    int s = sym(d, MULE_S_COEF, ctx);
-                    int64_t mag = s;
-                    if (s == d->coef_t) {                   /* escape: Exp-Golomb */
-                        int k = sym(d, MULE_S_CESC, ac);
-                        mag = d->coef_t + (int64_t)(1u << k) - 1 + (k ? raw(d, k) : 0);
-                    }
-                    /* TCQ: the state gives the level's parity (odd states have no zero) */
-                    int even = !(tst & 1);
-                    int64_t k = even ? 2 * mag : 2 * mag + 1;
-                    if ((!even || mag) && raw(d, 1))
-                        k = -k;
-                    tst = d->tcq_next[tst][k & 3];
-                    X[idx] = coef_value(k, &bs);
-                    if (type == 0)
-                        ycur[idx] = (uint16_t)(mag < 65535 ? mag : 65535);
-                    tail2 = tail1;
-                    tail1 = mag;
-                    idx++;
-                    if (type && ++col == w) {               /* next short window */
-                        col = 0;
-                        idx += 128 - w;
-                    }
-                }
-                tst_run = tst;
+                tst_run = read_band(d, X, ycur, &grp[g], c, b, q[b], a[b], inter, e, &tail1, &tail2,
+                                    d->tcq_chain ? tst_run : 0);   /* v2: state 0 at each band */
             }
         }
         if (type == 0) {                        /* the inter-frame context of the next frame */

@@ -50,6 +50,37 @@ class Opus:
         return dec, enc, audio_bytes(enc, 2)
 
 
+def adts_payload(path):
+    """Bytes of raw AAC data in an ADTS stream (frame headers excluded, as for Ogg)."""
+    data = open(path, "rb").read()
+    i = total = 0
+    while i + 7 <= len(data):
+        if data[i] != 0xFF or data[i + 1] & 0xF0 != 0xF0:
+            raise ValueError(f"{path}: lost ADTS sync at byte {i}")
+        hlen = 7 if data[i + 1] & 1 else 9                  # protection_absent = 1: no CRC
+        flen = ((data[i + 3] & 3) << 11) | (data[i + 4] << 3) | (data[i + 5] >> 5)
+        total += flen - hlen
+        i += flen
+    return total
+
+
+class AAC:
+    """Fraunhofer FDK-AAC (aac-enc frontend of libfdk-aac), AAC-LC, constant bitrate, afterburner
+    on, default bandwidth; ADTS decoded by ffmpeg's AAC decoder. The encoder delay is removed by the
+    alignment in metrics.evaluate."""
+
+    def __init__(self, kbps):
+        self.kbps = kbps
+        self.name = f"aac_{kbps}"
+
+    def run(self, wav, work):
+        enc = os.path.join(work, "enc.aac")
+        dec = os.path.join(work, "dec.wav")
+        _sh(["aac-enc", "-r", str(self.kbps * 1000), "-t", "2", "-a", "1", wav, enc])
+        _sh(["ffmpeg", "-nostdin", "-v", "error", "-y", "-i", enc, "-c:a", "pcm_s16le", dec])
+        return dec, enc, adts_payload(enc)
+
+
 class Mule:
     """MULE: real Ogg file from the C encoder (core/enc.c), decoded by the reference decoder
     (build/mule-dec). Name mule[-variant]_<q_db>, e.g. mule_-9, mule-g8_-9 (VARIANTS below)."""
@@ -166,6 +197,8 @@ def get(name):
         return Vorbis(float(val.lstrip("q")))
     if kind == "opus":
         return Opus(int(val))
+    if kind == "aac":
+        return AAC(int(val))
     raise ValueError(f"unknown codec configuration {name!r}")
 
 

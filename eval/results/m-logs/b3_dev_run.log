@@ -10,4 +10,4 @@ mule-c64_-15  193.01  -12.21       -4.72  ...  7.91e-05     heilung         -5.3
           nmr_db@128  nmr_db@160
 mule-c64       -5.63       -8.94
 
-264 rows -> eval/results/b3_dev.csv
+264 rows -> ./eval/results/b3_dev.csv

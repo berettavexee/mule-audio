@@ -14,7 +14,7 @@ from concurrent.futures import ProcessPoolExecutor
 import numpy as np
 import soundfile as sf
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # (eval/archive/)
 sys.path[:0] = [os.path.join(ROOT, "py"), os.path.join(ROOT, "eval")]
 import corpus  # noqa: E402
 from mule import native, params as E  # noqa: E402

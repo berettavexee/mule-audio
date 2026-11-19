@@ -30,6 +30,8 @@ SOURCE_TAGS = ["title", "artist", "album", "date", "tracknumber", "genre", "comm
 
 
 def quality_for(kbps):
+    """The quality setting (q_db) whose library-average rate is kbps, on RATE_CURVE (log-linear,
+    extended by its end slopes)."""
     q = np.array([c[0] for c in RATE_CURVE])
     r = np.log([c[1] for c in RATE_CURVE])
     lr = np.log(kbps)
@@ -43,6 +45,7 @@ def quality_for(kbps):
 
 
 def to_stereo(x):
+    """x (n, channels) as stereo: mono doubled, more than two channels downmixed (BS.775)."""
     if x.shape[1] == 1:
         return np.repeat(x, 2, axis=1)
     if x.shape[1] == 2:
@@ -62,6 +65,7 @@ def to_stereo(x):
 
 
 def read_input(path):
+    """Audio (float64, n x channels), its rate, its tags and its pictures from path ("-": stdin)."""
     data = sys.stdin.buffer.read() if path == "-" else None
     with sf.SoundFile(io.BytesIO(data) if data is not None else path) as f:
         x = f.read(dtype="float64", always_2d=True)
@@ -95,6 +99,7 @@ def picture_arg(spec):
 
 
 def main():
+    """The command line (see the module's docstring and --help)."""
     ap = argparse.ArgumentParser(prog="mule-enc", usage="mule-enc [options] input_file output_file.mule",
                                  description="Encode audio using MULE.")
     ap.add_argument("input")

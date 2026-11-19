@@ -7,7 +7,7 @@ import tempfile
 
 import numpy as np
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # eval/ (this script: eval/archive/)
 sys.path[:0] = [HERE]
 import corpus                                    # noqa: E402
 import metrics as Mx                             # noqa: E402

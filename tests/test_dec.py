@@ -107,6 +107,20 @@ def test_rejects_unknown_header():
         native.Decoder(bytes(h[:20]))
 
 
+def test_damaged_input_samples():
+    """NaN and infinite input samples (a damaged source) are coded as silence: the encoder does
+    not fail and the stream decodes in full"""
+    x = signals()["sine_lr"].copy()
+    clean, _ = native.c_encode(x, E.Params(q_db=-9))
+    x[1000:1100] = np.nan
+    x[50000, 0] = np.inf
+    x[60000, 1] = -np.inf
+    data, _ = native.c_encode(x, E.Params(q_db=-9))
+    y, _ = decode(data)
+    assert len(y) == len(decode(clean)[0])
+    assert np.isfinite(y.astype(float)).all()
+
+
 def test_state_size():
     """The decoder's state fits the 50 KiB the firmware's codec image gives it"""
     assert native.lib.mule_dec_size() < 50 * 1024

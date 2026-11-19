@@ -11,6 +11,8 @@ import ctx_lab  # noqa: E402
 
 
 def main():
+    """Writes core/init_cdf_a8.h: the 8-symbol coefficient and escape CDFs trained on the train
+    traces (eval/ctx_lab.py)."""
     coef, cesc = ctx_lab._alpha_bits(ctx_lab.ensure("train"), 7)
     def arr(name, a):
         v = ", ".join(str(int(x)) for x in a.ravel())

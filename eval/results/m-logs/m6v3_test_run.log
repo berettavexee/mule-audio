@@ -15,4 +15,4 @@ mule-m6v3_-15  206.40  -11.08  ...  b_lebanon_hanover         -5.25
 mule-c64        -3.57       -6.69
 mule-m6v3       -3.63       -6.76
 
-240 rows -> eval/results/m6v3_test.csv
+240 rows -> ./eval/results/m6v3_test.csv

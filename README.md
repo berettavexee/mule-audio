@@ -207,10 +207,10 @@ table. The format now bounds energies and allocations, and the decoder rejects a
 | Path | Content |
 |---|---|
 | `spec/FORMAT.md` | the stream format, normative (in French) |
-| `core/` | the codec in C: `enc.c` (encoder), `dec.c` (decoder, integers only, the reference), `model.c` / `models.c` (adaptive models), `rans.c` (rANS coder) |
+| `core/` | the codec in C: `dec.c` (decoder, integers only, the reference), `enc.c` and its modules `enc_dsp.c`, `enc_psy.c`, `enc_tcq.c`, `enc_ogg.c` (encoder), `model.c` / `models.c` (adaptive models), `rans.c` (rANS coder) |
 | `tools/` | `mule-enc`, `mule-dec`, `mule-gain`, and the generators of the tables in `core/` |
 | `py/mule/` | Python bindings (cffi), settings, Ogg comment handling, ReplayGain (BS.1770-4) |
-| `eval/` | the evaluation: corpus building, reference codecs, metrics (internal NMR, PEAQ, ViSQOL), equal-rate comparisons, listening kits; logs and results in `eval/results/` |
+| `eval/` | the evaluation (`eval/README.md`): corpus building, reference codecs, metrics (internal NMR, PEAQ, ViSQOL), equal-rate comparisons; logs and results in `eval/results/`, past one-off scripts in `eval/archive/` |
 | `tests/` | unit tests, and frozen decoder test vectors |
 | `bench/qemu/` | Cortex-M3 benchmark under QEMU (instruction counts, bit-exactness) |
 | `docs/` | `ARTICLE.md` (how MULE works, two pages), `PORT.md` (the port to the player), `V3-IDEAS.md`, `VARIANTS-BC.md`, `history/` |

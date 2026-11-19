@@ -70,13 +70,13 @@ def viterbi_bands(x, n, mask, edges, chain):
     if chain == "greedy":
         out = np.zeros_like(x)
         st = np.zeros(len(x), int)
-        for a, b in zip(edges[:-1], edges[1:]):
+        for a, b in zip(edges[:-1], edges[1:], strict=True):
             out[:, a:b], st = viterbi(x[:, a:b], n, mask, st, True)
         return out
     if chain:
         return viterbi(x, n, mask)
     out = np.zeros_like(x)
-    for a, b in zip(edges[:-1], edges[1:]):
+    for a, b in zip(edges[:-1], edges[1:], strict=True):
         out[:, a:b] = viterbi(x[:, a:b], n, mask)
     return out
 

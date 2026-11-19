@@ -15,6 +15,7 @@ PY = sys.executable
 
 
 def tone(seconds=3, fs=44100, ch=2, f=997, amp=0.5):
+    """A sine of f Hz, amplitude amp, in ch channels."""
     t = np.arange(int(seconds * fs)) / fs
     return np.repeat((amp * np.sin(2 * np.pi * f * t))[:, None], ch, axis=1)
 
@@ -35,6 +36,7 @@ def test_bs1770_reference():
 
 
 def test_gating_and_album():
+    """Silence has no loudness (gain 0); a track 20 dB quieter is gated out of the album's"""
     fs = 44100
     m = replaygain.Meter(fs)
     m.add(np.zeros((fs * 3, 2)))
@@ -47,6 +49,8 @@ def test_gating_and_album():
 
 
 def test_comment_rewrite_keeps_audio():
+    """A comment header rewritten over several pages: audio packets and MULEHead unchanged,
+    the comments read back, every page's CRC right"""
     x = tone(2)
     data, _ = native.c_encode(x, E.Params(q_db=-9), [("TITLE", "t")])
     big = [("COMMENT", "x" * 200_000)]          # over 3 pages
@@ -70,6 +74,7 @@ def test_encoder_big_comment_packet():
 
 
 def test_cli(tmp_path):
+    """mule-enc from the command line: resampling, mono to stereo, tags; then mule-gain"""
     src = tmp_path / "in.wav"
     sf.write(src, tone(3, fs=48000, ch=1), 48000)
     out = tmp_path / "out.mule"

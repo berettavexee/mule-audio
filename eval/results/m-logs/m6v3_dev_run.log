@@ -15,4 +15,4 @@ mule-m6v3_-15  186.90  -11.64       -4.15  ...  8.54e-05     heilung         -5.
 mule-c64        -5.63       -8.94
 mule-m6v3       -5.67       -8.98
 
-528 rows -> eval/results/m6v3_dev.csv
+528 rows -> ./eval/results/m6v3_dev.csv

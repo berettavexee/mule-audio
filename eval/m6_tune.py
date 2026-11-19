@@ -55,7 +55,7 @@ KEYS = list(SPACE)
 def to_settings(x):
     """[0, 1]^5 -> settings (over the fixed BASE ones)."""
     out = dict(BASE)
-    out.update({k: SPACE[k][0] + float(np.clip(v, 0, 1)) * (SPACE[k][1] - SPACE[k][0]) for k, v in zip(KEYS, x)})
+    out.update({k: SPACE[k][0] + float(np.clip(v, 0, 1)) * (SPACE[k][1] - SPACE[k][0]) for k, v in zip(KEYS, x, strict=True)})
     return out
 
 
@@ -108,7 +108,7 @@ def find_qs(settings_list, ex, items):
         pts = {c: [] for c in range(len(settings_list))}
         q0 = -7.0 - (t - 118.0) / 10.5          # production's slope on these items
         first = [(c, q0) for c in pts] + [(c, q0 - 1.5) for c in pts]
-        for (c, q), r in zip(first, rates(first)):
+        for (c, q), r in zip(first, rates(first), strict=True):
             pts[c].append((q, r))
         for _ in range(6):
             todo = []
@@ -121,7 +121,7 @@ def find_qs(settings_list, ex, items):
                 todo.append((c, float(np.clip(q, qa - 4, qa + 4))))
             if not todo:
                 break
-            for (c, q), r in zip(todo, rates(todo)):
+            for (c, q), r in zip(todo, rates(todo), strict=True):
                 pts[c].append((q, r))
         for c, p in pts.items():                # closest found if not within TOL
             out.setdefault((c, t), min(p, key=lambda v: abs(v[1] - t))[0])
@@ -144,7 +144,7 @@ def evaluate_population(xs, ex, items):
     rows = list(ex.map(job, [t for _, t in tasks], chunksize=1))
     out = []
     for i in range(len(xs)):
-        r = [row for (j, _), row in zip(tasks, rows) if j == i]
+        r = [row for (j, _), row in zip(tasks, rows, strict=True) if j == i]
         s = {m: at_rate(r, m) for m in ("odg", "odg_adv", "mms2f", "nmr_db")}
         lo, hi = (float(np.mean([row["kbps"] for row in r if row["q"] == qs[(i, t)]])) for t in TARGETS)
         s.update(q_lo=qs[(i, TARGETS[0])], q_hi=qs[(i, TARGETS[1])], rate_lo=lo, rate_hi=hi,
@@ -182,7 +182,7 @@ def cmd_search(a):
             xs = es.ask()
             scores = evaluate_population(xs, ex, items)
             es.tell(xs, [-s["objective"] for s in scores])
-            for i, (x, s) in enumerate(zip(xs, scores)):
+            for i, (x, s) in enumerate(zip(xs, scores, strict=True)):
                 rows.append({"gen": gen, "cand": i, **to_settings(x), **s})
                 if s["objective"] > best["objective"]:
                     best = rows[-1]

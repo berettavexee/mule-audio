@@ -35,6 +35,8 @@ def _k_filter(fs):
 
 
 class Meter:
+    """ITU-R BS.1770-4 loudness meter of one track: K-filtered mean squares per 100 ms step, fed
+    in parts (add); blocks of 400 ms, gated (loudness); the sample peak."""
     def __init__(self, fs):
         self.fs = fs
         self.filters = _k_filter(fs)
@@ -44,6 +46,7 @@ class Meter:
         self.peak = 0.0
 
     def add(self, x):
+        """Feeds samples x (n, channels) or (n,), continuing the filters' state."""
         x = np.asarray(x, np.float64)
         if x.ndim == 1:
             x = x[:, None]
@@ -88,6 +91,7 @@ class Meter:
         return float(lk(z.mean())) if len(z) else -math.inf
 
     def loudness(self):
+        """The track's gated loudness (LUFS)."""
         return self.gated(self.blocks())
 
     @classmethod

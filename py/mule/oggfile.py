@@ -12,6 +12,7 @@ for _i in range(256):
 
 
 def crc(b):
+    """The Ogg CRC-32 of bytes b (polynomial 0x04C11DB7, no reflection, initial 0)."""
     c = 0
     for x in b:
         c = ((c << 8) ^ _CRC[((c >> 24) ^ x) & 0xFF]) & 0xFFFFFFFF
@@ -74,6 +75,7 @@ def parse_comments(pk):
 
 
 def build_comments(vendor, items):
+    """The MULETags packet (OpusTags' layout): vendor string, then the (key, value) items."""
     v = vendor.encode()
     out = b"MULETags" + struct.pack("<I", len(v)) + v + struct.pack("<I", len(items))
     for k, val in items:
@@ -174,4 +176,5 @@ def picture_block(path, kind=3, description=""):
 
 
 def picture_comment(block):
+    """A METADATA_BLOCK_PICTURE comment (key, base64 value) from a FLAC picture block."""
     return ("METADATA_BLOCK_PICTURE", base64.b64encode(block).decode())

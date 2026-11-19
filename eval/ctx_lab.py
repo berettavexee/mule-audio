@@ -142,7 +142,7 @@ def rule_ema(co, alpha, kappa=1.0, mode="ema", integer=False):
     state = np.zeros((2, F))
     fr, ch, ty = co[:, C["frame"]], co[:, C["ch"]], co[:, C["type"]]
     bounds = np.flatnonzero(np.diff(fr * 2 + ch)) + 1
-    for s, e in zip(np.r_[0, bounds], np.r_[bounds, len(co)]):
+    for s, e in zip(np.r_[0, bounds], np.r_[bounds, len(co)], strict=True):
         c = ch[s]
         if ty[s] != 0:
             continue                                    # short frames: the next long one resets
@@ -298,7 +298,7 @@ def cmd_m2(a):
     secs = sum(load(p)["seconds"] for p in dev)
     tot = sum(load(p)["total"] for p in dev)
     rows = []
-    for p, bits in zip(dev, coef_bits(rule_current, dev, init, each=True)):
+    for p, bits in zip(dev, coef_bits(rule_current, dev, init, each=True), strict=True):
         co = load(p)["co"]
         rows.append((co[:, C["type"]], co[:, C["inter"]], co[:, C["band"]], co[:, C["ac"]], bits))
     ty = np.concatenate([r[0] for r in rows])

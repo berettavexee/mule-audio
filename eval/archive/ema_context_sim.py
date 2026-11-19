@@ -1,4 +1,7 @@
-# Simulation M8 (V3-IDEAS) : entropie conditionnelle des index MDCT avec un contexte |y_prev| ou une moyenne glissante. Signal synthétique ; à refaire sur les index réels de dev.
+"""M8 (docs/V3-IDEAS.md), simulation before the measure: conditional entropy of MDCT indices with
+a |y_prev| context or a moving average, on a synthetic signal (held notes, vibrato). The real
+measure on dev is ctx_lab.py m8 (eval/results/M-LOG.md: the gain did not hold). Runs on import:
+no arguments."""
 import numpy as np
 rng=np.random.default_rng(1); fs=44100; N=1024; T=30
 t=np.arange(fs*T)/fs

@@ -30,4 +30,4 @@ mule-c16       -5.56       -8.86
 mule-c32       -5.61       -8.91
 mule-s32       -5.48       -8.78
 
-1320 rows -> eval/results/b2_dev.csv
+1320 rows -> ./eval/results/b2_dev.csv

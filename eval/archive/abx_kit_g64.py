@@ -9,7 +9,7 @@ import tempfile
 import numpy as np
 import soundfile as sf
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # eval/ (this script: eval/archive/)
 ROOT = os.path.dirname(HERE)
 sys.path[:0] = [HERE, os.path.join(ROOT, "py")]
 import corpus                                    # noqa: E402
