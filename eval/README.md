@@ -34,7 +34,9 @@ then `python eval/p4_compare.py eval/results/mytest.csv --base mule-v2 --vs mule
 | `mov_compare.py` | PEAQ's variables (MOVs) for any configurations, means, per item (`--per-item`) and what carries the ODG gap (N-LOG) |
 | `bad_frames.py` | PEAQ's disturbed frames, frame by frame: which items, which frequencies (N-LOG) |
 | `segment_odg.py` | PEAQ's ODG passage by passage (windows of a few seconds) (N-LOG) |
-| `aac_frames.py` | what an AAC-LC encoder decided, read from its frames: block types, short-window groups, bandwidth, M/S, zeroed bands, frame sizes (N-LOG) |
+| `aac_frames.py` | what an AAC-LC encoder decided, read from its frames: block types, short-window groups, bandwidth, M/S, zeroed bands, TNS filters, frame sizes (N-LOG) |
+| `spectro_compare.py` | spectrograms of several files side by side on one colour scale, MULE's band edges, `--diff` for the difference to the first (reads the files, writes a PNG) |
+| `envelope_diag.py` | the temporal envelope of the highs per band and frame, classed by MULE's decision (noise-filled, coded): where it is lost (N-LOG) |
 | `gstpeaq-local.patch` | the local GstPEAQ changes these tools need (`PEAQ_MOVS`, `PEAQ_FRAMES`; LGPL-2 like GstPEAQ) |
 
 ## `archive/`
