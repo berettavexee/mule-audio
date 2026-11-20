@@ -296,7 +296,12 @@ Le message : un outil qui marche chez Opus (trames courtes, bas débit) ne rappo
 MULE (trames longues, 128 kb/s). Une idée n'est bonne que pour le codec qui en a besoin.
 
 
-## Notes pour un billet sur l'analyse des écarts (Apple, PEAQ, extraits fautifs)
+## Notes pour un billet sur les optimisations de l'encodeur (analyse des écarts, Apple, PEAQ, extraits fautifs)
+
+Idée de l'auteur (20/11/2026) : un billet sur les optimisations de l'encodeur. Le format ne bouge
+pas, tout se joue dans les choix de l'encodeur, comme Apple le montre face à FDK. Les chiffres du
+billet 1 restent ceux de l'ancienne production (ODG −0,17 à 128 kb/s) ; ce billet raconte comment
+on est passé à −0,16.
 
 Matériau : `eval/results/N-LOG.md` (20/11/2026). La moyenne de PEAQ cache tout ; il a fallu
 descendre extrait par extrait, puis passage par passage.

@@ -46,7 +46,7 @@ annoying *(good)*, −4 = very annoying (shit). ViSQOL (Virtual Speech Quality O
 | Vorbis (libvorbis) | −0.45 | −0.16 | −0.63 / −0.34 | 4.47 |
 | AAC (Apple, qaac TVBR) | −0.31 | −0.02 | −0.46 / −0.22 | 4.49 |
 | Opus (libopus) | **−0.12** | **0.00** | −0.45 / −0.24 | 4.54 |
-| MULE (format v3) | −0.17 | −0.01 | **−0.36 / −0.14** | **4.61** |
+| MULE (format v3) | −0.16 | **0.00** | **−0.36 / −0.14** | **4.61** |
 
 In plain words:
 - **at 128 kb/s and above**, MULE beats Vorbis and FDK-AAC everywhere, loses to Opus on PEAQ's
@@ -84,8 +84,11 @@ The details, the numbers and the dead ends are in [`docs/LESSONS.md`](docs/LESSO
 - **the compression comes from the modelling, not from the coder**: rANS codes within 0.01 % of
   the ideal cost, the contexts are worth 13 %;
 - **fuzzing pays**: it found a decoder bug within minutes;
-- **the last gap to Opus is diffuse**, a few hundredths of ODG on which the metrics disagree and
-  that my ears could not hear.
+- **look item by item, not at the mean**: about a quarter of the gap to Opus came from one track,
+  where short windows were grouped on the whole window's energy (dominated by the bass) and an
+  attack in the highs spread its noise over the frame; grouping per frequency region fixed it
+  (+0.012 ODG on average, +0.33 on that track, at the same rate). The gap that remains is a few
+  hundredths of ODG on which the metrics disagree and that my ears could not hear.
 
 ## Repository
 
