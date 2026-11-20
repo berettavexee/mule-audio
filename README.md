@@ -44,12 +44,15 @@ annoying *(good)*, −4 = very annoying (shit). ViSQOL (Virtual Speech Quality O
 |---|---|---|---|---|
 | AAC (FDK-AAC) | −0.54 | −0.21 | −0.57 / −0.27 | 4.30 |
 | Vorbis (libvorbis) | −0.45 | −0.16 | −0.63 / −0.34 | 4.47 |
+| AAC (Apple, qaac TVBR) | −0.31 | −0.02 | −0.46 / −0.22 | 4.49 |
 | Opus (libopus) | **−0.12** | **0.00** | −0.45 / −0.24 | 4.54 |
 | MULE (format v3) | −0.17 | −0.01 | **−0.36 / −0.14** | **4.61** |
 
 In plain words:
 - **at 128 kb/s and above**, MULE beats Vorbis and FDK-AAC everywhere, loses to Opus on PEAQ's
-  basic score, and wins on the advanced score and ViSQOL. In blind ABX tests on the six excerpts
+  basic score, and wins on the advanced score and ViSQOL. Apple's AAC encoder is far ahead of
+  FDK on the same format (+0.23 ODG at 128 kb/s), behind MULE at 128 kb/s and level with it on
+  PEAQ's basic score at 160 kb/s: in a codec, the encoder is what matters. In blind ABX tests on the six excerpts
   where PEAQ saw the biggest gap, I could tell MULE at 128 kb/s (format v2) neither from the
   original nor from Opus;
 - **below 96 kb/s**, use Opus: it has a decade of low-rate tools that MULE never got;
@@ -144,7 +147,7 @@ MULE is built from other people's ideas:
 - **M. W. Marcellin and T. R. Fischer**, for trellis-coded quantization
   ([1990](https://doi.org/10.1109/26.46532)), later part of [JPEG 2000](https://jpeg.org/jpeg2000/);
 - **[AV1](https://aomedia.org/specifications/av1/)**, for the adaptive CDF update;
-- the measuring tools: [GstPEAQ](https://github.com/HSU-ANT/gstpeaq),
+- the measuring tools: [GstPEAQ](https://github.com/HSU-ANT/gstpeaq), [qaac](https://github.com/nu774/qaac) (to run Apple's AAC encoder),
   [ViSQOL](https://github.com/google/visqol), [QEMU](https://www.qemu.org/), and the EBU SQAM disc;
 
 ## License

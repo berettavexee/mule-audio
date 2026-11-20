@@ -96,6 +96,35 @@ class AACVBR(AAC):
         return dec, enc, adts_payload(enc)
 
 
+class AppleAAC:
+    """Apple's AAC encoder (CoreAudioToolbox) through qaac under wine, AAC-LC in true VBR
+    (--tvbr N, 0..127), default bandwidth; decoded by ffmpeg. Needs third_party/qaac (git-ignored:
+    Apple's libraries are never published). The rate counts the AAC packets only (no MP4)."""
+
+    ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "third_party", "qaac")
+
+    def __init__(self, q):
+        self.q = q
+        self.name = f"aapl_q{q}"
+
+    @staticmethod
+    def _win(path):
+        return "Z:" + os.path.abspath(path).replace("/", "\\")
+
+    def run(self, wav, work):
+        enc = os.path.join(work, "enc.m4a")
+        dec = os.path.join(work, "dec.wav")
+        env = dict(os.environ, WINEPREFIX=os.path.join(self.ROOT, "wine"), WINEDEBUG="-all")
+        subprocess.run(["wine", os.path.join(self.ROOT, "bin", "qaac64.exe"), "-s", "--tvbr", str(self.q),
+                        "-o", self._win(enc), self._win(wav)], check=True, env=env,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        _sh(["ffmpeg", "-nostdin", "-v", "error", "-y", "-i", enc, "-c:a", "pcm_s16le", dec])
+        sizes = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "a:0", "-show_entries",
+                                "packet=size", "-of", "csv=p=0", enc], check=True, capture_output=True,
+                               text=True).stdout.split()
+        return dec, enc, sum(int(s.split(",")[0]) for s in sizes if s.split(",")[0].isdigit())
+
+
 class Mule:
     """MULE: real Ogg file from the C encoder (core/enc.c), decoded by the reference decoder
     (build/mule-dec). Name mule[-variant]_<q_db>, e.g. mule_-9, mule-g8_-9 (VARIANTS below)."""
@@ -216,6 +245,8 @@ def get(name):
         return AAC(int(val))
     if kind == "aacv":
         return AACVBR(int(val))
+    if kind == "aapl":
+        return AppleAAC(int(val.lstrip("q")))
     raise ValueError(f"unknown codec configuration {name!r}")
 
 

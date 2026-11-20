@@ -35,6 +35,7 @@ from mule import native, params  # noqa: E402
 INK, MUTED, GRID = "#1e1e1e", "#868e96", "#dee2e6"
 BLUE, ORANGE, GREEN, VIOLET = "#1971c2", "#e8590c", "#2f9e44", "#9c36b5"
 FILL_BLUE, FILL_ORANGE = "#a5d8ff", "#ffd8a8"
+APPLE = "#c2255c"                                # 5th series (figure 11), validated with the four above
 
 EDGES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 20, 24, 28, 34, 40, 48, 60, 78, 100, 116, 128]
 FS = 44100
@@ -500,17 +501,20 @@ def fig10_stereo():
 
 
 def fig11_courbes():
-    """ODG against the real rate, on the 30 test excerpts: MULE v3, Opus, Vorbis, FDK-AAC."""
+    """ODG against the real rate, on the 30 test excerpts: MULE v3, Opus, Vorbis, FDK-AAC and Apple's AAC
+    (qaac, TVBR)."""
     ref = pd.read_csv(os.path.join(RESULTS, "ref_test.csv"))
     aac = pd.read_csv(os.path.join(RESULTS, "aac_test.csv"))
     v3 = pd.read_csv(os.path.join(RESULTS, "v3_test.csv"))
-    df = pd.concat([ref, aac, v3])
+    aapl = pd.read_csv(os.path.join(RESULTS, "aapl_test.csv"))
+    df = pd.concat([ref, aac, aapl, v3])
     df["fam"] = df.config.str.split("_").str[0]
     g = df.groupby(["fam", "config"])[["kbps", "odg"]].mean().reset_index()
     fig, ax = plt.subplots(figsize=(9, 5))
     ax.axhline(0, color=GRID, lw=1, zorder=0)
     ax.text(86, 0.01, "0 : imperceptible", fontsize=11, color=MUTED, ha="left", va="bottom")
-    for fam, lab, c, mk in (("aac", "AAC (FDK)", VIOLET, "s"), ("vorbis", "Vorbis", GREEN, "^"),
+    for fam, lab, c, mk in (("aac", "AAC (FDK)", VIOLET, "s"), ("aapl", "AAC (Apple)", APPLE, "v"),
+                            ("vorbis", "Vorbis", GREEN, "^"),
                             ("opus", "Opus", ORANGE, "D"), ("mule", "MULE v3", BLUE, "o")):
         s = g[g.fam == fam].sort_values("kbps")
         s = s[(s.kbps > 95) & (s.kbps < 205)]
@@ -523,7 +527,7 @@ def fig11_courbes():
     ax.text(201, -0.98, "−1 : perceptible, pas gênant", fontsize=11, color=MUTED, ha="right", va="bottom")
     ax.set_xlabel("débit réel (kb/s)")
     ax.set_ylabel("ODG (PEAQ)")
-    fig.text(0.5, -0.04, "moyenne sur les 30 extraits du jeu de test, jamais utilisés pour les réglages",
+    fig.text(0.5, -0.07, "moyenne sur les 30 extraits du jeu de test, jamais utilisés pour les réglages",
              ha="center", color=MUTED, fontsize=11)
     save(fig, "fig11-courbes")
 

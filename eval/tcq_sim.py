@@ -1,6 +1,10 @@
 """Points 16 and 17 (docs/V3-IDEAS.md) on a simple model, before touching the codec: the
-granular gain of MULE's TCQ, at equal entropy, on Laplacian samples cut into MULE's long-frame
-bands.
+granular gain of MULE's TCQ, at equal entropy, on samples cut into MULE's long-frame bands.
+
+Source: a generalized Gaussian of unit variance, shape --beta (default 0.7, the measured shape of
+the allocation classes 3 to 5, which hold half the coefficients: eval/results/S-LOG.md; the
+classes 1 to 2 are Laplacian, beta 1.1). --beta 1 draws the original Laplacian samples, the ones
+behind the numbers of eval/results/B-LOG.md and of blog post 2.
 
 Trellis family (MULE's 8-state trellis is the case N = 8, mask 0b110): from state s, branch bit
 br leads to (2 s + br) mod N and uses the subset j = (s & 1) + 2 (br ^ parity(s & mask)) of the
@@ -21,6 +25,15 @@ import numpy as np
 
 MASK64 = 0b110011                                 # set from the --masks search
 WIDTHS = [1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 4, 4, 4, 6, 6, 8, 12, 18, 22, 16]   # x 8 lines
+
+
+def source(rng, beta, shape):
+    """Unit-variance generalized Gaussian samples of shape beta (beta 1: rng.laplace, as before)."""
+    if beta == 1:
+        return rng.laplace(scale=1 / np.sqrt(2), size=shape)
+    from scipy.special import gamma
+    from scipy.stats import gennorm
+    return gennorm.rvs(beta, scale=np.sqrt(gamma(1 / beta) / gamma(3 / beta)), size=shape, random_state=rng)
 
 
 def trellis(n, mask):
@@ -122,12 +135,13 @@ def gain_db(c, ref, rates):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--frames", type=int, default=400)
+    ap.add_argument("--beta", type=float, default=0.7, help="source shape (1: Laplacian)")
     ap.add_argument("--masks", action="store_true", help="search the masks of 16 and 32 states")
     a = ap.parse_args()
     rng = np.random.default_rng(1)
     edges = np.concatenate([[0], np.cumsum(np.array(WIDTHS) * 8)])
     L = int(edges[-1])
-    x = rng.laplace(scale=1 / np.sqrt(2), size=(a.frames, L))
+    x = source(rng, a.beta, (a.frames, L))
     steps = np.geomspace(0.5, 3.0, 9)
     rates = (1.0, 1.25, 1.5, 2.0)
 
@@ -157,7 +171,7 @@ def main():
                   f"8 states 0b110: {np.mean((sub_x - viterbi(sub_x * 2, 8, 0b110) / 2) ** 2):.4f})")
     else:
         masks[16], masks[32], masks[64] = [0b1101], [0b10111], [MASK64]   # the --masks search's best
-    print(f"{a.frames} frames of {L} Laplacian samples in MULE's {len(WIDTHS)} long-frame bands; "
+    print(f"{a.frames} frames of {L} samples (generalized Gaussian, beta {a.beta:g}) in MULE's {len(WIDTHS)} long-frame bands; "
           f"MSE gain over a uniform scalar quantizer at equal entropy (dB)")
     print(f"{'quantizer':32s} " + " ".join(f"{r:>6.2f}b" for r in rates))
     for lab, n, chain in (("8 states, restart (v2)", 8, False), ("8 states, chain (16)", 8, True),

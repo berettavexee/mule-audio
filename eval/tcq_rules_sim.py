@@ -1,5 +1,5 @@
-"""TCQ with more than two rulers, on eval/tcq_sim.py's model (Laplacian samples cut into MULE's
-long-frame bands, MSE at equal first-order entropy against a uniform scalar quantizer).
+"""TCQ with more than two rulers, on eval/tcq_sim.py's model (samples of shape --beta, default
+0.7, cut into MULE's long-frame bands, MSE at equal first-order entropy against a uniform scalar quantizer).
 
 K rulers: the fine grid has a step of D/K (levels k in units of D/K), cut into 2K subsets
 (k mod 2K); ruler r is the union of the subsets r and r + K, step D, offset r·D/K. The state s
@@ -16,7 +16,7 @@ import argparse
 
 import numpy as np
 
-from tcq_sim import WIDTHS, entropy, gain_db
+from tcq_sim import WIDTHS, entropy, gain_db, source
 
 
 def viterbi(x, K, n, mask, start=None):
@@ -77,11 +77,12 @@ def entropy_given_ruler(k, K):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--frames", type=int, default=400)
+    ap.add_argument("--beta", type=float, default=0.7, help="source shape (1: Laplacian, as in B-LOG.md)")
     a = ap.parse_args()
     rng = np.random.default_rng(1)                      # the same samples as tcq_sim.py
     edges = np.concatenate([[0], np.cumsum(np.array(WIDTHS) * 8)])
     L = int(edges[-1])
-    x = rng.laplace(scale=1 / np.sqrt(2), size=(a.frames, L))
+    x = source(rng, a.beta, (a.frames, L))
     steps = np.geomspace(0.5, 3.0, 9)
     rates = (1.0, 1.25, 1.5, 2.0)
 
@@ -93,7 +94,7 @@ def main():
         return np.array(out)
 
     ref = curve(lambda v: (np.round(v / 2) * 2, entropy(np.round(v / 2))), 2)
-    print(f"{a.frames} frames of {L} Laplacian samples in MULE's {len(WIDTHS)} long-frame bands; "
+    print(f"{a.frames} frames of {L} samples (generalized Gaussian, beta {a.beta:g}) in MULE's {len(WIDTHS)} long-frame bands; "
           f"MSE gain over a uniform scalar quantizer at equal entropy (dB)")
     print(f"{'quantizer':34s} " + " ".join(f"{r:>6.2f}b" for r in rates) + "   mask")
     sub_x = x[: max(a.frames // 8, 20)]
