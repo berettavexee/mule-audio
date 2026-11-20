@@ -215,6 +215,51 @@ class Mule:
         # 8.5 since 20/11/2026; the measurements before used 10, see N-LOG.md). run_eval.py writes
         # the settings each configuration resolved to next to its CSV (<tag>.params.json)
         "gr0": {"group_mode": 0, "group_db": 6.0},
+        # v4 probe (branch v4): noise in the coded bands' zero coefficients, level offset (dB)
+        "lp15": {"lp_hz": 15000.0}, "lp16": {"lp_hz": 16000.0}, "lp17": {"lp_hz": 17000.0},
+        "lp18": {"lp_hz": 18000.0},
+        "lpd0": {"lpd": 1}, "lpd6": {"lpd": 1, "lpd_db": 6.0}, "lpdm6": {"lpd": 1, "lpd_db": -6.0},
+        # v4 probe: folding of zero-bit bands (start band, mix 0 fold .. 8 noise)
+        "fd0": {"fold": 1, "fold_mix": 0}, "fd2": {"fold": 1, "fold_mix": 2},
+        "fd4": {"fold": 1, "fold_mix": 4}, "fd2s16": {"fold": 1, "fold_mix": 2, "fold_start": 16},
+        "fd2tg": {"fold": 1, "fold_mix": 2, "tg": 1},
+        # check (N-LOG.md): every zero-bit band from 12 (16) up coded at allocation 1 instead of
+        # noise-filled, through the tonal guard with its two criteria disabled
+        "code12": {"tg": 1, "tg_ton": -100.0, "tg_db": 100.0, "tg_band": 12},
+        "code16": {"tg": 1, "tg_ton": -100.0, "tg_db": 100.0, "tg_band": 16},
+        # code rather than fill (Apple), with noise in the zeros: allocation 2 or 3 (N-LOG.md)
+        "code12a2nf": {"tg": 1, "tg_ton": -100.0, "tg_db": 100.0, "tg_band": 12, "tg_a": 2,
+                       "nf_coded": 1, "nf_off_db": -6.0},
+        "code12a3nf": {"tg": 1, "tg_ton": -100.0, "tg_db": 100.0, "tg_band": 12, "tg_a": 3,
+                       "nf_coded": 1, "nf_off_db": -6.0},
+        "code16a3nf": {"tg": 1, "tg_ton": -100.0, "tg_db": 100.0, "tg_band": 16, "tg_a": 3,
+                       "nf_coded": 1, "nf_off_db": -6.0},
+        # v4 probe: rotation of low-allocation coded bands (Opus' spreading), R0 fixed level,
+        # R1 per channel and frame (rtd), R2 combinations
+        # v4 probe: TNS on the noise of zero-bit bands (order, gain threshold), and with the candidate
+        "tn8g0": {"tnf": 1, "tnf_gain_db": 0.0}, "tn8g0b16": {"tnf": 1, "tnf_gain_db": 0.0, "tnf_b0": 16},
+        "tn8": {"tnf": 1}, "tn4": {"tnf": 1, "tnf_order": 4}, "tn8g3": {"tnf": 1, "tnf_gain_db": 3.0},
+        "tn8nfm6tg": {"tnf": 1, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
+        "tn4g0b16": {"tnf": 1, "tnf_gain_db": 0.0, "tnf_b0": 16, "tnf_order": 4},
+        "tn8g0b16nfm6tg": {"tnf": 1, "tnf_gain_db": 0.0, "tnf_b0": 16, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
+        "tn4g0b16nfm6tg": {"tnf": 1, "tnf_gain_db": 0.0, "tnf_b0": 16, "tnf_order": 4, "tg": 1, "nf_coded": 1,
+                           "nf_off_db": -6.0},
+        "rt20": {"rot": 1, "rot_deg": 20}, "rt40": {"rot": 1, "rot_deg": 40}, "rt60": {"rot": 1, "rot_deg": 60},
+        "rt40a6": {"rot": 1, "rot_deg": 40, "rot_amax": 6},
+        "rtd40": {"rot": 1, "rot_deg": 40, "rot_dyn": 1}, "rtd60": {"rot": 1, "rot_deg": 60, "rot_dyn": 1},
+        "rtd40tg": {"rot": 1, "rot_deg": 40, "rot_dyn": 1, "tg": 1},
+        "rtd40nfm6tg": {"rot": 1, "rot_deg": 40, "rot_dyn": 1, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
+        "fdd0": {"fold": 1, "fold_mix": 0, "fold_dyn": 1}, "fdd2": {"fold": 1, "fold_mix": 2, "fold_dyn": 1},
+        "fdd2t5": {"fold": 1, "fold_mix": 2, "fold_dyn": 1, "fold_ton_db": 5.0},
+        "fdd2t12": {"fold": 1, "fold_mix": 2, "fold_dyn": 1, "fold_ton_db": 12.0},
+        "fdd2nfm6tg": {"fold": 1, "fold_mix": 2, "fold_dyn": 1, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
+        "fd2nfm6tg": {"fold": 1, "fold_mix": 2, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
+        "nfc": {"nf_coded": 1}, "nfcm3": {"nf_coded": 1, "nf_off_db": -3.0},
+        "nfcm6": {"nf_coded": 1, "nf_off_db": -6.0},
+        "nfctg": {"nf_coded": 1, "tg": 1}, "nfcm3tg": {"nf_coded": 1, "nf_off_db": -3.0, "tg": 1},
+        "nfcm9": {"nf_coded": 1, "nf_off_db": -9.0}, "nfcm12": {"nf_coded": 1, "nf_off_db": -12.0},
+        "nfcm6tg": {"nf_coded": 1, "nf_off_db": -6.0, "tg": 1},
+        "nfcm9tg": {"nf_coded": 1, "nf_off_db": -9.0, "tg": 1},
         "gr1": {"group_mode": 1, "group_db": 6.0}, "gr1d8": {"group_mode": 1, "group_db": 8.0},
         "gr1d10": {"group_mode": 1, "group_db": 10.0}, "gr1d12": {"group_mode": 1, "group_db": 12.0}, "gd4": {"group_mode": 0, "group_db": 4.0}, "gd3": {"group_mode": 0, "group_db": 3.0},
         # production since 20/11/2026 = tr85; tr10 = the detector before

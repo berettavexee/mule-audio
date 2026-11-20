@@ -35,6 +35,32 @@
 /* v3 header: byte 20 log2(states) (3..6), byte 21 flags; the encoder sets both flags */
 #define MULE_TCQ_CHAIN    1             /* v3 flag: the trellis state runs on across the bands */
 #define MULE_COEF_A8      2             /* v3 flag: coefficient alphabet of 8 symbols (escape 7) */
+#define MULE_NF_CODED     4             /* v4 probe flag: noise in the zero coefficients of coded
+                                         * bands from MULE_NF_START up, at a level sent per channel
+                                         * and frame (3 raw bits before the channel's energies) */
+#define MULE_NF_START     12            /* first band with noise in its zero coefficients (2.8 kHz) */
+#define MULE_FOLD         8             /* v4 probe flag: a zero-bit band from the header's band
+                                         * (byte 22) up is filled from the decoded lines just below
+                                         * it, mixed with noise (byte 23, bits 0-3: 0 fold .. 8
+                                         * noise; bit 4: decided per channel and frame, 1 raw bit
+                                         * after the noise level of MULE_NF_CODED) */
+#define MULE_HEAD_LEN_FOLD 24           /* the header with MULE_FOLD */
+#define MULE_ROT          32            /* v4 probe flag: coded bands at low allocations rotated
+                                         * after decoding (Opus' spreading): byte 24 the angle at
+                                         * allocation 1 (degrees; halved every 2 allocations),
+                                         * byte 25 the last allocation rotated, byte 26 the first
+                                         * band, byte 27 bit 0: a 2-bit spreading level per
+                                         * channel and frame (0 none, 1-3: 0.5, 1, 1.5 times the
+                                         * angle; else always 1) */
+#define MULE_HEAD_LEN_ROT 28            /* the header with MULE_ROT */
+#define MULE_TNF          64            /* v4 probe flag: in long frames, the noise of zero-bit
+                                         * bands shaped in time by an all-pole filter along the
+                                         * frequencies (TNS on the noise only): per channel and
+                                         * long frame 1 raw bit, then the order (3 bits, 1-8) and
+                                         * 4-bit reflection coefficients sin(i pi / 16), i - 7;
+                                         * lines from band byte 28 up */
+#define MULE_HEAD_LEN_TNF 30            /* the header with MULE_TNF */
+#define MULE_TNF_MAXP     8
 static inline int mule_tcq_mask(int n)
 {
     return n == 64 ? 0x33 : (n == 32 ? 0x17 : (n == 16 ? 0xD : 0x6));

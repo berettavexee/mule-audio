@@ -11,6 +11,7 @@
  *   - output: interleaved int16.
  *
  * Built with MULE_NO_MALLOC (the firmware), only the caller-memory API exists (mule_dec_init). */
+#include <math.h>                       /* v4 probe MULE_ROT only: its angles at init (to tabulate) */
 #include <stdlib.h>
 #include <string.h>
 #include "mule.h"
@@ -32,6 +33,12 @@ struct mule_dec_state {
     uint32_t rate;
     int tcq_chain;                      /* v3: the trellis state runs on across the bands */
     int coef_t;                         /* the coefficient escape symbol: 15 (v2), 7 (v3 a8) */
+    int nf_coded;                       /* v4 probe: noise in the coded bands' zero coefficients */
+    int fold, fold_start, fold_mix;     /* v4 probe (MULE_FOLD): folding, first band, mix 0..8, */
+    int fold_dyn;                       /* decided per channel and frame */
+    int rot, rot_amax, rot_b0, rot_dyn; /* v4 probe (MULE_ROT) */
+    int32_t rot_c[4][MULE_AMAX + 1], rot_s[4][MULE_AMAX + 1];  /* per level and allocation, Q15 */
+    int tnf, tnf_b0;                    /* v4 probe (MULE_TNF): TNS on the noise, first band */
     uint8_t tcq_next[MULE_TCQ_MAXS][4]; /* next state from (state, k mod 4) (v2: 8 states) */
     mule_models ms;                     /* the adaptive models (reset at each key packet) */
     int qprev[2][MULE_NB], aprev[2][MULE_NB];   /* last energies and allocations (prediction) */
@@ -232,6 +239,151 @@ static void noise_band(mule_dec *d, coef_t *X, const int *idx, int n, int q)
     int64_t gain = A * (int64_t)isqrt64((uint64_t)n << 32) / R; /* times sqrt(n) (Q16) / R */
     for (int i = 0; i < n; i++)                                 /* Q48 per unit of z -> Q24 */
         X[idx[i]] = (int32_t)(((int64_t)z[i] * gain) >> 24);
+}
+
+/* v4 probe (MULE_NF_CODED): the noise of a zero coefficient in a coded band, level nf (1..7):
+ * z (the LCG, uniform) scaled to an rms of NF_GAIN[nf] times the band's level unit D/2, the
+ * gains 0.5 * 2^(-(nf - 1)/2), -6 to -24 dB; NF_Q8: gain * sqrt(3) in Q8 per 2^15 of z. */
+static const int32_t NF_Q8[8] = {0, 222, 157, 111, 78, 55, 39, 28};
+
+static coef_t nf_value(mule_dec *d, int nf, const band_scale *bs)
+{
+    d->lcg = d->lcg * 1664525u + 1013904223u;
+    int32_t z = (int32_t)(d->lcg >> 16) - 32768;
+    band_scale b8 = {bs->mant, bs->sh + 8};     /* the level in Q8 */
+    return coef_value(((int64_t)z * NF_Q8[nf]) >> 15, &b8);
+}
+
+/* v4 probe (MULE_ROT): Givens rotations of neighbours at distance `stride`, a pass up then a
+ * pass down (CELT's exp_rotation1), on Q24 values through positions pos; c, s in Q15. */
+static void rot_pass(coef_t *X, const int *pos, int len, int stride, int32_t c, int32_t s)
+{
+    for (int i = 0; i < len - stride; i++) {
+        int64_t x1 = X[pos[i]], x2 = X[pos[i + stride]];
+        X[pos[i + stride]] = (coef_t)((c * x2 + s * x1 + 16384) >> 15);
+        X[pos[i]] = (coef_t)((c * x1 - s * x2 + 16384) >> 15);
+    }
+    for (int i = len - 2 * stride - 1; i >= 0; i--) {
+        int64_t x1 = X[pos[i]], x2 = X[pos[i + stride]];
+        X[pos[i + stride]] = (coef_t)((c * x2 + s * x1 + 16384) >> 15);
+        X[pos[i]] = (coef_t)((c * x1 - s * x2 + 16384) >> 15);
+    }
+}
+
+/* A band segment (one window's lines of a band) rotated: neighbours, then for 8 lines or more
+ * lines about sqrt(len) apart (CELT's stride2). */
+static void rot_segment(coef_t *X, const int *pos, int len, int32_t c, int32_t s)
+{
+    if (len < 2 || !s)
+        return;
+    rot_pass(X, pos, len, 1, c, s);
+    if (len >= 8) {
+        int st = 1;
+        while (st * st + st < len)
+            st++;
+        rot_pass(X, pos, len, st, c, s);
+    }
+}
+
+/* v4 probe (MULE_TNF): reflection coefficients sin(i pi / 16), i = -7 .. 7 (Q20), to the
+ * direct form of A(z) = 1 + sum a_j z^-j (Q20) by the step-up recursion (the trial of commit
+ * 4b5bc50's mule_tns_lpc). */
+static const int32_t TNF_K[15] = {-1028428, -968758, -871859, -741455, -582558, -401273, -204567, 0,
+                                  204567, 401273, 582558, 741455, 871859, 968758, 1028428};
+
+static void tnf_lpc(const int *ki, int p, int64_t *a)
+{
+    int64_t t[MULE_TNF_MAXP];
+    for (int m = 0; m < p; m++) {
+        int64_t k = TNF_K[ki[m]];
+        for (int j = 0; j < m; j++)
+            t[j] = a[j] + ((k * a[m - 1 - j] + (1 << 19)) >> 20);
+        for (int j = 0; j < m; j++)
+            a[j] = t[j];
+        a[m] = k;
+    }
+}
+
+/* The noise of the long frame's zero-bit bands from d->tnf_b0 up shaped in time: the lines of
+ * those bands (others 0) through 1 / A(z) along the frequencies, each band then scaled back to
+ * its energy before the filter. */
+static void tnf_noise(mule_dec *d, coef_t *X, const int *q, const int *a, const int *ki, int p)
+{
+    int64_t ac[MULE_TNF_MAXP] = {0}, y[MULE_F], mem[MULE_TNF_MAXP] = {0};
+    tnf_lpc(ki, p, ac);
+    int l0 = EDGES[d->tnf_b0] * 8, l1 = EDGES[MULE_NB] * 8;
+    for (int i = l0; i < l1; i++) {
+        int b = d->tnf_b0;
+        while (EDGES[b + 1] * 8 <= i)
+            b++;
+        int64_t v = a[b] == 0 && q[b] > MULE_QMIN ? X[i] : 0, acc = v << 20;
+        for (int j = 0; j < p; j++)
+            acc -= ac[j] * mem[j];
+        int64_t out = acc >> 20;
+        if (out > ((int64_t)1 << 32))           /* a bound: the filter is stable, 1/A's gain is not */
+            out = (int64_t)1 << 32;
+        if (out < -((int64_t)1 << 32))
+            out = -((int64_t)1 << 32);
+        for (int j = p - 1; j > 0; j--)
+            mem[j] = mem[j - 1];
+        if (p)
+            mem[0] = out;
+        y[i] = out;
+    }
+    for (int b = d->tnf_b0; b < MULE_NB; b++) {
+        if (a[b] != 0 || q[b] <= MULE_QMIN)
+            continue;
+        int s0 = EDGES[b] * 8, s1 = EDGES[b + 1] * 8;
+        uint64_t e0 = 0, e1 = 0;
+        for (int i = s0; i < s1; i++) {
+            int64_t x0 = X[i] >> 8, x1 = y[i] >> 8;
+            e0 += (uint64_t)(x0 * x0);
+            e1 += (uint64_t)(x1 * x1);
+        }
+        uint32_t r0 = isqrt64(e0), r1 = isqrt64(e1);
+        if (!r1)
+            continue;
+        for (int i = s0; i < s1; i++)
+            X[i] = (coef_t)(y[i] * (int64_t)r0 / r1);
+    }
+}
+
+/* v4 probe (MULE_FOLD): a zero-bit band filled from the w decoded lines just below each of its
+ * lines (same window), as Opus' folding: that shape and the LCG noise, each normalised, mixed
+ * with the weights cos and sin of mix/8 * 90 degrees (Q8), then scaled to the band's energy as
+ * noise_band does; pure noise when the lines below are silent. */
+static const int32_t FOLD_COS[9] = {256, 251, 237, 213, 181, 142, 98, 50, 0};
+
+static void fold_band(mule_dec *d, coef_t *X, const int *idx, int n, int q, int w, int mix)
+{
+    int32_t s[176], z[176];
+    int64_t es = 0, ez = 0, t[176];
+    for (int i = 0; i < n; i++) {
+        s[i] = X[idx[i] - w] >> 8;
+        es += (int64_t)s[i] * s[i];
+        d->lcg = d->lcg * 1664525u + 1013904223u;
+        z[i] = (int32_t)(d->lcg >> 16) - 32768;
+        ez += (int64_t)z[i] * z[i];
+    }
+    uint32_t Rs = isqrt64((uint64_t)es), Rz = isqrt64((uint64_t)ez);
+    int64_t cf = Rs ? FOLD_COS[mix] : 0, cn = Rs ? FOLD_COS[8 - mix] : 256;
+    int64_t sq = isqrt64((uint64_t)n << 32);    /* sqrt(n), Q16 */
+    int64_t e = 0;
+    for (int i = 0; i < n; i++) {               /* each part at an rms of 2^16 */
+        int64_t a = Rs ? (int64_t)s[i] * sq / Rs : 0, b = Rz ? (int64_t)z[i] * sq / Rz : 0;
+        t[i] = (cf * a + cn * b) >> 8;
+        e += t[i] * t[i];
+    }
+    uint32_t R = isqrt64((uint64_t)e);
+    if (!R) {
+        for (int i = 0; i < n; i++)
+            X[idx[i]] = 0;
+        return;
+    }
+    int64_t A = fx_scale64(1 << 8, q);
+    int64_t gain = A * sq / R;
+    for (int i = 0; i < n; i++)
+        X[idx[i]] = (int32_t)((t[i] * gain) >> 24);
 }
 
 /* M/S to L/R in place: L = (M + S) / sqrt 2, R = (M - S) / sqrt 2 (spec 5.5). */
@@ -483,7 +635,8 @@ static int read_allocations(mule_dec *d, int c, int *a)
  * tail1, tail2: the two previous indices; tst: the trellis state at the band's start. The
  * trellis state at its end. */
 static int read_band(mule_dec *d, coef_t *X, uint16_t *ycur, const group *gr, int c, int b, int q,
-                     int a, int inter, int e, int64_t *tail1, int64_t *tail2, int tst)
+                     int a, int inter, int e, int64_t *tail1, int64_t *tail2, int tst, int nf,
+                     int rl)
 {
     int n = band_count(gr, b), type = gr->type;
     int ac = a / 3 < 15 ? a / 3 : 15;
@@ -493,7 +646,9 @@ static int read_band(mule_dec *d, coef_t *X, uint16_t *ycur, const group *gr, in
     int w = EDGES[b + 1] - EDGES[b], col = 0;   /* short groups: window by window */
     int idx = coef_index(gr, b, 0);
     int64_t t1 = *tail1, t2 = *tail2;
+    int pos[176];
     for (int i = 0; i < n; i++) {
+        pos[i] = idx;
         int64_t mctx = 2 * t1 + t2;
         if (inter) {                            /* the same coefficient, last frame */
             int64_t v = (int64_t)d->ylong[c][idx] * ipw;
@@ -515,7 +670,7 @@ static int read_band(mule_dec *d, coef_t *X, uint16_t *ycur, const group *gr, in
         if ((!even || mag) && raw(d, 1))
             k = -k;
         tst = d->tcq_next[tst][k & 3];
-        X[idx] = coef_value(k, &bs);
+        X[idx] = k == 0 && nf ? nf_value(d, nf, &bs) : coef_value(k, &bs);
         if (type == 0)
             ycur[idx] = (uint16_t)(mag < 65535 ? mag : 65535);
         t2 = t1;
@@ -528,6 +683,11 @@ static int read_band(mule_dec *d, coef_t *X, uint16_t *ycur, const group *gr, in
     }
     *tail1 = t1;
     *tail2 = t2;
+    if (d->rot && rl && b >= d->rot_b0 && a <= d->rot_amax) {    /* v4 probe: spreading */
+        int seg = type ? w : n;
+        for (int k = 0; k + seg <= n; k += seg)
+            rot_segment(X, pos + k, seg, d->rot_c[rl][a], d->rot_s[rl][a]);
+    }
     return tst;
 }
 
@@ -553,6 +713,20 @@ static void decode_frame(mule_dec *d, int16_t *out)
         uint16_t *ycur = d->ycur;
         memset(ycur, 0, sizeof d->ycur);
         int q[MULE_NB] = {0}, a[MULE_NB] = {0};
+        int nf = d->nf_coded ? (int)raw(d, 3) : 0;  /* v4 probe: the zero coefficients' noise */
+        int fd = d->fold && (!d->fold_dyn || raw(d, 1));    /* v4 probe: this frame folds */
+        int rl = d->rot ? (d->rot_dyn ? (int)raw(d, 2) : 2) : 0;  /* v4 probe: spreading level */
+        int tnf_p = 0, tnf_k[MULE_TNF_MAXP];   /* v4 probe: TNS on the noise of a long frame */
+        if (d->tnf && type == 0 && raw(d, 1)) {
+            tnf_p = (int)raw(d, 3) + 1;
+            for (int j = 0; j < tnf_p; j++) {
+                tnf_k[j] = (int)raw(d, 4);
+                if (tnf_k[j] > 14) {
+                    d->err = 1;
+                    return;
+                }
+            }
+        }
         for (int g = 0; g < ng; g++) {
             if (read_energies(d, c, g == 0 ? ALPHAS[ai] : 26, q) || read_allocations(d, c, a)) {
                 d->err = 1;                     /* not a valid stream (5.1, 5.2) */
@@ -566,15 +740,21 @@ static void decode_frame(mule_dec *d, int16_t *out)
                     int n = band_count(&grp[g], b), idx[176];
                     for (int i = 0; i < n; i++)
                         idx[i] = coef_index(&grp[g], b, i);
-                    noise_band(d, X, idx, n, q[b]);
+                    if (fd && b >= d->fold_start)
+                        fold_band(d, X, idx, n, q[b], (EDGES[b + 1] - EDGES[b]) * (type ? 1 : 8), d->fold_mix);
+                    else
+                        noise_band(d, X, idx, n, q[b]);
                     continue;
                 }
                 int inter = inter_ok && d->along[c][b] > 0;
                 int e = inter ? d->qlong[c][b] - q[b] + a[b] - d->along[c][b] : 0;
                 tst_run = read_band(d, X, ycur, &grp[g], c, b, q[b], a[b], inter, e, &tail1, &tail2,
-                                    d->tcq_chain ? tst_run : 0);   /* v2: state 0 at each band */
+                                    d->tcq_chain ? tst_run : 0,    /* v2: state 0 at each band */
+                                    b >= MULE_NF_START ? nf : 0, rl);
             }
         }
+        if (tnf_p)
+            tnf_noise(d, X, q, a, tnf_k, tnf_p);
         if (type == 0) {                        /* the inter-frame context of the next frame */
             memcpy(d->ylong[c], ycur, sizeof d->ycur);
             memcpy(d->qlong[c], q, sizeof q);
@@ -618,7 +798,14 @@ mule_dec *mule_dec_init(void *mem, size_t size, const uint8_t *h, int len)
         return NULL;
     int n = 8, flags = 0;               /* v2: 8 states, restarted in each band, 16 symbols */
     if (h[8] == MULE_VERSION) {         /* v3: the trellis's size, chaining, alphabet */
-        if (len < MULE_HEAD_LEN || h[20] < 3 || h[20] > 6 || (h[21] & ~(MULE_TCQ_CHAIN | MULE_COEF_A8)))
+        if (len < MULE_HEAD_LEN || h[20] < 3 || h[20] > 6 ||
+            (h[21] & ~(MULE_TCQ_CHAIN | MULE_COEF_A8 | MULE_NF_CODED | MULE_FOLD | MULE_ROT |
+                       MULE_TNF)) ||
+            ((h[21] & MULE_FOLD) && (len < MULE_HEAD_LEN_FOLD || h[22] > MULE_NB || (h[23] & 15) > 8 ||
+                                     (h[23] & ~31))) ||
+            ((h[21] & MULE_ROT) && (len < MULE_HEAD_LEN_ROT || h[24] > 90 || h[25] > MULE_AMAX ||
+                                    h[26] > MULE_NB || (h[27] & ~1))) ||
+            ((h[21] & MULE_TNF) && (len < MULE_HEAD_LEN_TNF || h[28] >= MULE_NB)))
             return NULL;
         n = 1 << h[20];
         flags = h[21];
@@ -636,6 +823,30 @@ mule_dec *mule_dec_init(void *mem, size_t size, const uint8_t *h, int len)
             d->tcq_next[st][j] = (uint8_t)mule_tcq_step_n(st, j, n, mule_tcq_mask(n));
     d->tcq_chain = flags & MULE_TCQ_CHAIN;
     d->coef_t = flags & MULE_COEF_A8 ? 7 : 15;
+    d->nf_coded = flags & MULE_NF_CODED;
+    if (flags & MULE_FOLD) {
+        d->fold = 1;
+        d->fold_start = h[22];
+        d->fold_mix = h[23] & 15;
+        d->fold_dyn = (h[23] >> 4) & 1;
+    }
+    if (flags & MULE_TNF) {
+        d->tnf = 1;
+        d->tnf_b0 = h[28];
+    }
+    if (flags & MULE_ROT) {                     /* the angles: probe only (cos, sin at init) */
+        static const double SCALE[4] = {0, 0.5, 1, 1.5};
+        d->rot = 1;
+        d->rot_amax = h[25];
+        d->rot_b0 = h[26];
+        d->rot_dyn = h[27] & 1;
+        for (int l = 0; l < 4; l++)
+            for (int a = 1; a <= MULE_AMAX; a++) {
+                double th = a <= d->rot_amax ? SCALE[l] * h[24] * pow(2.0, -(a - 1) / 2.0) * 3.14159265358979323846 / 180 : 0;
+                d->rot_c[l][a] = (int32_t)lround(cos(th) * 32768);
+                d->rot_s[l][a] = (int32_t)lround(sin(th) * 32768);
+            }
+    }
     reset_key(d);
     return d;
 }

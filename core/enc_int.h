@@ -198,6 +198,8 @@ typedef struct {
     double tcq_lam;
     double mtq;                 /* tcq_rd: the band's noise target (mask * tq) */
     const mule_enc_params *pr;
+    double *nf_acc;             /* nf_coded: sum of the zero coefficients' (x / (D/2))^2, count */
+    double rot_scale;           /* rot: the frame's spreading scale (0: none; MULE_ROT) */
 } band_in;
 
 int tcq_viterbi_chain(const double *x, const double *w, const int *ac, int n, double c,
