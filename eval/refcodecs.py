@@ -81,6 +81,21 @@ class AAC:
         return dec, enc, adts_payload(enc)
 
 
+class AACVBR(AAC):
+    """FDK-AAC in its variable bitrate modes (aac-enc -v 1 .. 5), AAC-LC, afterburner on."""
+
+    def __init__(self, mode):
+        self.mode = mode
+        self.name = f"aacv_{mode}"
+
+    def run(self, wav, work):
+        enc = os.path.join(work, "enc.aac")
+        dec = os.path.join(work, "dec.wav")
+        _sh(["aac-enc", "-v", str(self.mode), "-t", "2", "-a", "1", wav, enc])
+        _sh(["ffmpeg", "-nostdin", "-v", "error", "-y", "-i", enc, "-c:a", "pcm_s16le", dec])
+        return dec, enc, adts_payload(enc)
+
+
 class Mule:
     """MULE: real Ogg file from the C encoder (core/enc.c), decoded by the reference decoder
     (build/mule-dec). Name mule[-variant]_<q_db>, e.g. mule_-9, mule-g8_-9 (VARIANTS below)."""
@@ -199,6 +214,8 @@ def get(name):
         return Opus(int(val))
     if kind == "aac":
         return AAC(int(val))
+    if kind == "aacv":
+        return AACVBR(int(val))
     raise ValueError(f"unknown codec configuration {name!r}")
 
 
