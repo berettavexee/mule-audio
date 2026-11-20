@@ -314,9 +314,9 @@ Une idée de 1990, venue des modems et passée par l'image et la vidéo, a rappo
 la psychoacoustique. Elle coûte presque rien au décodeur et ne demande aucun dictionnaire. Alors
 pourquoi ne la trouve-t-on dans aucun codec audio grand public ?
 
-Je n'ai pas de réponse sérieuse. Peut-être les brevets, à l'époque où AAC et Vorbis ont été
-conçus. Peut-être parce que la quantification non uniforme d'[AAC](https://fr.wikipedia.org/wiki/Advanced_Audio_Coding) ou la PVQ d'Opus en récupèrent
-une partie autrement. Peut-être parce que personne n'a eu besoin de serrer un codec dans 30 Kio
+Je n'ai pas de réponse sérieuse. Peut-être les brevets, à l'époque où [AAC](https://fr.wikipedia.org/wiki/Advanced_Audio_Coding) et Vorbis ont été
+conçus. Peut-être parce que la PVQ d'Opus en récupère une partie autrement, en quantifiant les
+coefficients ensemble. Peut-être parce que personne n'a eu besoin de serrer un codec dans 30 Kio
 sur un Cortex-M3. Si vous connaissez la réponse, je suis preneur.
 
 Au prochain épisode : une fois quantifiés, ces index doivent encore être écrits avec le moins de
@@ -346,7 +346,8 @@ bits possible, et on verra que la compression ne vient pas du codeur, mais du mo
   - Marcellin et Fischer, 1990 (DOI vérifié pour le README : 10.1109/26.46532) ;
   - la quantification dépendante de VVC comme cousine de la TCQ ;
   - « aucun codec audio grand public » : formulé « à ma connaissance » ;
-  - les hypothèses de la conclusion (brevets, quantification non uniforme d'AAC).
+  - les hypothèses de la conclusion (brevets, PVQ d'Opus) ; la quantification non uniforme
+    d'AAC en a été retirée : elle répartit l'erreur, elle ne vise pas le gain de granularité.
 - **Simplifications assumées** :
   - les « familles » D0 à D3 suivent k modulo 4 ; dans le texte, je dis qu'elles se suivent le
     long de la règle, ce qui est exact ;
