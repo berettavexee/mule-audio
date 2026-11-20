@@ -898,3 +898,36 @@ Adoptés, encodeur seul, format v3 inchangé :
 En option : la garde tonale (`tg`), l'étalement de Terhardt (`spread_mode` 1, 2), le critère
 d'Opus (`dyn_a`), les bandes hautes muettes (`nf_top`), le seuil de 1 Bark. Rejetés : des groupes
 plus fins, les bandes hautes muettes.
+
+## Mesure de référence de la production réglée (`prod2_test.csv`)
+
+| | ODG @128 | @160 | ODG avancé @128 | @160 | ViSQOL @128 | @160 | Zimtohrli ×1000 @128 | @160 |
+|---|---|---|---|---|---|---|---|---|
+| production du matin | −0,1725 | −0,0144 | −0,3546 | −0,1402 | 4,6082 | 4,6350 | 0,3965 | 0,2104 |
+| après le regroupement par régions | −0,1607 | −0,0037 | −0,3623 | −0,1444 | 4,6085 | 4,6354 | 0,3794 | 0,1988 |
+| **production réglée** | **−0,1580** | **+0,0003** | −0,3585 | −0,1435 | **4,6099** | **4,6360** | **0,3735** | **0,1962** |
+| Opus | −0,1164 | +0,0013 | −0,4405 | −0,2376 | 4,5397 | 4,6556 | | |
+
+Distribution de l'ODG par extrait :
+
+| à 128 kb/s | moyenne | médiane | p10 | p90 | p10-p90 | écart interquartile | écart type | pire |
+|---|---|---|---|---|---|---|---|---|
+| matin | −0,173 | −0,157 | −0,268 | −0,085 | 0,183 | 0,072 | 0,105 | −0,576 (Lebanon Hanover) |
+| régions | −0,161 | −0,153 | −0,259 | −0,085 | 0,175 | 0,080 | 0,074 | −0,335 (Zombie Zombie) |
+| **réglée** | **−0,158** | **−0,151** | −0,256 | −0,084 | **0,172** | 0,073 | **0,070** | **−0,308** (Zombie Zombie) |
+| Opus | −0,116 | −0,092 | −0,141 | −0,052 | 0,088 | 0,047 | 0,113 | −0,685 (Belenos) |
+
+À 160 kb/s : moyenne −0,014 → **+0,000** (Opus +0,001), médiane +0,003 → +0,009 (Opus +0,010),
+écart type 0,108 → 0,082, pire extrait −0,419 → −0,176 (Takemitsu).
+
+- **Le gain de la journée tient surtout à la valeur aberrante supprimée.** Lebanon Hanover passe de
+  −0,58 à −0,24 (+0,34). L'écart type tombe de 0,105 à 0,070, et le pire extrait remonte de
+  −0,58 à −0,31. MULE n'a plus d'extrait catastrophique, Opus en garde un (Belenos).
+- **Le cœur de la distribution a très peu bougé.** Médiane −0,157 → −0,151 ; largeur de p10 à p90
+  0,183 → 0,172. Il reste deux fois plus large que celui d'Opus (0,088), et décalé d'environ
+  0,06 en médiane. Les réglages suivants ont amélioré un peu tout le monde (Max Richter +0,03 à
+  +0,04, Holst +0,04, Zombie Zombie +0,02), sans resserrer le nuage.
+- **À 160 kb/s, MULE rejoint Opus** en moyenne (+0,000 contre +0,001) et en médiane (+0,009
+  contre +0,010). Zimtohrli −6 à −7 % sur la journée. Seul PEAQ avancé recule un peu
+  (−0,004 à 128 kb/s), à cause de Lebanon Hanover (voir plus haut : l'écoute a tranché).
+- **README** : les chiffres arrondis ne changent pas (−0,16 ; 0,00 ; −0,36 / −0,14 ; 4,61).

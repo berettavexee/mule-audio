@@ -318,3 +318,7 @@ descendre extrait par extrait, puis passage par passage.
   MULE (à 128 kb/s) et FDK ; Spector pour Apple ; Foo Fighters pour Vorbis. À 160 kb/s, Belenos,
   la bête noire d'Opus et de FDK, devient l'extrait le plus facile pour Vorbis. Figure à 160 kb/s :
   `b3-fig1-distributions-160`.
+- **Figure `b3-fig2-avant-apres`** (et `-160`) : MULE avant et après la journée de réglage fin,
+  avec Opus. Lebanon Hanover, la valeur aberrante du matin (−0,58 à 128 kb/s), rentre dans le
+  rang ; le cœur du nuage bouge à peine (médiane −0,157 → −0,151). À 160 kb/s, MULE rejoint Opus
+  en moyenne et en médiane. La figure 1 montre désormais la production réglée.
