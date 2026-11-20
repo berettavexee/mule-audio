@@ -201,3 +201,29 @@ dans le même mouchoir, Vorbis nettement derrière.
   L'estimation sur 8 états devient le réglage par défaut : **3,9× le temps réel**, sans perte
   mesurable (tous les écarts sous le seuil de 0,01). 32 états perdent un peu plus pour un gain
   de vitesse moindre.
+
+## Quatre règles au lieu de deux (simulateur, 20/11/2026)
+
+`eval/tcq_rules_sim.py` : le modèle de `tcq_sim.py` généralisé à K règles (grille au pas D/K,
+2K sous-ensembles, la règle imposée par l'état modulo K, chaque règle au pas D). Avec K = 2, il
+redonne les chiffres ci-dessus (−0,05 dB à 1,25 bit en v2, +0,23 dB à 64 états en chaîne). Masque
+de chaque configuration par recherche exhaustive. Gain d'erreur sur le scalaire à entropie
+égale (dB) :
+
+| | 1,0 bit | 1,25 bit | 1,5 bit | 2,0 bits |
+|---|---|---|---|---|
+| 2 règles, 8 états, redémarré | −0,49 | −0,05 | +0,29 | +0,68 |
+| 4 règles, 8 états, redémarré | −0,43 | −0,02 | +0,29 | +0,65 |
+| 2 règles, 8 états, chaîne | −0,48 | +0,04 | +0,41 | +0,82 |
+| 4 règles, 8 états, chaîne | −0,41 | +0,06 | +0,41 | +0,81 |
+| 2 règles, 32 états, chaîne | −0,41 | +0,17 | +0,57 | +0,95 |
+| 4 règles, 32 états, chaîne | −0,37 | +0,20 | +0,58 | +0,96 |
+| 2 règles, 64 états, chaîne | −0,37 | +0,23 | +0,61 | +1,01 |
+| 4 règles, 64 états, chaîne | −0,32 | +0,23 | +0,62 | +0,99 |
+
+À 1,25 bit (le régime de MULE), quatre règles gagnent de +0,01 à +0,03 dB sur deux, soit
+environ 0,005 bit par coefficient, très loin du seuil de 2 % du débit ; à 2 bits, rien ou moins.
+C'est le résultat connu d'Ungerboeck (doubler l'alphabet donne l'essentiel du gain). Trois règles
+sur quatre n'ont pas de zéro et paient le signe des petites valeurs. Écarté, sans essai dans le
+codec. Réserve : le treillis à quatre règles garde la structure à deux branches par état de
+MULE ; un treillis conçu autrement pourrait faire un peu mieux, sans changer l'ordre de grandeur.
