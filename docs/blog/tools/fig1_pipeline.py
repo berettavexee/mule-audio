@@ -2,13 +2,65 @@
 coloured by the codec it comes from. Writes docs/blog/fig/fig1-pipeline.excalidraw (open it on
 excalidraw.com to edit); docs/blog/tools/render.mjs turns it into an SVG.
 
-    python docs/blog/tools/fig1_pipeline.py"""
+    python docs/blog/tools/fig1_pipeline.py [en]      (en: the English version, for the README)"""
 import json
 import os
 import random
+import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(os.path.dirname(HERE), "fig", "fig1-pipeline.excalidraw")
+LANG = sys.argv[1] if len(sys.argv) > 1 else "fr"     # "en": the README's version
+OUT = os.path.join(os.path.dirname(HERE), "fig",
+                   "fig1-pipeline.excalidraw" if LANG == "fr" else f"fig1-pipeline-{LANG}.excalidraw")
+
+EN = {
+    "MULE : le trajet d'une trame (23 ms, 1 024 échantillons)":
+        "MULE: the path of one frame (23 ms, 1,024 samples)",
+    "Encodeur — sur PC,\nen virgule flottante":
+        "Encoder — on a PC,\nin floating point",
+    "PCM stéréo\n44,1 kHz":
+        "Stereo PCM\n44.1 kHz",
+    "Fenêtres,\nblocs courts":
+        "Windows,\nshort blocks",
+    "MDCT\n2048 ou 8×256":
+        "MDCT\n2048 or 8×256",
+    "Stéréo\nL/R ou M/S":
+        "Stereo\nL/R or M/S",
+    "Énergies\n+ forme":
+        "Energies\n+ shape",
+    "Allocation\ndes bits":
+        "Bit\nallocation",
+    "TCQ\n64 états":
+        "TCQ\n64 states",
+    "rANS\n134 modèles":
+        "rANS\n134 models",
+    "Paquets\nOgg":
+        "Ogg\npackets",
+    "Modèle psychoacoustique\n(ce qui est masqué)":
+        "Psychoacoustic model\n(what is masked)",
+    "le bruit de codage doit\nrester sous le masque":
+        "the coding noise must\nstay below the mask",
+    "Décodeur — sur le baladeur, en entiers seulement":
+        "Decoder — on the player, integers only",
+    "TCQ inverse\n+ bruit":
+        "Inverse TCQ\n+ noise",
+    "Énergies\n× forme":
+        "Energies\n× shape",
+    "M/S inverse":
+        "Inverse M/S",
+    "IMDCT,\nrecouvrement":
+        "IMDCT,\noverlap-add",
+    "PCM\n16 bits":
+        "16-bit\nPCM",
+    "fichier .mule":
+        ".mule file",
+    "le bruit remplit les bandes sans bits":
+        "noise fills the bands with no bits",
+}
+
+
+def _(s):
+    return EN[s] if LANG == "en" else s
 
 # the codec each block comes from: (fill, legend)
 ORIGIN = {
@@ -92,20 +144,20 @@ def col(i):
     return X0 + i * (W + GAP)
 
 
-text(col(4) + W / 2, 8, "MULE : le trajet d'une trame (23 ms, 1 024 échantillons)", size=28)
+text(col(4) + W / 2, 8, _("MULE : le trajet d'une trame (23 ms, 1 024 échantillons)"), size=28)
 
 # encoder
 YE = 230
-text(X0, 100, "Encodeur — sur PC,\nen virgule flottante", size=20, align="left", color="#495057")
-enc = [("PCM stéréo\n44,1 kHz", "mule", ""),
-       ("Fenêtres,\nblocs courts", "vorbis", "AAC + Vorbis"),
-       ("MDCT\n2048 ou 8×256", "aac", "AAC"),
-       ("Stéréo\nL/R ou M/S", "aac", "AAC"),
-       ("Énergies\n+ forme", "opus", "Opus"),
-       ("Allocation\ndes bits", "mule", ""),
-       ("TCQ\n64 états", "tcq", "JPEG 2000"),
-       ("rANS\n134 modèles", "ans", "Duda, AV1"),
-       ("Paquets\nOgg", "vorbis", "Vorbis, Opus")]
+text(X0, 100, _("Encodeur — sur PC,\nen virgule flottante"), size=20, align="left", color="#495057")
+enc = [(_("PCM stéréo\n44,1 kHz"), "mule", ""),
+       (_("Fenêtres,\nblocs courts"), "vorbis", "AAC + Vorbis"),
+       (_("MDCT\n2048 ou 8×256"), "aac", "AAC"),
+       (_("Stéréo\nL/R ou M/S"), "aac", "AAC"),
+       (_("Énergies\n+ forme"), "opus", "Opus"),
+       (_("Allocation\ndes bits"), "mule", ""),
+       (_("TCQ\n64 états"), "tcq", "JPEG 2000"),
+       (_("rANS\n134 modèles"), "ans", "Duda, AV1"),
+       (_("Paquets\nOgg"), "vorbis", "Vorbis, Opus")]
 E = []
 for i, (lab, org, small) in enumerate(enc):
     E.append(box(col(i), YE, W, H, lab, org, size=15 if "×" in lab else 18))
@@ -115,22 +167,22 @@ for a, b in zip(E[:-1], E[1:], strict=True):
     arrow(a, b)
 
 # psychoacoustic model, above: from the transform, to the allocation
-psy = box(col(3), 70, 2 * W + GAP, H + 4, "Modèle psychoacoustique\n(ce qui est masqué)", "aac", size=19)
+psy = box(col(3), 70, 2 * W + GAP, H + 4, _("Modèle psychoacoustique\n(ce qui est masqué)"), "aac", size=19)
 arrow(E[2], psy, "top", "left")
 arrow(psy, E[5], "right", "top")
-text(col(5) + W / 2 + 22, 130, "le bruit de codage doit\nrester sous le masque", size=16, align="left", color="#495057")
+text(col(5) + W / 2 + 22, 130, _("le bruit de codage doit\nrester sous le masque"), size=16, align="left", color="#495057")
 
 # decoder, right to left, under the matching encoder blocks
 YD = 470
-text(X0, YD - 40, "Décodeur — sur le baladeur, en entiers seulement", size=20, align="left", color="#495057")
-dec = [(8, "Paquets\nOgg", "vorbis"), (7, "rANS", "ans"), (6, "TCQ inverse\n+ bruit", "tcq"),
-       (4, "Énergies\n× forme", "opus"), (3, "M/S inverse", "aac"), (2, "IMDCT,\nrecouvrement", "aac"),
-       (0, "PCM\n16 bits", "mule")]
+text(X0, YD - 40, _("Décodeur — sur le baladeur, en entiers seulement"), size=20, align="left", color="#495057")
+dec = [(8, _("Paquets\nOgg"), "vorbis"), (7, "rANS", "ans"), (6, _("TCQ inverse\n+ bruit"), "tcq"),
+       (4, _("Énergies\n× forme"), "opus"), (3, _("M/S inverse"), "aac"), (2, _("IMDCT,\nrecouvrement"), "aac"),
+       (0, _("PCM\n16 bits"), "mule")]
 D = [box(col(i), YD, W, H, lab, org) for i, lab, org in dec]
 for a, b in zip(D[:-1], D[1:], strict=True):
     arrow(a, b, "left", "right")
-arrow(E[8], D[0], "bottom", "top", label="fichier .mule", dashed=True, shift=48)
-text(col(5) + W / 2, YD + H + 10, "le bruit remplit les bandes sans bits", size=15, color="#868e96")
+arrow(E[8], D[0], "bottom", "top", label=_("fichier .mule"), dashed=True, shift=48)
+text(col(5) + W / 2, YD + H + 10, _("le bruit remplit les bandes sans bits"), size=15, color="#868e96")
 
 # legend
 YL = 610

@@ -9,7 +9,7 @@ Virgil font (SIL Open Font License), embedded.
 cd docs/blog/tools && npm install                    # rough.js, local (node_modules/, not in git)
 mkdir -p fonts && curl -sSfL -o fonts/Virgil.woff2 \
     https://unpkg.com/@excalidraw/excalidraw@0.17.6/dist/excalidraw-assets/Virgil.woff2
-cd ../../.. && .venv/bin/python docs/blog/tools/fig1_pipeline.py
+cd ../../.. && .venv/bin/python docs/blog/tools/fig1_pipeline.py      # add "en" for the README's version
 node docs/blog/tools/render.mjs docs/blog/fig/fig1-pipeline.excalidraw docs/blog/fig/fig1-pipeline.svg
 ```
 
