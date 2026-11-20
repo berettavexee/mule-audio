@@ -167,7 +167,62 @@ def b2_fig4_viterbi():
     save(fig, "b2-fig4-viterbi")
 
 
-def b2_fig5_v2():
+def b2_fig5_fichier():
+    """What the file holds for figure 4's first coefficients: per coefficient, the state and its
+    ruler, the index symbol and the sign bit, the decoded value, its family and the next state."""
+    _, _, _, v, lv, st = _v2_band()
+    n = 4
+    before = [0] + list(st[:n - 1])
+    fig, ax = plt.subplots(figsize=(10.5, 5.2))
+    rows = [(4.4, "état"), (3.5, "règle"), (2.5, "dans le fichier"), (1.5, "valeur lue"), (0.6, "famille")]
+    for y, lab in rows:
+        ax.text(-0.15, y, lab, ha="right", va="center", fontsize=12, color=MUTED)
+    for c in range(n):
+        x0 = c * 2.4 + 0.9
+        t, k = int(before[c]), int(lv[c])
+        odd = t & 1
+        u = (abs(k) - 1) // 2 if odd else abs(k) // 2
+        sign = odd or u > 0
+        ax.text(x0, 5.15, f"coefficient {c + 1}", ha="center", fontsize=12, color=INK)
+        ax.plot(x0, 4.4, "o", ms=26, mfc="white", mec=INK, mew=1.5)
+        ax.text(x0, 4.4, str(t), ha="center", va="center", fontsize=13, color=INK)
+        ax.text(x0, 3.5, "impaire" if odd else "paire", ha="center", va="center", fontsize=12,
+                color=ORANGE if odd else BLUE)
+        cells = [(f"index {u}", "#e7f5ff", BLUE)]
+        cells.append(("signe " + ("1" if k < 0 else "0"), "#fff4e6", ORANGE) if sign else ("(pas de signe)", "white", MUTED))
+        for i, (txt, fc, ec) in enumerate(cells):
+            xx = x0 - 0.52 + i * 1.04
+            ax.add_patch(figs.matplotlib.patches.FancyBboxPatch((xx - 0.48, 2.25), 0.96, 0.5,
+                         boxstyle="round,pad=0.02", fc=fc, ec=ec, lw=1.4))
+            ax.text(xx, 2.5, txt, ha="center", va="center", fontsize=11, color=INK)
+        val = {0: "0", 2: "D", -2: "−D"}.get(k, (f"{k // 2}D" if k % 2 == 0 else f"{k}D/2").replace("-", "−"))
+        if k in (1, -1):
+            val = "D/2" if k == 1 else "−D/2"
+        ax.text(x0, 1.5, val, ha="center", va="center", fontsize=14, color=INK)
+        ax.text(x0, 0.6, f"D{k % 4}", ha="center", va="center", fontsize=13, color=figs2_fam(k))
+        nxt_t = int(st[c])
+        gx = x0 + 1.2                               # the gap before the next column
+        if c < n - 1:
+            ax.plot([x0 + 0.35, gx, gx, x0 + 2.4 - 0.45], [0.6, 0.6, 4.4, 4.4], color=MUTED, lw=1.3)
+            ax.annotate("", xy=(x0 + 2.4 - 0.3, 4.4), xytext=(x0 + 2.4 - 0.5, 4.4),
+                        arrowprops=dict(arrowstyle="->", color=MUTED, lw=1.3))
+        else:
+            ax.annotate("", xy=(gx + 0.1, 0.6), xytext=(x0 + 0.35, 0.6),
+                        arrowprops=dict(arrowstyle="->", color=MUTED, lw=1.3))
+            ax.text(gx + 0.2, 0.6, f"état {nxt_t}", va="center", fontsize=12, color=MUTED)
+    ax.text(4.5, -0.25, "la famille de la valeur lue donne l'état suivant : le chemin du treillis ne coûte aucun bit",
+            ha="center", fontsize=11, color=INK)
+    ax.set_xlim(-1.9, 9.8)
+    ax.set_ylim(-0.5, 5.5)
+    ax.axis("off")
+    save(fig, "b2-fig5-fichier")
+
+
+def figs2_fam(k):
+    return FAM[k % 4]
+
+
+def b2_fig6_v2():
     """ODG at equal rate on the development set (66 excerpts): scalar (v1), TCQ (v2), PVQ, Opus,
     Vorbis."""
     sys.path.insert(0, os.path.join(figs.ROOT, "eval"))
@@ -196,10 +251,10 @@ def b2_fig5_v2():
     ax.text(2.0, -0.47, "barre pleine : 128 kb/s ; barre claire : 160 kb/s", fontsize=11, color=INK, ha="center")
     figs.plt.gcf().text(0.5, -0.09, "corpus de réglage (66 extraits), à débit égal ; plus près de 0, mieux c'est",
                         ha="center", color=MUTED, fontsize=11)
-    save(fig, "b2-fig5-v2")
+    save(fig, "b2-fig6-v2")
 
 
-def b2_fig6_simulateur():
+def b2_fig7_simulateur():
     """Simulated gain over scalar quantization at 1.25 bit per coefficient (eval/results/B-LOG.md,
     eval/tcq_sim.py): restarted at each band, chained over the frame (joint Viterbi), and the
     48-state and greedy-chain points."""
@@ -226,10 +281,10 @@ def b2_fig6_simulateur():
     ax.set_ylim(-0.19, 0.27)
     figs.plt.gcf().text(0.5, -0.09, "simulateur : sources laplaciennes découpées en bandes de MULE, "
                         "1,25 bit par coefficient", ha="center", color=MUTED, fontsize=11)
-    save(fig, "b2-fig6-simulateur")
+    save(fig, "b2-fig7-simulateur")
 
 
-def b2_fig7_etats():
+def b2_fig8_etats():
     """ODG gain in the codec at 128 kb/s against format v2, by number of states of the chained
     trellis (development set, eval/results/B-LOG.md), with the 95 % bootstrap intervals."""
     pts = [(8, 0.015, 0.010, 0.020), (16, 0.026, 0.017, 0.035), (32, 0.037, 0.028, 0.046),
@@ -255,11 +310,11 @@ def b2_fig7_etats():
     ax.set_ylabel("gain d'ODG à 128 kb/s")
     figs.plt.gcf().text(0.5, -0.09, "corpus de réglage (66 extraits), à débit égal, contre le format v2 ; "
                         "barres : intervalles à 95 %", ha="center", color=MUTED, fontsize=11)
-    save(fig, "b2-fig7-etats")
+    save(fig, "b2-fig8-etats")
 
 
-ALL = [b2_fig1_scalaire, b2_fig2_familles, b2_fig3_treillis, b2_fig4_viterbi, b2_fig5_v2,
-       b2_fig6_simulateur, b2_fig7_etats]
+ALL = [b2_fig1_scalaire, b2_fig2_familles, b2_fig3_treillis, b2_fig4_viterbi, b2_fig5_fichier, b2_fig6_v2,
+       b2_fig7_simulateur, b2_fig8_etats]
 
 if __name__ == "__main__":
     figs.style()
