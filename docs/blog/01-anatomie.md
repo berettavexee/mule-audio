@@ -217,6 +217,20 @@ sifflements aigus. Les acousticiens mesurent ce découpage en **[Bark](https://e
 **Une MDCT pure, comme AAC, Vorbis et CELT.** Elle prend 2 048 échantillons et en sort 1 024
 coefficients, un par « raie » de fréquence, espacées de 21,5 Hz.
 
+Une **raie**, c'est l'un de ces coefficients : un nombre qui dit combien il y a de son autour
+d'une fréquence précise. La raie 0 couvre les fréquences de 0 à 21,5 Hz, la raie 1 de 21,5 à
+43 Hz, et ainsi de suite jusqu'à la raie 1 023, vers 22 kHz. Dessinées côte à côte, elles
+forment un peigne : une note y apparaît comme une série de pics, un par harmonique (figure 5),
+et un bruit comme une herbe drue partout. Une note pure n'allume pas une seule raie, mais deux ou
+trois voisines : c'est le prix de la fenêtre. Le mot vient de la spectroscopie, où chaque
+couleur présente dans une lumière dessine une raie sur le spectre. Et 21,5 Hz, c'est
+44 100 / 2 048 : plus la fenêtre est longue, plus les raies sont serrées, c'est tout le dilemme
+de la figure 3.
+
+![Figure 5 : un bloc de 2 048 échantillons d'une note synthétique à 220 Hz, et ses 64 premières
+raies MDCT : un pic par harmonique ; en gris, les groupes de 8 raies qui forment les bandes
+graves de MULE](fig/fig5-raies.svg)
+
 Oui, vous avez bien lu : 2 048 en entrée, 1 024 en sortie. On perd la moitié de l'information
 à chaque bloc. Le miracle, c'est que cette perte est rattrapée par le recouvrement : les
 erreurs qu'introduit un bloc sont exactement annulées par celles, opposées, du bloc voisin.
@@ -241,8 +255,29 @@ Le spectre est découpé en **22 bandes** de largeurs inégales : très étroite
 de CELT : à peu près une bande par Bark dans les médiums, et assez peu de bandes pour que leurs
 informations (énergie, allocation) coûtent peu.
 
-![Figure 5 : le spectre MDCT d'une trame de trompette (EBU SQAM), avec les 22 bandes de
-MULE](fig/fig5-bandes.svg)
+![Figure 6 : le spectre MDCT d'une trame de trompette (EBU SQAM), avec les 22 bandes de
+MULE](fig/fig6-bandes.svg)
+
+> **Encadré : pourquoi les bandes d'Opus, et pas celles de Vorbis ?**
+>
+> Vorbis laisse l'encodeur choisir sa géométrie : la position des points de son enveloppe (le
+> *floor*) et le découpage du résidu sont décrits dans l'en-tête de chaque fichier. C'est
+> souple, et c'est exactement ce qui coûte cher sur l'Echo Mini : il faut charger ces
+> descriptions en RAM avant de décoder la première trame. MULE fige sa grille, celle de CELT,
+> dans le décodeur : 24 entiers, en ROM.
+>
+> Une grille fixe a deux autres avantages. Les modèles de probabilité sont rattachés aux bandes
+> (une bande grave ne se comporte pas comme une bande aiguë), et leurs tables de départ sont
+> apprises une fois pour toutes sur un corpus ; si la géométrie changeait d'un fichier à
+> l'autre, il n'y aurait rien de stable à apprendre. Et la grille se compte en unités de
+> 8 raies : en blocs courts, une unité vaut une raie par fenêtre, si bien qu'une bande a le
+> même nombre de coefficients en trame longue et en trame courte, et partage ses tables.
+>
+> La finesse que Vorbis s'offre avec sa géométrie, MULE la récupère côté encodeur : les masques
+> calculés raie par raie dans les graves donnent de la résolution là où elle compte, sans rien
+> changer au format. Des bandes plus fines dans les aigus n'auraient pas aidé, puisque le bruit
+> de MULE y est déjà sous celui d'Opus, et changer leur résolution dans le temps a rapporté
+> +0,003 d'ODG. Autant dire rien.
 
 ## Séparer l'énergie de la forme
 
@@ -362,10 +397,10 @@ empiriques, et ce sont elles qui ont fait la différence :
   C'est énorme, à l'échelle de ce projet.
 - **La borne de pré-écho** empruntée à AAC et évoquée plus haut.
 
-![Figure 6 : pour une trame, le spectre du signal, le seuil de masquage calculé par MULE, et le
-bruit de codage après quantification, qui reste juste en dessous](fig/fig6-masque.svg)
+![Figure 7 : pour une trame, le spectre du signal, le seuil de masquage calculé par MULE, et le
+bruit de codage après quantification, qui reste juste en dessous](fig/fig7-masque.svg)
 
-La figure 6 résume tout le billet. Si vous ne deviez en retenir qu'une phrase, ce serait
+La figure 7 résume tout le billet. Si vous ne deviez en retenir qu'une phrase, ce serait
 celle-ci : **l'encodeur ne cherche pas à reproduire le signal, il cherche à cacher son
 erreur.** Le bruit de codage est là, partout, mais il épouse la forme du masque, toujours un peu
 en dessous.
@@ -384,8 +419,8 @@ bruit de quantification dépend du **pas** : si on arrondit au multiple de D le 
 l'erreur moyenne vaut à peu près D²/12. Il faut donc choisir un pas par bande, et décider
 comment le budget se répartit d'une trame à l'autre.
 
-![Figure 7 : le même signal arrondi avec un pas grossier et avec un pas fin : l'erreur reste
-entre −D/2 et +D/2](fig/fig7-quantification.svg)
+![Figure 8 : le même signal arrondi avec un pas grossier et avec un pas fin : l'erreur reste
+entre −D/2 et +D/2](fig/fig8-quantification.svg)
 
 ### Ce que font les autres
 
@@ -438,8 +473,8 @@ C'était prévu théoriquement et c'est le mode de fonctionnement de Vorbis; je 
 quand même, parce que je suis têtu. Comme une mule *(et parce que c'est Claude qui a fait le 
 boulot)*.
 
-![Figure 8 : où va le budget : le débit de chaque bande et la répartition du flux, sur un
-extrait d'ABBA (EBU SQAM)](fig/fig8-bits.svg)
+![Figure 9 : où va le budget : le débit de chaque bande et la répartition du flux, sur un
+extrait d'ABBA (EBU SQAM)](fig/fig9-bits.svg)
 
 ## La stéréo : deux canaux pour le prix d'un et demi
 
@@ -477,8 +512,8 @@ d'angle à la Opus non plus : une rotation par bande, mesurée, rapportait 0,16 
 L'angle d'Opus découle de sa construction énergie/forme : comme M et S ont chacun une forme de
 longueur 1, il faut bien dire comment l'énergie se partage entre eux.
 
-![Figure 9 : le choix stéréo de l'encodeur, bande par bande et trame par trame, sur le même
-extrait d'ABBA (en orange : les bandes codées en M/S)](fig/fig9-stereo.svg)
+![Figure 10 : le choix stéréo de l'encodeur, bande par bande et trame par trame, sur le même
+extrait d'ABBA (en orange : les bandes codées en M/S)](fig/fig10-stereo.svg)
 
 ## Mettre en boîte : codage entropique et conteneur
 
@@ -578,8 +613,8 @@ L'AAC vient de [FDK-AAC](https://en.wikipedia.org/wiki/Fraunhofer_FDK_AAC), l'en
 16 kHz environ, quand les trois autres montent à 20 kHz. Il met ses bits là où l'oreille d'un adulte les entend vraiment, et PEAQ et ViSQOL le lui font payer sans doute plus cher que vos
 oreilles. L'encodeur AAC d'Apple, réputé meilleur, ne tourne que sous Windows et macOS *(flemme de faire tourner dans wine)*.
 
-![Figure 10 : la note PEAQ en fonction du débit réel, pour MULE, Opus, Vorbis et
-FDK-AAC](fig/fig10-courbes.svg)
+![Figure 11 : la note PEAQ en fonction du débit réel, pour MULE, Opus, Vorbis et
+FDK-AAC](fig/fig11-courbes.svg)
 
 Soyons honnêtes : Opus reste devant sur la note de base de PEAQ. MULE passe devant sur la
 version avancée de PEAQ et sur ViSQOL, et il enterre Vorbis et FDK-AAC partout. Mais regardez les
@@ -648,20 +683,21 @@ Au prochain épisode : la quantification en treillis.
 - **Une nuance factuelle** : dans MULE, l'énergie n'est pas conservée exactement comme dans CELT,
   puisque la forme n'est pas ramenée à une longueur 1 (`spec/FORMAT.md` §5.3 : X = k·Δ/2·rms).
   Le texte dit donc « juste à 1,5 dB près, l'arrondi se fait autour de ce niveau ».
-- **Figures** (10) : 1 la chaîne, 2 les fenêtres, 3 temps et fréquence, 4 les blocs courts,
-  5 les bandes, 6 le masque, 7 la quantification, 8 les bits, 9 la stéréo, 10 les courbes.
-  `PLAN.md` est à mettre à jour. Toutes sont produites par `docs/blog/tools/` : la figure 1 par
-  `fig1_pipeline.py` et `render.mjs`, les autres par `figs.py`, à partir de ces sources :
-  - signaux synthétiques : figures 2, 3 et 7 ;
-  - EBU SQAM (castagnettes, trompette, ABBA), pour les figures 4, 5, 6, 8 et 9 : la figure 4
+- **Figures** (11) : 1 la chaîne, 2 les fenêtres, 3 temps et fréquence, 4 les blocs courts,
+  5 les raies, 6 les bandes, 7 le masque, 8 la quantification, 9 les bits, 10 la stéréo,
+  11 les courbes. `PLAN.md` est à mettre à jour. Toutes sont produites par `docs/blog/tools/` :
+  la figure 1 par `fig1_pipeline.py` et `render.mjs`, les autres par `figs.py`, à partir de ces
+  sources :
+  - signaux synthétiques : figures 2, 3, 5 et 8 ;
+  - EBU SQAM (castagnettes, trompette, ABBA), pour les figures 4, 6, 7, 9 et 10 : la figure 4
     est une simulation (bruit 12 dB sous chaque bande, comme `eval/results/P1-BLOCKS.md`), les
-    figures 6, 8 et 9 viennent de l'encodeur (trace des bandes) et du fichier décodé ;
-  - figure 10 : `ref_test.csv`, `aac_test.csv`, `v3_test.csv`.
-  Aucune image n'est reprise d'ailleurs. Les sons SQAM sont distribués par l'UER pour les tests
-  de codecs : vérifier leurs conditions avant de publier des extraits sonores (les figures ne
-  reproduisent pas de son). Police Virgil : SIL Open Font License.
-  Pour le texte : ABBA à 119 kb/s compte 29 % de coefficients en M/S (figure 9), contre 41 %
+    figures 7, 9 et 10 viennent de l'encodeur (trace des bandes) et du fichier décodé ;
+  - figure 11 : `ref_test.csv`, `aac_test.csv`, `v3_test.csv`.
+  Aucune image n'est reprise d'ailleurs. Police Virgil : SIL Open Font License.
+  Pour le texte : ABBA à 119 kb/s compte 29 % de coefficients en M/S (figure 10), contre 41 %
   sur tout `dev` (cité dans la section stéréo).
+- **Encadré sur les bandes** : grille de CELT en unités de 8 raies (`docs/history/PROPOSAL-A.md`
+  §4) ; bandes aiguës plus fines (`eval/results/D-LOG.md`) ; Haar +0,003 (`H-LOG.md`).
 - **Chiffres repris des journaux** :
   - mémoire du cœur B et HIFIACC : `docs/PORT.md` ;
   - 59 MHz, 30 Kio : `docs/PORT.md` §9 ;

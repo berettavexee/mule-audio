@@ -1,4 +1,4 @@
-"""Figures 2 to 10 of the first blog post (docs/blog/01-anatomie.md), in a hand-drawn style close
+"""Figures 2 to 11 of the first blog post (docs/blog/01-anatomie.md), in a hand-drawn style close
 to Excalidraw's (matplotlib's xkcd mode, the Virgil font). Sources: EBU SQAM excerpts of the
 corpus (trumpet, castanets, ABBA), synthetic signals, the C encoder's trace (band records:
 mask, power, allocation, stereo) and the test-set result CSVs. Text is drawn as paths: the SVGs
@@ -257,7 +257,54 @@ def _loud_long_frame(x, tr):
     return ok[int(np.argsort(e)[len(e) * 3 // 4])]
 
 
-def fig5_bandes():
+def fig5_raies():
+    """What a spectral line is: a synthetic note (220 Hz and its harmonics) over one long block,
+    and its first 64 MDCT coefficients, one stem per line, grouped by 8 into MULE's lowest
+    bands."""
+    n = np.arange(4096)
+    amps = [1.0, 0.6, 0.45, 0.3, 0.2, 0.12]
+    x = sum(a * np.sin(2 * np.pi * 220 * (h + 1) * n / FS + h) for h, a in enumerate(amps)) * 0.3
+    seg = x[1024:3072]
+    X = mdct_frames(x, 2048)[2]                  # frame 2 covers samples [1024, 3072)
+    a = np.abs(X[:64])
+    a /= a.max()
+    fig, (ax, bx) = plt.subplots(1, 2, figsize=(11, 3.8), gridspec_kw={"width_ratios": [1, 1.7], "wspace": 0.35})
+    ms = np.arange(2048) / FS * 1000
+    top = np.abs(seg).max()
+    ax.plot(ms, seg, color=MUTED, lw=1.0)
+    ax.plot(ms, vorbis_window(2048) * top, color=ORANGE, lw=1.4, ls="--")
+    ax.set_title("2 048 échantillons (46 ms)", fontsize=13)
+    ax.set_xlabel("temps (ms)")
+    ax.set_yticks([])
+    ax.text(23, -top * 1.2, "fenêtre", color=ORANGE, fontsize=11, ha="center")
+    ax.set_ylim(-top * 1.35, top * 1.2)
+    fig.patches.append(matplotlib.patches.FancyArrowPatch(
+        (0.355, 0.5), (0.425, 0.5), transform=fig.transFigure, arrowstyle="->", mutation_scale=18,
+        color=INK, lw=1.5))
+    fig.text(0.39, 0.56, "MDCT", ha="center", fontsize=13, color=INK)
+    k = np.arange(64)
+    for b in range(0, 8, 2):
+        bx.axvspan(8 * b - 0.5, 8 * b + 7.5, color="#f1f3f5", lw=0, zorder=0)
+    bx.vlines(k, 0, a, color=BLUE, lw=1.6)
+    bx.plot(k, a, "o", color=BLUE, ms=3.5)
+    bx.set_xlim(-1, 64)
+    bx.set_ylim(0, 1.35)
+    bx.set_yticks([])
+    bx.set_xticks([0, 8, 16, 24, 32, 40, 48, 56, 64])
+    bx.set_xticklabels([f"{round(i * FS / 2048)}" for i in range(0, 65, 8)], fontsize=10)
+    bx.set_xlabel("fréquence (Hz) : une raie tous les 21,5 Hz")
+    bx.set_title("les 64 premières raies (sur 1 024)", fontsize=13)
+    p = int(np.argmax(a))
+    bx.annotate("une raie = un coefficient :\nla quantité de son à cette\nfréquence (ici, la note\nà 220 Hz)",
+                xy=(p + 0.3, a[p]), xytext=(17, 0.78), fontsize=11, color=INK,
+                arrowprops=dict(arrowstyle="->", color=INK))
+    bx.text(44, 0.42, "ses harmoniques :\n440, 660, 880 Hz…", fontsize=11, color=INK)
+    bx.annotate("", xy=(-0.4, 1.22), xytext=(7.4, 1.22), arrowprops=dict(arrowstyle="<->", color=INK))
+    bx.text(8.5, 1.18, "8 raies = la bande 0 de MULE (172 Hz)", fontsize=11, color=INK)
+    save(fig, "fig5-raies")
+
+
+def fig6_bandes():
     """A trumpet frame's MDCT spectrum (SQAM 21) with MULE's 22 bands."""
     x, _, tr = _trumpet()
     t = _loud_long_frame(x, tr)
@@ -283,10 +330,10 @@ def fig5_bandes():
     ax.set_xlabel("fréquence (kHz)")
     ax.set_ylabel("niveau (dB)")
     ax.text(17.35, -12, "bande 21 :\n17,2 à 20 kHz", fontsize=11, color=INK)
-    save(fig, "fig5-bandes")
+    save(fig, "fig6-bandes")
 
 
-def fig6_masque():
+def fig7_masque():
     """One trumpet frame: signal per line, MULE's mask per band, the coding noise measured on the
     decoded file."""
     x, y, tr = _trumpet()
@@ -322,10 +369,10 @@ def fig6_masque():
     ax.text(66, -97, "bruit de codage", color=BLUE, fontsize=12, bbox=box, zorder=10)
     fig.text(0.5, -0.03, "une trame de MULE au réglage par défaut (128 kb/s en moyenne) ; bruit mesuré sur le fichier décodé, par bande",
              ha="center", color=MUTED, fontsize=11)
-    save(fig, "fig6-masque")
+    save(fig, "fig7-masque")
 
 
-def fig7_quantification():
+def fig8_quantification():
     """The same signal rounded with a coarse and a fine step: the error stays within ±D/2."""
     t = np.linspace(0, 1, 400)
     s = 0.8 * np.sin(2 * np.pi * t) + 0.3 * np.sin(2 * np.pi * 3 * t + 0.5)
@@ -349,7 +396,7 @@ def fig7_quantification():
     axes[0, 0].text(0.30, -1.2, "valeur arrondie", color=BLUE, fontsize=12)
     fig.text(0.5, -0.02, "pas divisé par 4 : erreur 4 fois plus petite, bruit 12 dB plus bas (D²/12) ; "
              "chaque division par 2 coûte environ 1 bit par coefficient", ha="center", color=MUTED, fontsize=11)
-    save(fig, "fig7-quantification")
+    save(fig, "fig8-quantification")
 
 
 def _abba():
@@ -374,7 +421,7 @@ def _op_bits(ops):
     return bits
 
 
-def fig8_bits():
+def fig9_bits():
     """Where the budget goes (ABBA, SQAM 69, at 128 kb/s): mean rate per band, and the split of
     the whole stream."""
     x, ops, fstart, tr, data = _abba()
@@ -426,10 +473,10 @@ def fig8_bits():
     bx.spines["bottom"].set_visible(False)
     fig.text(0.5, -0.15, "ABBA (EBU SQAM 69), 15 s au réglage par défaut : débit moyen de chaque partie du flux",
              ha="center", color=MUTED, fontsize=11)
-    save(fig, "fig8-bits")
+    save(fig, "fig9-bits")
 
 
-def fig9_stereo():
+def fig10_stereo():
     """The encoder's stereo choice per band and frame (ABBA, SQAM 69)."""
     x, ops, fstart, tr, data = _abba()
     bd = tr[(tr[:, 0] == 2) & (tr[:, 3] == 0) & (tr[:, 8] == 0)]
@@ -449,10 +496,10 @@ def fig9_stereo():
     ax.set_xlabel("temps (s)")
     ax.set_ylabel("bande")
     ax.set_title(f"en orange : M/S ; en gris : L/R ({share:.0%} des coefficients en M/S)", fontsize=13)
-    save(fig, "fig9-stereo")
+    save(fig, "fig10-stereo")
 
 
-def fig10_courbes():
+def fig11_courbes():
     """ODG against the real rate, on the 30 test excerpts: MULE v3, Opus, Vorbis, FDK-AAC."""
     ref = pd.read_csv(os.path.join(RESULTS, "ref_test.csv"))
     aac = pd.read_csv(os.path.join(RESULTS, "aac_test.csv"))
@@ -478,11 +525,11 @@ def fig10_courbes():
     ax.set_ylabel("ODG (PEAQ)")
     fig.text(0.5, -0.04, "moyenne sur les 30 extraits du jeu de test, jamais utilisés pour les réglages",
              ha="center", color=MUTED, fontsize=11)
-    save(fig, "fig10-courbes")
+    save(fig, "fig11-courbes")
 
 
-ALL = [fig2_fenetres, fig3_temps_frequence, fig4_blocs_courts, fig5_bandes, fig6_masque,
-       fig7_quantification, fig8_bits, fig9_stereo, fig10_courbes]
+ALL = [fig2_fenetres, fig3_temps_frequence, fig4_blocs_courts, fig5_raies, fig6_bandes, fig7_masque,
+       fig8_quantification, fig9_bits, fig10_stereo, fig11_courbes]
 
 if __name__ == "__main__":
     style()
