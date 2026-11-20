@@ -1,0 +1,54 @@
+Local changes to GstPEAQ (https://github.com/HSU-ANT/gstpeaq, LGPL-2: this patch is under the
+same license) used by eval/metrics.py, eval/mov_compare.py and eval/bad_frames.py:
+  PEAQ_MOVS=1   prints the model output variables (MOVs) of the basic model;
+  PEAQ_FRAMES=1 prints, per frame and channel, the worst band NMR (dB), its centre frequency
+                and the mean band NMR (dB): "NMRF <ch> <worst> <Hz> <mean>".
+Apply in a GstPEAQ checkout (commit 7397e49): git apply eval/gstpeaq-local.patch
+
+diff --git a/src/movs.c b/src/movs.c
+index 3e5bb9d..af75e4a 100644
+--- a/src/movs.c
++++ b/src/movs.c
+@@ -32,6 +32,7 @@
+  */
+ 
+ #include "movs.h"
++#include <glib/gprintf.h>
+ #include "settings.h"
+ 
+ #include <gst/fft/gstfftf64.h>
+@@ -1012,6 +1013,19 @@ peaq_mov_nmr (PeaqFFTEarModel const *ear_model, const gpointer *ref_state,
+     }
+     nmr /= band_count;
+ 
++    /* local: PEAQ_FRAMES prints each frame's worst band NMR (dB) and its centre frequency */
++    if (mov_accum_rel_dist_frames && g_getenv ("PEAQ_FRAMES")) {
++      guint kmax = 0;
++      gdouble vmax = -1.;
++      for (i = 0; i < band_count; i++) {
++        gdouble v = noise_in_bands[i] / (ref_excitation[i] / masking_difference[i]);
++        if (v > vmax) { vmax = v; kmax = i; }
++      }
++      g_printf ("NMRF %u %.2f %.0f %.2f\n", c, 10. * log10 (vmax + 1e-30),
++                peaq_earmodel_get_band_center_frequency (PEAQ_EARMODEL (ear_model), kmax),
++                10. * log10 (nmr + 1e-30));
++    }
++
+     if (peaq_movaccum_get_mode (mov_accum_nmr) == MODE_AVG_LOG)
+       peaq_movaccum_accumulate (mov_accum_nmr, c, nmr, 1.);
+     else
+diff --git a/src/peaq.c b/src/peaq.c
+index acd2a37..9148702 100644
+--- a/src/peaq.c
++++ b/src/peaq.c
+@@ -156,8 +156,8 @@ main(int argc, char *argv[])
+     exit (2);
+   }
+   gst_object_ref_sink (peaq);
+-  g_object_set (G_OBJECT (peaq), "advanced", advanced,
+-                "console_output", FALSE, NULL);
++  g_object_set (G_OBJECT (peaq), "advanced", advanced,     /* local: PEAQ_MOVS prints the MOVs */
++                "console_output", g_getenv ("PEAQ_MOVS") != NULL, NULL);
+   ref_source = gst_element_factory_make ("filesrc", "ref_file-source");
+   if (!ref_source) {
+     puts ("Error: filesrc element could not be instantiated");

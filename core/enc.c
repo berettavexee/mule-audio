@@ -19,7 +19,7 @@ void mule_enc_defaults(mule_enc_params *p)
     p->q_db = -7.0;             /* about 128 kb/s on a music library (tools/mule_enc.py) */
     p->keyframe = 40;
     p->groups = 0;              /* adaptive */
-    p->group_db = 6.0;
+    p->group_db = 12.0;         /* with group_mode 1 (eval/results/N-LOG.md, 20/11/2026) */
     p->stereo = 0;              /* auto */
     p->ath_db = 0.0;
     p->tonal_all = 0;
@@ -45,6 +45,13 @@ void mule_enc_defaults(mule_enc_params *p)
     p->tcq_chain = 1;
     p->coef_a8 = 1;
     p->tcq_rd_states = 8;       /* encoder speed x2, same quality (eval/results/B-LOG.md) */
+    p->tg = 0;                  /* zero-bit tonal bands: under study (eval/results/N-LOG.md) */
+    p->tg_db = 6.0;
+    p->tg_a = 1;
+    p->tg_ton = 5.0;
+    p->tr_db = 10.0;
+    p->group_mode = 1;          /* adaptive grouping per frequency region (N-LOG.md) */
+    p->short_db = 0.0;
 }
 
 /* ---------------------------------------------------------------- measurement trace */
@@ -159,18 +166,35 @@ static void frame_groups(const mule_enc_params *pr, double X[2][F], frame_t *f, 
         f->grp[f->ng++] = (group){0, 0, 1};
         return;
     }
-    double db[MULE_N_SUB];
+    /* group_mode 1 (N-LOG.md): also per region of the window's 128 lines (0-1.4, 1.4-4.1,
+     * 4.1-8.3 kHz, above), a region within 40 dB of the window's strongest: an attack in the
+     * highs under a loud bass hardly moves the whole window's energy */
+    static const int RG[5] = {0, 8, 24, 48, 128};
+    double db[MULE_N_SUB], rdb[MULE_N_SUB][4];
     for (int k = 0; k < MULE_N_SUB; k++) {
-        double e = 0;
+        double e = 0, er[4] = {0, 0, 0, 0};
         for (int c = 0; c < 2; c++)
-            for (int i = 0; i < 128; i++)
-                e += X[c][k * 128 + i] * X[c][k * 128 + i];
+            for (int r = 0; r < 4; r++)
+                for (int i = RG[r]; i < RG[r + 1]; i++) {
+                    double v = X[c][k * 128 + i];
+                    e += v * v;
+                    er[r] += v * v;
+                }
         db[k] = 10 * log10(e + 1e-20);
+        for (int r = 0; r < 4; r++)
+            rdb[k][r] = 10 * log10(er[r] + 1e-20);
     }
     uint32_t mask = 0;
     int k0 = 0;
     for (int k = 1; k < MULE_N_SUB; k++) {
         int split = pr->groups == 8 ? 1 : (pr->groups == 1 ? 0 : fabs(db[k] - db[k - 1]) > pr->group_db);
+        if (!split && pr->groups == 0 && pr->group_mode == 1)
+            for (int r = 0; r < 4; r++) {
+                double hi = rdb[k][r] > rdb[k - 1][r] ? rdb[k][r] : rdb[k - 1][r];
+                double top = db[k] > db[k - 1] ? db[k] : db[k - 1];
+                if (hi > top - 40 && fabs(rdb[k][r] - rdb[k - 1][r]) > pr->group_db)
+                    split = 1;
+            }
         if (split) {
             f->grp[f->ng++] = (group){1, k0, k};
             k0 = k;
@@ -348,6 +372,37 @@ static void alloc_from_masks(const mule_enc_params *pr, const frame_t *f, const 
                 a[b] = ap[b];
 }
 
+/* Zero-bit tonal bands (tg, N-LOG.md): a band the masks leave at allocation 0 (noise filling)
+ * that holds a lone line: its strongest coefficient at least tg_ton dB above the strongest a
+ * noise of the same n lines would reach (about 2 ln n times the mean power). tg 1: the band gets
+ * allocation tg_a if that line reaches the mask target minus tg_db (the line coded instead of spread
+ * as flat noise over the band); tg 2: the band is sent silent. (The FFT flatness of the masks
+ * misses a line that comes and goes: the crest is taken on the coded coefficients.) */
+static void tonal_guard(const mule_enc_params *pr, const frame_t *f, int c, int g, int *q, int *a)
+{
+    const group *gr = &f->grp[g];
+    for (int b = 0; b < NB; b++) {
+        if (a[b] != 0 || q[b] <= MULE_QMIN)
+            continue;
+        int n = band_n(gr, b);
+        if (n < 16)
+            continue;
+        double peak = 0, sum = 0;
+        for (int i = 0; i < n; i++) {
+            double v = f->Y[c][coef_index(gr, b, i)];
+            sum += v * v;
+            if (v * v > peak)
+                peak = v * v;
+        }
+        if (peak < (sum / n) * 2 * log(n) * pow(10, pr->tg_ton / 10))
+            continue;
+        if (pr->tg == 2)
+            q[b] = MULE_QMIN;
+        else if (peak >= band_mask(f, c, g, b) * f->tq * pow(10, -pr->tg_db / 10))
+            a[b] = pr->tg_a < 1 ? 1 : (pr->tg_a > MULE_AMAX ? MULE_AMAX : pr->tg_a);
+    }
+}
+
 /* The rate-distortion choice of each coded band's allocation among a-1, a, a+1, band after band:
  * noise / (mask tq) + rd_lambda bits, per coefficient, the bits costed with the tracked models
  * (coefficients and the allocation's own symbol). tail1, tail2: the coefficient tails before the
@@ -503,7 +558,7 @@ static void encode_frame(const mule_enc_params *pr, const psy_t *psy_l, const ps
     for (int b = 0; b < NB; b++)
         put(o, MULE_S_STEREO, band_class(b), f->ms[b]);
 
-    f->tq = pow(10, pr->q_db / 10);
+    f->tq = pow(10, (pr->q_db + (type ? pr->short_db : 0.0)) / 10);
     for (int c = 0; c < 2; c++) {
         int64_t tail1 = 0, tail2 = 0;
         int inter_ok = type == 0 && s->lvalid[c];
@@ -516,6 +571,8 @@ static void encode_frame(const mule_enc_params *pr, const psy_t *psy_l, const ps
         for (int g = 0; g < f->ng; g++) {
             q = f->Q[c][g];
             alloc_from_masks(pr, f, s, c, g, q, a);
+            if (pr->tg)
+                tonal_guard(pr, f, c, g, q, a);
             if (pr->rd_lambda > 0 && o->mr)
                 alloc_rd(pr, f, s, o, c, g, q, a, inter_ok, tail1, tail2);
             if (pr->nf_bias > 0)                /* noise-filled bands: energy sent lower */
@@ -529,10 +586,19 @@ static void encode_frame(const mule_enc_params *pr, const psy_t *psy_l, const ps
             if (mule_enc_trace)                 /* band records: the figures (docs/blog) */
                 for (int b = 0; b < NB; b++) {
                     double pw = f->ms[b] ? f->PM[g][b][c] : f->P[c][g][b];
+                    double fl = f->FL[c][g][b], pk = 0;
+                    if (f->ms[b] && f->FL[1 - c][g][b] < fl)
+                        fl = f->FL[1 - c][g][b];
+                    for (int i = 0; i < band_n(&f->grp[g], b); i++) {
+                        double v = f->Y[c][coef_index(&f->grp[g], b, i)];
+                        pk = v * v > pk ? v * v : pk;
+                    }
                     int32_t rec[MULE_TRACE_W] = {2, clip32(o->n), mule_enc_trace->frame, c, f->type, b, a[b],
                                                  f->ms[b], g, (int32_t)lround(1000 * log10(band_mask(f, c, g, b) + 1e-30)),
                                                  (int32_t)lround(1000 * log10(pw + 1e-30)), q[b],
-                                                 f->grp[g].k0, f->grp[g].k1, 0, 0, 0, 0, 0, 0};
+                                                 f->grp[g].k0, f->grp[g].k1, (int32_t)lround(100 * fl),
+                                                 (int32_t)lround(1000 * log10((pk + 1e-30) / (band_mask(f, c, g, b) * f->tq + 1e-30))),
+                                                 0, 0, 0, 0};
                     trace_add(rec);
                 }
             code_coefficients(pr, f, s, o, c, g, q, a, inter_ok, &tail1, &tail2, ycur);
@@ -572,7 +638,7 @@ static int encode_ops(const double *pcm, int64_t L, const mule_enc_params *pr, i
     double (*X)[F] = malloc(sizeof(double) * 2 * F);
     double (*PW)[F] = malloc(sizeof(double) * 2 * F);
     int rc = -1;
-    if (!types || !s || !X || !PW || block_types(pcm, L, T, types) || mdct_init(&ml, MULE_N_LONG) ||
+    if (!types || !s || !X || !PW || block_types(pcm, L, T, types, pr->tr_db) || mdct_init(&ml, MULE_N_LONG) ||
         mdct_init(&msh, MULE_N_SHORT))
         goto done;
     psy_t pl, ps;

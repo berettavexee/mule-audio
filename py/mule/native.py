@@ -217,6 +217,13 @@ def c_params(params):
     p.fine_nb = params.fine_nb
     p.pre_db = params.pre_db
     p.nf_bias = params.nf_bias
+    p.tg = params.tg
+    p.tg_db = params.tg_db
+    p.tg_ton = params.tg_ton
+    p.tg_a = params.tg_a
+    p.tr_db = params.tr_db
+    p.group_mode = params.group_mode
+    p.short_db = params.short_db
     p.tcq_states = params.tcq_states
     p.tcq_chain = params.tcq_chain
     p.coef_a8 = params.coef_a8
@@ -265,7 +272,7 @@ TRACE_FIELDS = {
     "energy": ["kind", "op", "frame", "ch", "type", "band", "q", "pred", "r", "ctx", "alpha", "group",
                "key", "qprev", "ms", "_1", "_2", "_3", "_4", "_5"],
     "band": ["kind", "op", "frame", "ch", "type", "band", "a", "ms", "group", "mask_mdb", "pow_mdb", "q",
-             "k0", "k1", "_1", "_2", "_3", "_4", "_5", "_6"],
+             "k0", "k1", "flat_cdb", "peak_mdb", "_3", "_4", "_5", "_6"],
 }
 
 

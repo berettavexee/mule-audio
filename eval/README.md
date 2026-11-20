@@ -31,6 +31,10 @@ then `python eval/p4_compare.py eval/results/mytest.csv --base mule-v2 --vs mule
 | `tcq_sim.py` | trellis sizes and chaining on a Laplacian model, before the codec (B-LOG) |
 | `m6_tune.py`, `m6_validate.py` | CMA-ES tuning of the encoder settings, rate-bracketed, and its validation (M-LOG, B-LOG) |
 | `frame_diag.py`, `mov_diag.py` | where MULE loses to Opus, window by window, and which PEAQ variables say so (D-LOG) |
+| `mov_compare.py` | PEAQ's variables (MOVs) for any configurations, means, per item (`--per-item`) and what carries the ODG gap (N-LOG) |
+| `bad_frames.py` | PEAQ's disturbed frames, frame by frame: which items, which frequencies (N-LOG) |
+| `segment_odg.py` | PEAQ's ODG passage by passage (windows of a few seconds) (N-LOG) |
+| `gstpeaq-local.patch` | the local GstPEAQ changes these tools need (`PEAQ_MOVS`, `PEAQ_FRAMES`; LGPL-2 like GstPEAQ) |
 
 ## `archive/`
 

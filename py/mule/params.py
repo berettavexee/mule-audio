@@ -13,7 +13,7 @@ class Params:
     q_db: float = -7.0          # noise target relative to the masking threshold (quality)
     keyframe: int = 40          # frames between key packets (multiple of 4; 40 = 0.93 s)
     groups: str = "adaptive"    # short frames: "8" (one energy per block), "adaptive", "1"
-    group_db: float = 6.0       # adaptive grouping: a new group past this energy jump
+    group_db: float = 12.0      # adaptive grouping: a new group past this energy jump
     stereo: str = "auto"        # "lr", "ms", "auto" (per band, perceptual entropy)
     ath_db: float = 0.0         # threshold in quiet shift (dB)
     tonal: str = "flatness"     # psy tonality: "flatness" or "all"
@@ -39,6 +39,13 @@ class Params:
     tcq_chain: int = 1          # trellis state across the bands, one Viterbi (0: comparisons only)
     coef_a8: int = 1            # 8-symbol coefficient alphabet (0: 16 symbols, comparisons only)
     tcq_rd_states: int = 8      # encoder speed: trellis of the RD choice's estimates (0: tcq_states)
+    tg: int = 0                 # zero-bit tonal bands: 0 off, 1 guard (allocation 1), 2 muted
+    tg_db: float = 6.0          # guard: strongest line within this of the mask target (dB)
+    tg_a: int = 1               # guard: the allocation given
+    group_mode: int = 1         # adaptive grouping: 0 window energy, 1 also per frequency region
+    tr_db: float = 10.0         # transient detector threshold (dB)
+    short_db: float = 0.0       # noise target offset in short frames (dB; < 0: more bits)
+    tg_ton: float = 5.0         # a lone line: peak this many dB above a noise's (2 ln n x mean)
 
 
 # the model streams in the decoder's order: (name, symbols, contexts) (core/models.c)

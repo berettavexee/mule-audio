@@ -12,7 +12,7 @@ typedef struct {
     double q_db;        /* noise target relative to the masking threshold (quality) */
     int keyframe;       /* frames between key packets (multiple of 4; 40) */
     int groups;         /* short frames: 0 adaptive, 8 one per block, 1 single group */
-    double group_db;    /* adaptive grouping threshold (6 dB) */
+    double group_db;    /* adaptive grouping threshold (12 dB; 6 before group_mode 1) */
     int stereo;         /* 0 auto (per band, perceptual entropy), 1 L/R, 2 M/S */
     double ath_db;      /* threshold in quiet shift (0) */
     int tonal_all;      /* psy: every masker tonal (0) */
@@ -50,6 +50,17 @@ typedef struct {
                          * at 15, for comparisons only (1; header flag MULE_COEF_A8) */
     int tcq_rd_states;  /* encoder speed: the trellis of the RD choice's per-band estimates
                          * (a-1, a, a+1), 8 to 64; 0: tcq_states (8) */
+    int tg;             /* zero-bit tonal bands (eval/results/N-LOG.md): 0 off (production),
+                         * 1 guard: the band gets allocation 1 if its strongest line is within
+                         * tg_db of the mask target; 2 muted: sent silent instead of noise (0) */
+    double tg_db;       /* guard: the strongest line at least the target minus this (dB; 6) */
+    int tg_a;           /* guard: the allocation given (1 .. MULE_AMAX; 1) */
+    int group_mode;     /* adaptive grouping: 0 the window's energy only, 1 also per frequency
+                         * region (1; eval/results/N-LOG.md) */
+    double tr_db;       /* transient detector: energy rise over its decaying memory (10 dB) */
+    double short_db;    /* noise target offset in short frames (0 dB; < 0: more bits) */
+    double tg_ton;      /* a lone line: the band's strongest coefficient this many dB above the
+                         * strongest of a noise of the same lines, 2 ln n times the mean (5) */
 } mule_enc_params;
 
 void mule_enc_defaults(mule_enc_params *p);

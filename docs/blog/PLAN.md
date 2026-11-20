@@ -295,3 +295,12 @@ Ce qui a été mesuré :
 Le message : un outil qui marche chez Opus (trames courtes, bas débit) ne rapporte rien dans
 MULE (trames longues, 128 kb/s). Une idée n'est bonne que pour le codec qui en a besoin.
 
+
+## Notes pour un billet sur l'analyse des écarts (Apple, PEAQ, extraits fautifs)
+
+Matériau : `eval/results/N-LOG.md` (20/11/2026). La moyenne de PEAQ cache tout ; il a fallu
+descendre extrait par extrait, puis passage par passage.
+
+- **La blague, à placer.** Lebanon Hanover, Zombie Zombie et Takemitsu viennent casser notre beau
+  modèle psychoacoustique. Une cold wave, un duo de synthés et un compositeur japonais
+  contemporain, ligués contre un modèle réglé au décibel près.

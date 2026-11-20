@@ -8,9 +8,9 @@
  * signal high-passed at 3 kHz; an attack is a block 10 dB above a decaying memory (3 dB per
  * block) or 20 dB above the blocks 7 to 10 earlier, above a -70 dB floor; the frames whose short
  * windows hold it become short. -1 if out of memory. */
-int block_types(const double *x, int64_t L, int T, uint8_t *types)
+int block_types(const double *x, int64_t L, int T, uint8_t *types, double ratio_db)
 {
-    const double fs = 44100.0, fc = 3000.0, ratio_db = 10.0, decay_db = 3.0, floor_db = -70.0,
+    const double fs = 44100.0, fc = 3000.0, decay_db = 3.0, floor_db = -70.0,
                  slow_db = 20.0;
     const int lag0 = 7, lag1 = 10, SUB = 128;
     /* 2nd-order Butterworth high-pass (bilinear, prewarped: scipy's butter) */

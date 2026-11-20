@@ -97,3 +97,20 @@ format, +0,01 d'ODG pour l'encodeur). **Pas de v4 justifiée** : la v3 reste le 
 s'accordent pas et que l'oreille n'a pas distingués. Si un jour la cible descendait sous
 128 kb/s, l'ordre serait inverse : intensité, remplissage de bruit et pliage deviendraient les
 premiers leviers (écart de 0,7 d'ODG avec Opus à 64 kb/s).
+
+## Ajout du 20/11/2026 : des bandes plus étroites au-dessus de 13 kHz
+
+L'étude des variables internes de PEAQ (`eval/results/N-LOG.md`) a trouvé l'origine de la
+plupart des trames que PEAQ juge dégradées chez MULE. En voici les éléments.
+
+- **Le défaut.** Une raie isolée vers 15 kHz tombe dans la bande 20 (13,4–17,2 kHz, 176 raies).
+  Elle y est diluée : l'allocation lui donne 0 bit, et le remplissage de bruit l'étale en un
+  souffle sur toute la bande.
+- **Ce que fait AAC.** Ses bandes de facteur d'échelle sont étroites à ces fréquences. Il garde
+  la raie à 0,5 dB près, sans bruit autour : FDK comme Apple, et Apple pour moins de bits que
+  MULE.
+- **Ce qui est essayé sans changer le format.** Une garde tonale dans l'encodeur (`tg`) donne
+  une allocation à la bande quand sa crête trahit une raie.
+- **La solution de format.** Couper les bandes 20 et 21 en trois ou quatre bandes. Le coût :
+  quelques énergies de plus par trame, et une nouvelle table de bandes. À mesurer contre la garde
+  tonale : si la garde récupère l'essentiel, la v3 reste.

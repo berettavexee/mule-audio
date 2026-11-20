@@ -177,7 +177,7 @@ typedef struct {
     int width[NB];
 } psy_t;
 
-int block_types(const double *x, int64_t L, int T, uint8_t *types);
+int block_types(const double *x, int64_t L, int T, uint8_t *types, double ratio_db);
 void psy_init(psy_t *p, int m);
 void psy_fine(const psy_t *p, const mule_enc_params *pr, const double *X, const double *flat,
               double *mask);

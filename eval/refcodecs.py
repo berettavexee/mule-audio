@@ -198,6 +198,17 @@ class Mule:
         # lever G (threshold in quiet), over the production
         "athm6": {"ath_db": -6.0}, "athm3": {"ath_db": -3.0}, "athp3": {"ath_db": 3.0},
         "athp6": {"ath_db": 6.0},
+        # zero-bit tonal bands (N-LOG.md): 1 guard (allocation 1, line within tg_db of the target), 2 muted
+        "tg1": {"tg": 1}, "tg1d0": {"tg": 1, "tg_db": 0.0}, "tg1d12": {"tg": 1, "tg_db": 12.0},
+        "tg1d18": {"tg": 1, "tg_db": 18.0}, "tg2": {"tg": 2},
+        # Lebanon Hanover (N-LOG.md): fewer short frames, or more bits in them
+        # production since 20/11/2026 = gr1d12; gr0 = the grouping before (whole window, 6 dB)
+        "gr0": {"group_mode": 0, "group_db": 6.0},
+        "gr1": {"group_mode": 1, "group_db": 6.0}, "gr1d8": {"group_mode": 1, "group_db": 8.0},
+        "gr1d10": {"group_mode": 1, "group_db": 10.0}, "gr1d12": {"group_mode": 1, "group_db": 12.0}, "gd4": {"group_mode": 0, "group_db": 4.0}, "gd3": {"group_mode": 0, "group_db": 3.0},
+        "tr13": {"tr_db": 13.0}, "tr16": {"tr_db": 16.0}, "tr20": {"tr_db": 20.0}, "tr99": {"tr_db": 99.0},
+        "sh3": {"short_db": -3.0}, "sh6": {"short_db": -6.0}, "sh9": {"short_db": -9.0},
+        "tg1a2": {"tg": 1, "tg_a": 2}, "tg1a3": {"tg": 1, "tg_a": 3}, "tg1a4": {"tg": 1, "tg_a": 4},
     }
 
     def __init__(self, variant, q):
