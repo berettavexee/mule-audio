@@ -130,6 +130,24 @@ library); `eval/corpus.py` shows how it was cut (the library's root in `MULE_LIB
 no ecosystem: nothing else in the world plays a `.mule` file, apart from one firmware on one
 player.
 
+## Credits
+
+MULE is built from other people's ideas:
+- **Jarek Duda**, for asymmetric numeral systems, the entropy coder:
+  [the paper](https://arxiv.org/abs/1311.2540), [his page](http://th.if.uj.edu.pl/~dudaj/),
+  [GitHub](https://github.com/JarekDuda);
+- **Xiph.Org**: [Opus](https://opus-codec.org/) ([RFC 6716](https://www.rfc-editor.org/rfc/rfc6716)),
+  whose CELT layer gave MULE its bands and its energy/shape split;
+  [Vorbis](https://xiph.org/vorbis/), for the window; [Ogg](https://xiph.org/ogg/), for the container;
+- **MPEG AAC**, for block switching, short-window grouping and pre-echo control;
+  [FDK-AAC](https://github.com/mstorsjo/fdk-aac) served as a reference in the measurements;
+- **M. W. Marcellin and T. R. Fischer**, for trellis-coded quantization
+  ([1990](https://doi.org/10.1109/26.46532)), later part of [JPEG 2000](https://jpeg.org/jpeg2000/);
+- **[AV1](https://aomedia.org/specifications/av1/)**, for the adaptive CDF update;
+- the measuring tools: [GstPEAQ](https://github.com/HSU-ANT/gstpeaq),
+  [ViSQOL](https://github.com/google/visqol), [QEMU](https://www.qemu.org/), and the EBU SQAM disc;
+- the player's firmware: [echo-mini-newfw](https://github.com/berettavexee/echo-mini-newfw).
+
 ## License
 
 MIT (`LICENSE`).
