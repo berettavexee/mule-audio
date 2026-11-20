@@ -42,6 +42,7 @@ class Params:
     tg: int = 0                 # zero-bit tonal bands: 0 off, 1 guard (allocation 1), 2 muted
     tg_db: float = 6.0          # guard: strongest line within this of the mask target (dB)
     tg_a: int = 1               # guard: the allocation given
+    tg_band: int = 0            # guard: from this band up only
     group_mode: int = 1         # adaptive grouping: 0 window energy, 1 also per frequency region
     tr_db: float = 10.0         # transient detector threshold (dB)
     short_db: float = 0.0       # noise target offset in short frames (dB; < 0: more bits)

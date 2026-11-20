@@ -48,6 +48,7 @@ void mule_enc_defaults(mule_enc_params *p)
     p->tg = 0;                  /* zero-bit tonal bands: under study (eval/results/N-LOG.md) */
     p->tg_db = 6.0;
     p->tg_a = 1;
+    p->tg_band = 0;
     p->tg_ton = 5.0;
     p->tr_db = 10.0;
     p->group_mode = 1;          /* adaptive grouping per frequency region (N-LOG.md) */
@@ -381,7 +382,7 @@ static void alloc_from_masks(const mule_enc_params *pr, const frame_t *f, const 
 static void tonal_guard(const mule_enc_params *pr, const frame_t *f, int c, int g, int *q, int *a)
 {
     const group *gr = &f->grp[g];
-    for (int b = 0; b < NB; b++) {
+    for (int b = pr->tg_band; b < NB; b++) {
         if (a[b] != 0 || q[b] <= MULE_QMIN)
             continue;
         int n = band_n(gr, b);
@@ -621,7 +622,8 @@ static int params_ok(const mule_enc_params *pr)
     int ns = pr->tcq_states, nr = pr->tcq_rd_states;
     return pr->keyframe > 0 && pr->keyframe % 4 == 0 &&
            (ns == 8 || ns == 16 || ns == 32 || ns == 64) &&
-           (nr == 0 || nr == 8 || nr == 16 || nr == 32 || nr == 64);
+           (nr == 0 || nr == 8 || nr == 16 || nr == 32 || nr == 64) &&
+           pr->tg_band >= 0 && pr->tg_band <= NB;
 }
 
 /* Analysis and frame coding of the whole signal: its operations (out) and each frame's first

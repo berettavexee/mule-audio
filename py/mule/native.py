@@ -221,6 +221,7 @@ def c_params(params):
     p.tg_db = params.tg_db
     p.tg_ton = params.tg_ton
     p.tg_a = params.tg_a
+    p.tg_band = params.tg_band
     p.tr_db = params.tr_db
     p.group_mode = params.group_mode
     p.short_db = params.short_db

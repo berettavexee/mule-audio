@@ -114,3 +114,10 @@ plupart des trames que PEAQ juge dégradées chez MULE. En voici les éléments.
 - **La solution de format.** Couper les bandes 20 et 21 en trois ou quatre bandes. Le coût :
   quelques énergies de plus par trame, et une nouvelle table de bandes. À mesurer contre la garde
   tonale : si la garde récupère l'essentiel, la v3 reste.
+
+**Ajout du 20/11/2026 : du bruit dans les coefficients nuls des bandes codées.** Dans la v3, il
+n'y a du bruit que dans les bandes à allocation 0. La garde tonale (`N-LOG.md`) code une raie
+isolée dans une bande sinon bruitée ; ses autres coefficients, arrondis à zéro, laissent un trou.
+PEAQ applaudit la raie, ViSQOL et Zimtohrli sanctionnent le trou. L'USAC remplit de bruit les
+coefficients quantifiés à zéro, à un niveau transmis. Ce serait le complément naturel de la
+garde, et peut-être une alternative aux bandes plus étroites.

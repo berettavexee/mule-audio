@@ -201,6 +201,8 @@ class Mule:
         # zero-bit tonal bands (N-LOG.md): 1 guard (allocation 1, line within tg_db of the target), 2 muted
         "tg1": {"tg": 1}, "tg1d0": {"tg": 1, "tg_db": 0.0}, "tg1d12": {"tg": 1, "tg_db": 12.0},
         "tg1d18": {"tg": 1, "tg_db": 18.0}, "tg2": {"tg": 2},
+        "tg1b19": {"tg": 1, "tg_band": 19}, "tg1b20": {"tg": 1, "tg_band": 20},
+        "tg1t3": {"tg": 1, "tg_ton": 3.0}, "tg1t8": {"tg": 1, "tg_ton": 8.0},
         # Lebanon Hanover (N-LOG.md): fewer short frames, or more bits in them
         # production since 20/11/2026 = gr1d12; gr0 = the grouping before (whole window, 6 dB)
         "gr0": {"group_mode": 0, "group_db": 6.0},

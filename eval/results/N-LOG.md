@@ -488,3 +488,148 @@ actuelle ». Les valeurs par défaut sont désormais `group_mode` 1 et `group_db
   production : environ −0,16 avec la nouvelle. À mettre à jour au moment de la publication
   groupée.
 - Prochaine étape : la garde tonale (`tg` 1), mesurée par-dessus la nouvelle production.
+
+## Garde tonale par-dessus la nouvelle production (regroupement par régions)
+
+Sur les extraits difficiles, à q −7. Belenos sert de témoin : MULE y bat Opus. ODG par extrait :
+
+| | production | `tg_ton` 3 | **`tg_ton` 5** | `tg_ton` 8 | Opus 128 |
+|---|---|---|---|---|---|
+| Takemitsu | −0,242 | −0,205 | −0,213 | −0,236 | −0,139 |
+| Zombie Zombie | −0,314 | −0,302 | **−0,292** | −0,306 | −0,107 |
+| Belenos | −0,243 | −0,226 | −0,225 | −0,225 | −0,635 |
+| Mravinsky | −0,233 | **−0,251** | −0,234 | −0,232 | −0,131 |
+| Salut c'est cool | −0,159 | −0,166 | **−0,169** | −0,162 | −0,036 |
+| Lebanon Hanover | −0,235 | −0,234 | −0,235 | −0,235 | −0,107 |
+| Max Richter | −0,197 | −0,196 | −0,197 | −0,197 | −0,042 |
+| Spector | −0,186 | −0,188 | −0,186 | −0,186 | −0,047 |
+| trames dégradées (8 extraits) | 7,7 % | 2,6 % | 2,8 % | 5,6 % | |
+
+- **Le défaut visé disparaît en grande partie.** Avec `tg_ton` 5, les trames dégradées passent de
+  24,5 % à 4,8 % sur Takemitsu, et de 26,7 % à 9,6 % sur Zombie Zombie. L'ODG gagne +0,029 et
+  +0,022, Belenos +0,018, pour 0,1 à 0,4 % de débit.
+- **`tg_ton` 3 en fait trop** : Mravinsky −0,018, alors que Takemitsu gagne un peu plus.
+  **`tg_ton` 8 ne fait presque rien.** 5 reste le bon réglage. Salut c'est cool perd 0,010, au
+  niveau du bruit de mesure.
+- **Lebanon Hanover est réglé par le regroupement** : 1,4 % de trames dégradées, et la garde n'y
+  change rien.
+- **Ce qui reste de l'écart avec Opus a une autre origine.** Sur Max Richter, Mravinsky, Spector
+  et Salut c'est cool, l'écart est de 0,10 à 0,16, sans trames dégradées. MULE y dépense 118 à
+  120 kb/s, contre 137 à 143 pour Opus. C'est la piste des morceaux calmes sous-dotés, où le
+  masque de MULE serait trop indulgent.
+
+### Garde tonale (`tg_ton` 5) sur `test`, à débit égal, contre la nouvelle production (`tg2_test.csv`)
+
+Référence : `gr_test.csv`, configurations `mule-gr1d12`, qui donnent exactement les mêmes fichiers
+que la production. Intervalles bootstrap à 95 %, sur les extraits.
+
+| | ODG @128 | @160 | ODG avancé @128 | @160 | ViSQOL @128 | @160 |
+|---|---|---|---|---|---|---|
+| production | −0,1607 | −0,0037 | −0,3623 | −0,1444 | 4,6085 | 4,6354 |
+| `tg` 1 | −0,1578 | −0,0010 | −0,3594 | −0,1429 | 4,6134 | 4,6376 |
+| écart | +0,0029 [−0,0002 ; +0,0068] | +0,0027 [+0,0009 ; +0,0045] | +0,0030 [+0,0001 ; +0,0065] | +0,0016 [+0,0002 ; +0,0034] | +0,0049 | +0,0022 |
+
+- **Toutes les mesures vont dans le même sens**, ce qui est rare dans ce projet. Aucune régression
+  de plus de 0,02, sur aucune mesure. Le débit augmente de 0,03 % à q égal.
+- **Les gains viennent des extraits attendus** : Takemitsu (+0,034 d'ODG, +0,18 de ViSQOL), Zombie
+  Zombie (+0,033), Belenos (+0,026).
+- **Le gain moyen (+0,003) reste sous le seuil d'adoption du projet** (+0,01). Ce seuil a été fixé
+  pour les réglages d'encodeur, dont le gain se perd dans le bruit de mesure. Ici, le mécanisme
+  est identifié, le défaut localisé, et la correction ne coûte rien ailleurs. Décision laissée à
+  l'auteur.
+
+### Décision (20/11/2026) : la garde tonale est adoptée (`tg` 1, `tg_ton` 5)
+
+L'auteur : « tous les outils sont d'accord. Le seuil d'adoption était présent pour éviter de se
+perdre dans des optimisations trop précoces de l'algorithme. On attaque la phase de fine tuning.
+On peut être moins rigide sur le seuil d'adoption, d'autant plus quand il n'affecte pas le format
+et ne génère aucune régression. »
+
+Nouvelle règle pour cette phase de réglage fin : un changement de l'encodeur seul, sans aucune
+régression, sur lequel toutes les mesures s'accordent, peut être adopté sous le seuil de +0,01.
+
+## Zimtohrli, enfin lisible (`zimt_test.csv`)
+
+`run_eval.py` écrivait les CSV avec `%.4f`. Les distances Zimtohrli (0,0001 à 0,0009) n'y
+gardaient qu'un chiffre significatif, et la mesure était inexploitable depuis le début. L'écriture
+passe à `%.6g` ; les CSV antérieurs restent tronqués pour cette colonne. Nouvelle mesure, Zimtohrli
+seul (PEAQ et ViSQOL désactivés), sur `test`, à débit égal. Distance × 1000, plus petite = mieux.
+
+| | @128 | @160 |
+|---|---|---|
+| ancienne production (`gr0`) | 0,3965 | 0,2104 |
+| production (regroupement par régions) | **0,3794** | **0,1988** |
+| production + garde tonale (`tg` 1) | 0,3818 | 0,1998 |
+
+- **Le regroupement par régions est confirmé** : −2,9 % à 128 kb/s et −3,5 % à 160, intervalle de
+  confiance entièrement négatif. Lebanon Hanover −55 à −63 %, Korpiklaani −10 à −15 %, aucun
+  extrait pire de plus de 2 %. Cinquième juge d'accord, PEAQ avancé reste seul contre.
+- **La garde tonale divise Zimtohrli** : +0,6 % en moyenne (intervalle [−0,2 ; +1,7 %]).
+  - Takemitsu s'améliore (−4 à −9 %).
+  - Beethoven 59 se dégrade de 11 à 14 %, et ViSQOL va dans le même sens (−0,013 à −0,019) ;
+    l'ODG baisse un peu (−0,003 à −0,005).
+  - Zombie Zombie se dégrade de 3,5 à 5,7 % pour Zimtohrli et de 0,019 pour ViSQOL, alors que PEAQ
+    le voit s'améliorer (+0,014 à +0,041).
+- **La condition d'adoption, « tous les outils d'accord, aucune régression », n'est donc pas
+  remplie.** La garde n'est pas activée par défaut. Hypothèse : sur un orchestre, le critère de
+  crête se déclenche sur des bandes à partiels, où le remplissage de bruit convenait. Piste :
+  limiter la garde aux bandes hautes (19 à 21), où le défaut a été trouvé.
+
+## La répartition des notes par extrait, codec par codec
+
+ODG de chaque extrait de `test`, interpolée au débit moyen donné. MULE est la production actuelle
+(regroupement par régions, sans garde tonale).
+
+| à 128 kb/s | moyenne | médiane | écart type | p10 | p90 | pire | asymétrie | normalité (Shapiro p) |
+|---|---|---|---|---|---|---|---|---|
+| MULE | −0,161 | −0,153 | 0,074 | −0,259 | −0,085 | −0,335 | −0,48 | 0,66 |
+| Opus | −0,116 | **−0,092** | 0,113 | −0,141 | −0,052 | −0,685 | **−4,37** | 0,000 |
+| Apple AAC | −0,314 | −0,277 | 0,120 | −0,456 | −0,206 | −0,683 | −1,33 | 0,002 |
+| FDK AAC | −0,540 | −0,537 | 0,248 | −0,849 | −0,267 | −1,199 | −0,82 | 0,11 |
+| Vorbis | −0,449 | −0,412 | 0,184 | −0,630 | −0,286 | −1,125 | −1,85 | 0,000 |
+
+À 160 kb/s : MULE −0,004 de moyenne, +0,009 de médiane, écart type 0,082 ; Opus +0,001, +0,010
+et 0,075.
+
+- **MULE suit à peu près une gaussienne** (Shapiro p = 0,66, presque symétrique) : régulier,
+  sans catastrophe, mais toute sa distribution est décalée. Sa médiane à 128 kb/s est 0,06 en
+  dessous de celle d'Opus.
+- **Opus n'est pas gaussien du tout** : une asymétrie de −4,4. La plupart des extraits sont
+  excellents, et le cœur de la distribution est deux fois plus serré que celui de MULE (de p10
+  à p90 : 0,089 contre 0,174). Mais un extrait s'effondre : Belenos à −0,685. C'est lui qui gonfle
+  l'écart type d'Opus (0,113 contre 0,074). Le test de Levene ne distingue pas les deux variances
+  (p = 0,70) : l'écart type, dominé par une valeur aberrante, est la mauvaise mesure ici.
+- **Deux profils** : Opus est très bon presque partout, avec de rares accidents ; MULE est un peu
+  moins bon partout, sans accident. Le retard moyen de MULE n'est plus porté par quelques
+  extraits : il est diffus, sur tout le cœur de la distribution.
+- **À 160 kb/s, les médianes de MULE et d'Opus sont identiques** (+0,009 et +0,010).
+
+### La garde limitée aux bandes hautes (`tg_band` 19 et 20, `tgb_test.csv`)
+
+Quatre juges, à débit égal, contre la production. Zimtohrli en écart relatif, plus petit = mieux.
+
+| | ODG @128 | ODG avancé @128 | ViSQOL @128 | Zimtohrli @128 | Beethoven 59, Zimtohrli |
+|---|---|---|---|---|---|
+| `tg` 1, toutes bandes | +0,0029 | +0,0030 | +0,0049 | +0,61 % | +11,3 % |
+| bandes 19 et plus | +0,0026 | +0,0030 | +0,0051 | +0,61 % | +11,3 % |
+| bandes 20 et plus | +0,0024 | +0,0028 | +0,0049 | +0,61 % | +11,3 % |
+
+- **L'hypothèse est réfutée.** La dégradation de Beethoven 59 ne vient pas de partiels dans les
+  bandes moyennes. Elle est identique quand la garde est limitée aux bandes 20 et 21 : sur cet
+  extrait, la garde agit à 277 reprises dans la bande 20.
+- **La part d'énergie de la raie ne sépare pas non plus les cas.** Dans les trames gardées, la
+  raie porte en médiane 28 % de l'énergie de la bande sur Takemitsu (où la garde aide), 29 % sur
+  Beethoven 59 (où elle nuit), 35 % sur Zombie Zombie.
+- **Explication probable.** Une bande codée à l'allocation 1 perd son remplissage de bruit : ses
+  coefficients arrondis à zéro restent nuls. Le reste de la bande, qui était du bruit, devient
+  un trou autour de la raie. PEAQ y voit surtout la raie retrouvée ; ViSQOL et Zimtohrli voient
+  surtout le trou. Le format v3 ne permet pas les deux à la fois : il y a du bruit seulement à
+  allocation 0. Le remède propre serait un remplissage de bruit des coefficients nuls dans les
+  bandes codées, comme dans l'USAC. C'est un changement de format, à noter pour une v4.
+- **La garde n'est pas activée.** Fichiers d'écoute locaux, non publiés : Beethoven 59, Zombie
+  Zombie et Takemitsu, production contre `tg` 1 à q −6, avec l'original.
+
+### Décision (20/11/2026) : la garde tonale reste une option
+
+À l'écoute, l'auteur n'entend pas de différence sur Beethoven 59, Zombie Zombie et Takemitsu. La
+garde reste disponible (`tg` 1, variantes `tg1*`) et désactivée par défaut.

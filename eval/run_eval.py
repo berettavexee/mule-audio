@@ -76,7 +76,7 @@ def main():
     df = pd.DataFrame(rows)
     os.makedirs(RESULTS, exist_ok=True)
     out = os.path.join(RESULTS, f"{a.tag}.csv")
-    df.to_csv(out, index=False, float_format="%.4f")
+    df.to_csv(out, index=False, float_format="%.6g")
     with pd.option_context("display.width", 200, "display.precision", 2):
         print(summary(df))
         print()

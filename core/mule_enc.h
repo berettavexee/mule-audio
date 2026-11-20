@@ -55,6 +55,7 @@ typedef struct {
                          * tg_db of the mask target; 2 muted: sent silent instead of noise (0) */
     double tg_db;       /* guard: the strongest line at least the target minus this (dB; 6) */
     int tg_a;           /* guard: the allocation given (1 .. MULE_AMAX; 1) */
+    int tg_band;        /* guard: from this band up only (0) */
     int group_mode;     /* adaptive grouping: 0 the window's energy only, 1 also per frequency
                          * region (1; eval/results/N-LOG.md) */
     double tr_db;       /* transient detector: energy rise over its decaying memory (10 dB) */
