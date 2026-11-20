@@ -57,6 +57,17 @@ def at_rates(df, rates=(128, 160), metric="nmr_db"):
     return pd.DataFrame(out).T
 
 
+def write_params(configs, path):
+    """The encoder settings each MULE configuration resolved to, in full: a variant only sets its
+    own fields and inherits the production defaults of the day, which change (eval/refcodecs.py)."""
+    import dataclasses
+    import json
+    mule = {c: dataclasses.asdict(refcodecs.get(c).params) for c in configs if c.startswith("mule")}
+    if mule:
+        with open(path, "w") as f:
+            json.dump(mule, f, indent=1, sort_keys=True)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("configs", nargs="*", default=DEFAULT)
@@ -66,10 +77,7 @@ def main():
     ap.add_argument("-j", type=int, default=os.cpu_count())
     a = ap.parse_args()
     corpus.build(verbose=False)
-    items = corpus.items(a.set)
-    if a.items:
-        keep = set(a.items.split(","))
-        items = [it for it in items if it[0] in keep]
+    items = corpus.items(a.set, a.items)
     jobs = [(c, n, w) for c in a.configs for n, w in items]
     with ProcessPoolExecutor(a.j) as ex:
         rows = list(ex.map(job, jobs))
@@ -77,6 +85,7 @@ def main():
     os.makedirs(RESULTS, exist_ok=True)
     out = os.path.join(RESULTS, f"{a.tag}.csv")
     df.to_csv(out, index=False, float_format="%.6g")
+    write_params(a.configs, os.path.join(RESULTS, f"{a.tag}.params.json"))
     with pd.option_context("display.width", 200, "display.precision", 2):
         print(summary(df))
         print()

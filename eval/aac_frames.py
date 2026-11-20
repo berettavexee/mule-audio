@@ -126,33 +126,18 @@ def frame(payload):
     return info, ms, cbs
 
 
-def adts_frames(path):
-    data = open(path, "rb").read()
-    i, out = 0, []
-    while i + 7 <= len(data):
-        if data[i] != 0xFF or (data[i + 1] & 0xF6) != 0xF0:
-            raise ValueError(f"lost ADTS sync at byte {i}")
-        prot_absent = data[i + 1] & 1
-        flen = ((data[i + 3] & 3) << 11) | (data[i + 4] << 3) | (data[i + 5] >> 5)
-        if (data[i + 6] & 3) != 0:
-            raise ValueError("several raw blocks per ADTS frame: not supported")
-        h = 7 if prot_absent else 9
-        out.append((data[i + h:i + flen], flen - h))
-        i += flen
-    return out
-
-
 def analyse_aac(cfg, wav):
     with tempfile.TemporaryDirectory() as work:
         _dec, enc, _kbps = refcodecs.run(cfg, wav, work)
-        adts = os.path.join(work, "x.aac")
-        if not enc.endswith(".aac"):            # MP4 (qaac): the same packets, in ADTS
+        adts = enc if enc.endswith(".aac") else os.path.join(work, "x.aac")
+        if adts != enc:                         # MP4 (qaac): the same packets, in ADTS
             subprocess.run(["ffmpeg", "-nostdin", "-v", "error", "-y", "-i", enc, "-c:a", "copy",
                             "-f", "adts", adts], check=True)
-        else:
-            adts = enc
         rows = []
-        for k, (payload, nbytes) in enumerate(adts_frames(adts)):
+        for k, (blocks, payload) in enumerate(refcodecs.adts_frames(adts)):
+            if blocks != 1:
+                raise ValueError("several raw blocks per ADTS frame: not supported")
+            nbytes = len(payload)
             info, ms, cbs = frame(payload)
             flat = [c for row in cbs for c in row]
             n = max(len(flat), 1)
@@ -171,7 +156,7 @@ def analyse_mule(wav, q):
     m, _v, fstart, tr = native.c_trace(x, E.Params(q_db=q))
     d = pd.DataFrame(tr[tr[:, 0] == 2], columns=native.TRACE_FIELDS["band"])
     f = d[(d.band == 0) & (d.ch == 0)].groupby("frame").agg(type=("type", "first"), groups=("group", "nunique"))
-    zero = d.groupby("frame").apply(lambda s: float(np.mean(s.a == 0)), include_groups=False)
+    zero = d.a.eq(0).groupby(d.frame).mean()
     return f.assign(zero=zero)
 
 
@@ -182,8 +167,7 @@ def main():
     ap.add_argument("--set", default="test")
     ap.add_argument("--mule", type=float, default=-7.0, help="MULE's quality for the comparison")
     a = ap.parse_args()
-    keep = a.items.split(",")
-    items = [it for it in corpus.items(a.set) if it[0] in keep]
+    items = corpus.items(a.set, a.items)
     for name, wav in items:
         print(f"\n{name}")
         print(f"   {'':12s} {'short':>6s} {'switches':>8s} {'groups':>6s} {'bandwidth kHz':>15s} "

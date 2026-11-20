@@ -11,12 +11,10 @@ i * 1024 / 48000 s of the aligned signals.
 import argparse
 import os
 import sys
-import tempfile
 from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
 import pandas as pd
-import soundfile as sf
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path[:0] = [HERE, os.path.join(os.path.dirname(HERE), "py")]
@@ -30,16 +28,8 @@ REGIONS = [(0, 500), (500, 2000), (2000, 6000), (6000, 12000), (12000, 24000)]
 
 def frames(ref, deg, fs):
     """Per frame and channel: worst band NMR (dB), its centre frequency, mean NMR (dB)."""
-    with tempfile.TemporaryDirectory() as d:
-        r, g = os.path.join(d, "r.wav"), os.path.join(d, "g.wav")
-        metrics._to48k(ref, fs, r)
-        metrics._to48k(deg, fs, g)
-        peaq = metrics._PEAQ_DEFAULT
-        env = dict(os.environ, PEAQ_FRAMES="1",
-                   GST_PLUGIN_PATH=os.path.join(os.path.dirname(os.path.dirname(peaq)), "lib", "gstreamer-1.0"))
-        txt = metrics._run_retry([peaq, r, g], env=env)
     rows, count = [], {}
-    for line in txt.splitlines():
+    for line in metrics.peaq_text(ref, deg, fs, PEAQ_FRAMES="1").splitlines():
         if line.startswith("NMRF "):
             _, c, vmax, f, nmr = line.split()
             c = int(c)
@@ -51,17 +41,9 @@ def frames(ref, deg, fs):
 
 def job(args):
     cfg, name, wav = args
-    x, fs = sf.read(wav, dtype="float64", always_2d=True)
-    with tempfile.TemporaryDirectory() as work:
-        dec, _enc, kbps = refcodecs.run(cfg, wav, work)
-        y, fs2 = metrics.load(dec)
-        if fs2 != fs:
-            import soxr
-            y = soxr.resample(y, fs2, fs, quality="VHQ")
-        ref0 = metrics.subsonic(x, fs)
-        r, y, lag = metrics.align(ref0, metrics.subsonic(y, fs))
-        return [dict(config=cfg, item=name, kbps=kbps, lag=lag, frame=i, ch=c, worst_db=v, freq=f, nmr_db=n)
-                for i, c, v, f, n in frames(r, y, fs)]
+    r, y, fs, kbps, lag = refcodecs.run_aligned(cfg, wav)
+    return [dict(config=cfg, item=name, kbps=kbps, lag=lag, frame=i, ch=c, worst_db=v, freq=f, nmr_db=n)
+            for i, c, v, f, n in frames(r, y, fs)]
 
 
 def main():
@@ -73,10 +55,7 @@ def main():
     ap.add_argument("-j", type=int, default=min(os.cpu_count(), 8))
     a = ap.parse_args()
     configs = a.configs.split(",")
-    items = corpus.items(a.set)
-    if a.items:
-        keep = set(a.items.split(","))
-        items = [it for it in items if it[0] in keep]
+    items = corpus.items(a.set, a.items)
     with ProcessPoolExecutor(a.j) as ex:
         d = pd.DataFrame([r for rows in ex.map(job, [(c, n, w) for c in configs for n, w in items]) for r in rows])
     if a.dump:

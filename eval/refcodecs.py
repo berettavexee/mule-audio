@@ -50,18 +50,24 @@ class Opus:
         return dec, enc, audio_bytes(enc, 2)
 
 
-def adts_payload(path):
-    """Bytes of raw AAC data in an ADTS stream (frame headers excluded, as for Ogg)."""
+def adts_frames(path):
+    """The frames of an ADTS stream: (raw data blocks in the frame, payload bytes without the
+    header)."""
     data = open(path, "rb").read()
-    i = total = 0
+    i, out = 0, []
     while i + 7 <= len(data):
         if data[i] != 0xFF or data[i + 1] & 0xF0 != 0xF0:
             raise ValueError(f"{path}: lost ADTS sync at byte {i}")
         hlen = 7 if data[i + 1] & 1 else 9                  # protection_absent = 1: no CRC
         flen = ((data[i + 3] & 3) << 11) | (data[i + 4] << 3) | (data[i + 5] >> 5)
-        total += flen - hlen
+        out.append(((data[i + 6] & 3) + 1, data[i + hlen:i + flen]))
         i += flen
-    return total
+    return out
+
+
+def adts_payload(path):
+    """Bytes of raw AAC data in an ADTS stream (frame headers excluded, as for Ogg)."""
+    return sum(len(p) for _n, p in adts_frames(path))
 
 
 class AAC:
@@ -206,7 +212,8 @@ class Mule:
         # Lebanon Hanover (N-LOG.md): fewer short frames, or more bits in them
         # production since 20/11/2026 = gr1d12; gr0 = the grouping before (whole window, 6 dB).
         # A variant sets only its own fields: it inherits every other production default (tr_db
-        # 8.5 since 20/11/2026; the measurements before used 10, see N-LOG.md)
+        # 8.5 since 20/11/2026; the measurements before used 10, see N-LOG.md). run_eval.py writes
+        # the settings each configuration resolved to next to its CSV (<tag>.params.json)
         "gr0": {"group_mode": 0, "group_db": 6.0},
         "gr1": {"group_mode": 1, "group_db": 6.0}, "gr1d8": {"group_mode": 1, "group_db": 8.0},
         "gr1d10": {"group_mode": 1, "group_db": 10.0}, "gr1d12": {"group_mode": 1, "group_db": 12.0}, "gd4": {"group_mode": 0, "group_db": 4.0}, "gd3": {"group_mode": 0, "group_db": 3.0},
@@ -253,6 +260,18 @@ class Mule:
                 f.write(f"{cmd}\nreturncode {r.returncode}\nstderr {r.stderr}\nparams {self.params}\n")
             subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL)
         return dec, enc, audio_bytes(enc, 2)
+
+
+def run_aligned(name, wav):
+    """wav encoded and decoded with configuration `name` (temporary files): (ref, deg, fs, kbps,
+    lag), the two signals prepared as metrics.evaluate measures them."""
+    import tempfile
+    import metrics
+    ref, fs = metrics.load(wav)
+    with tempfile.TemporaryDirectory() as work:
+        dec, _enc, kbps = run(name, wav, work)
+        ref, deg, lag = metrics.prepare(ref, fs, dec)
+    return ref, deg, fs, kbps, lag
 
 
 def get(name):

@@ -5,8 +5,8 @@
 /* ---------------------------------------------------------------- transient detector */
 
 /* The block type of each of the T frames (0 long, 1 short): energies of 128-sample blocks of the
- * signal high-passed at 3 kHz; an attack is a block 10 dB above a decaying memory (3 dB per
- * block) or 20 dB above the blocks 7 to 10 earlier, above a -70 dB floor; the frames whose short
+ * signal high-passed at 3 kHz; an attack is a block ratio_db (tr_db, 8.5 dB) above a decaying
+ * memory (3 dB per block) or 20 dB above the blocks 7 to 10 earlier, above a -70 dB floor; the frames whose short
  * windows hold it become short. -1 if out of memory. */
 int block_types(const double *x, int64_t L, int T, uint8_t *types, double ratio_db)
 {
@@ -80,6 +80,12 @@ static double bark(double f)
     return 13 * atan(0.00076 * f) + 3.5 * atan((f / 7500.0) * (f / 7500.0));
 }
 
+/* Schroeder's spreading function (dB) at d = (target - masker in Bark) + 0.474. */
+static double schroeder_db(double d)
+{
+    return 15.81 + 7.5 * d - 17.5 * sqrt(1 + d * d);
+}
+
 /* The tables for m coefficients (1024 or 128): the threshold in quiet (Terhardt's formula, at
  * the band's most sensitive point, 96 dB = full scale), Schroeder's spreading function. */
 void psy_init(psy_t *p, int m)
@@ -107,9 +113,7 @@ void psy_init(psy_t *p, int m)
     }
     for (int i = 0; i < NB; i++)
         for (int j = 0; j < NB; j++) {
-            double dz = p->zc[i] - p->zc[j] + 0.474;
-            double s = 15.81 + 7.5 * dz - 17.5 * sqrt(1 + dz * dz);
-            p->spread[i][j] = pow(10, s / 10);
+            p->spread[i][j] = pow(10, schroeder_db(p->zc[i] - p->zc[j] + 0.474) / 10);
         }
 }
 
@@ -152,7 +156,7 @@ void psy_fine(const psy_t *p, const mule_enc_params *pr, const double *X,
             double d = z[i] - z[j] + 0.474;
             if (d < -3 || d > 8)                /* below -60 dB: negligible */
                 continue;
-            C += pow(10, (15.81 + 7.5 * d - 17.5 * sqrt(1 + d * d)) / 10) * E[j];
+            C += pow(10, schroeder_db(d) / 10) * E[j];
         }
         int b = sb[i];
         double t = pr->tonal_all ? 1.0 : (flat[b] + nfl) / -pr->ton_scale;
@@ -181,41 +185,47 @@ void psy_fine(const psy_t *p, const mule_enc_params *pr, const double *X,
 /* The masking threshold per coefficient of each band (Johnston-style): the bands' energies spread
  * over the Bark scale, lowered by an offset between 5.5 dB (noise) and 14.5 + z dB (tonal,
  * capped at tcap_db) after the band's flatness, plus low_db / mid_db; at least the threshold in
- * quiet. P: power per coefficient; flat: flatness (dB); noise_flat: a noise band's flatness. */
+ * quiet. P: power per coefficient; flat: flatness (dB); noise_flat: a noise band's flatness.
+ * The spreading (spread_mode, N-LOG.md): 0 Schroeder's; 1 Terhardt's (PEAQ's ear model: the
+ * upper slope -24 - 230/f + 0.2 L dB per Bark, steeper for a quiet masker; -27 dB per Bark
+ * downwards); 2 the smaller of the two; 3 Schroeder's up to sp_dz Bark above the masker, then
+ * Terhardt's slope from there where steeper (MPEG-1 model 1's shape). Band masks only: psy_fine,
+ * which replaces the masks of a long frame's bands below fine_nb, keeps Schroeder's. */
 void psy_masks(const psy_t *p, const mule_enc_params *pr, const double *P,
                       const double *flat, double *mask, double noise_flat)
 {
-    double E[NB], L[NB];
+    double E[NB], su[NB];
     for (int b = 0; b < NB; b++) {
         E[b] = P[b] * p->width[b];
-        L[b] = 96.0 + 10 * log10(E[b] * 2.0 / p->m + 1e-30);  /* dB SPL, 96 = full scale */
+        if (pr->spread_mode) {                  /* Terhardt's upper slope, at most 0 */
+            double L = 96.0 + 10 * log10(E[b] * 2.0 / p->m + 1e-30);   /* dB SPL, 96 = full scale */
+            su[b] = -24.0 - 230.0 / p->fc[b] + 0.2 * L;
+            if (su[b] > 0)
+                su[b] = 0;
+        }
     }
+    double s0 = pr->spread_mode == 3 ? schroeder_db(pr->sp_dz + 0.474) : 0;
     for (int i = 0; i < NB; i++) {
         double C = 0;
-        if (pr->spread_mode)                    /* Terhardt (PEAQ's ear model): the upper slope */
-            for (int j = 0; j < NB; j++) {      /* steeper for a quiet masker (N-LOG.md); */
-                double dz = p->zc[i] - p->zc[j];    /* mode 2: never above Schroeder's */
-                double su = -24.0 - 230.0 / p->fc[j] + 0.2 * L[j];
-                double s = dz >= 0 ? (su < 0 ? su : 0) * dz : 27.0 * dz;
-                double w = s > -60 ? pow(10, s / 10) : 0.0;
-                if (pr->spread_mode == 2 && p->spread[i][j] < w)
-                    w = p->spread[i][j];
-                if (pr->spread_mode == 3) {     /* MPEG-1 model 1's shape: Schroeder within sp_dz */
-                    w = p->spread[i][j];        /* Bark above the masker, then Terhardt's level- */
-                    if (dz > pr->sp_dz) {       /* dependent slope from there, if steeper */
-                        double d0 = pr->sp_dz + 0.474;
-                        double s0 = 15.81 + 7.5 * d0 - 17.5 * sqrt(1 + d0 * d0);
-                        double s3 = s0 + (su < 0 ? su : 0) * (dz - pr->sp_dz);
+        for (int j = 0; j < NB; j++) {
+            double w = p->spread[i][j];
+            if (pr->spread_mode) {
+                double dz = p->zc[i] - p->zc[j];
+                if (pr->spread_mode == 3) {
+                    if (dz > pr->sp_dz) {
+                        double s3 = s0 + su[j] * (dz - pr->sp_dz);
                         double w3 = s3 > -60 ? pow(10, s3 / 10) : 0.0;
                         if (w3 < w)
                             w = w3;
                     }
+                } else {
+                    double s = dz >= 0 ? su[j] * dz : 27.0 * dz;
+                    double wt = s > -60 ? pow(10, s / 10) : 0.0;
+                    w = pr->spread_mode == 2 && w < wt ? w : wt;
                 }
-                C += w * E[j];
             }
-        else
-            for (int j = 0; j < NB; j++)
-                C += p->spread[i][j] * E[j];
+            C += w * E[j];
+        }
         double t = pr->tonal_all ? 1.0 : (flat[i] + noise_flat) / -pr->ton_scale;
         t = t < 0 ? 0 : (t > 1 ? 1 : t);
         double tm = 14.5 + p->zc[i];
@@ -229,5 +239,28 @@ void psy_masks(const psy_t *p, const mule_enc_params *pr, const double *P,
         double mk = C * pow(10, -off / 10) / p->width[i];
         double at = p->ath[i] * pow(10, pr->ath_db / 10);
         mask[i] = mk > at ? mk : at;
+    }
+}
+
+/* Opus' dynalloc criterion (dyn_a > 0, N-LOG.md; off in production): a band above the lower
+ * envelope of the band levels (CELT's follower: +9 dB per band upwards, +12 downwards) gets its
+ * mask lowered by dyn_a times the excess, at most 12 dB. P: power per coefficient. */
+void psy_dynalloc(const mule_enc_params *pr, const double *P, double *mask)
+{
+    double e[NB], fo[NB];
+    for (int b = 0; b < NB; b++)
+        e[b] = 10 * log10(P[b] + 1e-30);
+    fo[0] = e[0];
+    for (int b = 1; b < NB; b++)
+        fo[b] = fo[b - 1] + 9 < e[b] ? fo[b - 1] + 9 : e[b];
+    for (int b = NB - 2; b >= 0; b--)
+        if (fo[b + 1] + 12 < fo[b])
+            fo[b] = fo[b + 1] + 12;
+    for (int b = 0; b < NB; b++) {
+        double x = e[b] - fo[b];
+        if (x > 12)
+            x = 12;
+        if (x > 0)
+            mask[b] *= pow(10, -pr->dyn_a * x / 10);
     }
 }

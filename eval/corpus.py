@@ -132,9 +132,13 @@ def train_items():
         if os.path.isdir(d) else []
 
 
-def items(subset="p0"):
+def items(subset="p0", only=None):
     """(name, wav path) of the corpus items that exist. subset: "p0" (default, the P0 corpus),
-    "dev" (p0 + P4 dev half), "test" (P4 test half), "all", "train" (CDF training corpus)."""
+    "dev" (p0 + P4 dev half), "test" (P4 test half), "all", "train" (CDF training corpus).
+    only: item names to keep (a comma-separated string or an iterable; None: all)."""
+    if only:
+        keep = set(only.split(",") if isinstance(only, str) else only)
+        return [it for it in items(subset) if it[0] in keep]
     if subset == "train":
         return train_items()
     def keep(s):

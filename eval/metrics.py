@@ -138,6 +138,46 @@ def _to48k(x, fs, path):
     sf.write(path, np.clip(y, -1, 1), 48000, subtype="PCM_16")
 
 
+def _peaq_env(peaq, **flags):
+    """The environment for the GstPEAQ binary `peaq`: its plugin directory, when it has one, in
+    GST_PLUGIN_PATH; flags: variables of the local build (PEAQ_MOVS="1", PEAQ_FRAMES="1",
+    eval/gstpeaq-local.patch)."""
+    env = dict(os.environ, **flags)
+    plug = os.path.join(os.path.dirname(os.path.dirname(peaq)), "lib", "gstreamer-1.0")
+    if os.path.isdir(plug):
+        env["GST_PLUGIN_PATH"] = plug + os.pathsep + env.get("GST_PLUGIN_PATH", "")
+    return env
+
+
+def peaq_text(ref, deg, fs, **flags):
+    """GstPEAQ's output (basic model) for deg against ref, both written at 48 kHz to temporary
+    files. flags: see _peaq_env. "" if PEAQ is not installed."""
+    peaq = os.environ.get("PEAQ", _PEAQ_DEFAULT)
+    if not peaq or not os.path.exists(peaq):
+        return ""
+    with tempfile.TemporaryDirectory() as d:
+        r, g = os.path.join(d, "ref.wav"), os.path.join(d, "deg.wav")
+        _to48k(ref, fs, r)
+        _to48k(deg, fs, g)
+        return _run_retry([peaq, r, g], env=_peaq_env(peaq, **flags))
+
+
+_PEAQ_LINE = re.compile(r"^\s*([A-Za-z][A-Za-z0-9 ]*?):\s*([-+0-9.eEinfa]+)\s*$", re.M)
+
+
+def peaq_movs(ref, deg, fs):
+    """PEAQ basic's ODG ("odg") and every model output variable the local GstPEAQ prints
+    (PEAQ_MOVS), by its printed name ("Total NMRB", "ADBB"...; the last value of each)."""
+    out = {}
+    for name, value in _PEAQ_LINE.findall(peaq_text(ref, deg, fs, PEAQ_MOVS="1")):
+        try:
+            out[name] = float(value)
+        except ValueError:
+            pass
+    out["odg"] = out.pop("Objective Difference Grade", float("nan"))
+    return out
+
+
 def external(ref, deg, fs):
     """ViSQOL / PEAQ scores for the tools configured in the environment ({} if none)."""
     out = {}
@@ -161,10 +201,7 @@ def external(ref, deg, fs):
             m = re.search(r"MOS-LQO:\s*([-\d.]+)", txt)
             out["visqol"] = float(m.group(1)) if m else float("nan")
         if peaq:
-            env = dict(os.environ)
-            plug = os.path.join(os.path.dirname(os.path.dirname(peaq)), "lib", "gstreamer-1.0")
-            if os.path.isdir(plug):
-                env["GST_PLUGIN_PATH"] = plug + os.pathsep + env.get("GST_PLUGIN_PATH", "")
+            env = _peaq_env(peaq)
             for key, extra in (("odg", []), ("odg_adv", ["--advanced"])):
                 txt = _run_retry([peaq, *extra, r, g], env=dict(env, PEAQ_MOVS="1") if not extra else env)
                 m = re.search(r"Objective Difference Grade:\s*([-\d.]+)", txt)
@@ -210,15 +247,20 @@ def _run_retry(cmd, env=None, timeout=600, tries=3):
     return ""
 
 
-def evaluate(ref_path, deg_path):
-    ref, fs = load(ref_path)
+def prepare(ref, fs, deg_path):
+    """The decoded file at ref's rate and channel count, both signals high-passed (subsonic) and
+    aligned, as every measurement sees them: (ref, deg, lag)."""
     deg, fs2 = load(deg_path)
     if fs2 != fs:
         deg = soxr.resample(deg, fs2, fs, quality="VHQ")
     if deg.shape[1] == 1:
         deg = np.repeat(deg, ref.shape[1], axis=1)
-    ref, deg = subsonic(ref, fs), subsonic(deg, fs)
-    ref, deg, lag = align(ref, deg)
+    return align(subsonic(ref, fs), subsonic(deg, fs))
+
+
+def evaluate(ref_path, deg_path):
+    ref, fs = load(ref_path)
+    ref, deg, lag = prepare(ref, fs, deg_path)
     res = {"delay": lag, "snr_db": snr_db(ref, deg)}
     res.update(nmr(ref, deg, fs))
     res.update(external(ref, deg, fs))

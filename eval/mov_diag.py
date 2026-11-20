@@ -7,7 +7,6 @@
 The transient-detector experiment of D-LOG.md (TR) needed a scratch build of the encoder with a
 settable detector threshold; it is not part of the codec."""
 import os
-import re
 import sys
 import tempfile
 from concurrent.futures import ProcessPoolExecutor
@@ -22,24 +21,15 @@ import frame_diag    # noqa: E402
 import metrics       # noqa: E402
 import refcodecs     # noqa: E402
 
-MOVS = ["BandwidthRefB", "BandwidthTestB", "TotalNMRB", "WinModDiff1B", "ADBB", "EHSB",
+MOVS = ["BandwidthRefB", "BandwidthTestB", "Total NMRB", "WinModDiff1B", "ADBB", "EHSB",
         "AvgModDiff1B", "AvgModDiff2B", "RmsNoiseLoudB", "MFPDB", "RelDistFramesB"]
 
 
 def movs(ref, deg, fs):
-    """PEAQ basic's ODG and MOVs of deg against ref (local GstPEAQ with PEAQ_MOVS)."""
-    with tempfile.TemporaryDirectory() as d:
-        r, g = os.path.join(d, "r.wav"), os.path.join(d, "g.wav")
-        metrics._to48k(ref, fs, r)
-        metrics._to48k(deg, fs, g)
-        peaq = metrics._PEAQ_DEFAULT
-        env = dict(os.environ, PEAQ_MOVS="1",
-                   GST_PLUGIN_PATH=os.path.join(os.path.dirname(os.path.dirname(peaq)), "lib", "gstreamer-1.0"))
-        txt = metrics._run_retry([peaq, r, g], env=env)
-    out = {m: metrics._mov(txt, m) for m in MOVS}
-    m = re.search(r"Objective Difference Grade:\s*([-\d.]+)", txt)
-    out["odg"] = float(m.group(1)) if m else float("nan")
-    return out
+    """PEAQ basic's ODG and MOVs of deg against ref (metrics.peaq_movs; "TotalNMRB" until
+    20/11/2026, which GstPEAQ prints "Total NMRB": that column was empty in D-LOG.md)."""
+    m = metrics.peaq_movs(ref, deg, fs)
+    return dict(odg=m["odg"], **{k: m.get(k, float("nan")) for k in MOVS})
 
 
 def job(item):

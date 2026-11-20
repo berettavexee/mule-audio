@@ -2,9 +2,11 @@
 style of figs.py (Excalidraw-like: matplotlib's xkcd mode, the Virgil font). Sources: the
 test-set result CSVs (eval/results).
 
-    .venv/bin/python docs/blog/tools/figs3.py [names...]      (default: all)
+    .venv/bin/python docs/blog/tools/figs_enc.py [names...]      (default: all)
 """
+import functools
 import os
+import re
 import sys
 
 import numpy as np
@@ -14,6 +16,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from figs import (APPLE, BLUE, GREEN, GRID, INK, MUTED, ORANGE, RESULTS, VIOLET, plt, save,  # noqa: E402
                   style)
+import corpus  # noqa: E402  (eval/, put on the path by figs)
 
 
 def odg_at(df, fam, rate):
@@ -22,6 +25,8 @@ def odg_at(df, fam, rate):
     x = df[df.fam == fam]
     mean = x.groupby("config").kbps.mean().sort_values()
     cs, ks = list(mean.index), mean.values
+    if not ks[0] <= rate <= ks[-1]:             # no extrapolation (run_eval.at_rates: NaN)
+        raise ValueError(f"{fam}: {rate} kb/s outside the measured {ks[0]:.1f}-{ks[-1]:.1f} kb/s")
     i = int(np.clip(np.searchsorted(ks, rate) - 1, 0, len(ks) - 2))
     t = (rate - ks[i]) / (ks[i + 1] - ks[i])
     lo = x[x.config == cs[i]].set_index("item").odg
@@ -29,18 +34,16 @@ def odg_at(df, fam, rate):
     return lo * (1 - t) + hi * t
 
 
+@functools.lru_cache(maxsize=None)
+def _artists():
+    """{item: artist}: the library folder of each item of the corpus (eval/corpus_p4.json), cut at
+    the performers (Toru Takemitsu - Hiroshi Wakasugi... -> Toru Takemitsu)."""
+    return {it["name"]: re.split(r"[;,&]| - ", it["path"].split("/")[0])[0].strip()
+            for it in corpus._p4_items()}
+
+
 def _names(item):
-    """An item's artist as the corpus has it (eval/corpus_p4.json: the library folder), cut at the
-    performers (Toru Takemitsu - Hiroshi Wakasugi... -> Toru Takemitsu)."""
-    import json
-    import re
-    if not _ARTIST:
-        for it in json.load(open(os.path.join(os.path.dirname(RESULTS), "corpus_p4.json"))):
-            _ARTIST[it["name"]] = re.split(r"[;,&]| - ", it["path"].split("/")[0])[0].strip()
-    return _ARTIST.get(item, item)
-
-
-_ARTIST = {}
+    return _artists().get(item, item)
 
 
 def _results(*names):
@@ -98,22 +101,22 @@ def _strip(rows, rate, name, figsize=(9, 5.2)):
     save(fig, name)
 
 
-def b3_fig1_distributions(rate=128):
+def enc_fig1_distributions(rate=128):
     """Each test item's ODG, codec by codec. MULE: the tuned production of 20/11/2026
     (prod2_test.csv)."""
     df = _results("prod2_test.csv", "ref_test.csv", "aapl_test.csv", "aac_test.csv")
     rows = [(odg_at(df, fam, rate), lab, c, mk) for fam, lab, c, mk in
             (("opus", "Opus", ORANGE, "D"), ("mule", "MULE", BLUE, "o"), ("aapl", "AAC (Apple)", APPLE, "v"),
              ("vorbis", "Vorbis", GREEN, "^"), ("aac", "AAC (FDK)", VIOLET, "s"))]
-    _strip(rows, rate, "b3-fig1-distributions" + ("" if rate == 128 else f"-{rate}"))
+    _strip(rows, rate, "enc-fig1-distributions" + ("" if rate == 128 else f"-{rate}"))
 
 
-def b3_fig1b_distributions_160():
+def enc_fig1b_distributions_160():
     """The same at 160 kb/s."""
-    b3_fig1_distributions(160)
+    enc_fig1_distributions(160)
 
 
-def b3_fig2_avant_apres(rate=128):
+def enc_fig2_avant_apres(rate=128):
     """MULE before and after the day's tuning (20/11/2026), with Opus: the morning's production
     (tg_test.csv, mule_<q>) against the tuned one (prod2_test.csv)."""
     morning = pd.read_csv(os.path.join(RESULTS, "tg_test.csv"))
@@ -124,15 +127,15 @@ def b3_fig2_avant_apres(rate=128):
     rows = [(odg_at(df, "opus", rate), "Opus", ORANGE, "D"),
             (odg_at(df, "mule", rate), "MULE réglé", BLUE, "o"),
             (odg_at(df, "morning", rate), "MULE avant", MUTED, "o")]
-    _strip(rows, rate, "b3-fig2-avant-apres" + ("" if rate == 128 else f"-{rate}"), figsize=(9, 3.6))
+    _strip(rows, rate, "enc-fig2-avant-apres" + ("" if rate == 128 else f"-{rate}"), figsize=(9, 3.6))
 
 
-def b3_fig2b_avant_apres_160():
+def enc_fig2b_avant_apres_160():
     """The same at 160 kb/s."""
-    b3_fig2_avant_apres(160)
+    enc_fig2_avant_apres(160)
 
 
-ALL = [b3_fig1_distributions, b3_fig1b_distributions_160, b3_fig2_avant_apres, b3_fig2b_avant_apres_160]
+ALL = [enc_fig1_distributions, enc_fig1b_distributions_160, enc_fig2_avant_apres, enc_fig2b_avant_apres_160]
 
 if __name__ == "__main__":
     style()

@@ -15,7 +15,7 @@ the library's root in `MULE_LIBRARY`. Sets: `p0` (references), `dev` (66 excerpt
 | `corpus.py`, `corpus_train.py` | build the excerpts (`data/corpus`, `data/train`) |
 | `refcodecs.py` | one codec configuration by name (`mule[-variant]_<q>`, `opus_<kbps>`, `vorbis_q<q>`): encode, decode, rate |
 | `metrics.py` | alignment, SNR, internal NMR, and PEAQ (GstPEAQ), ViSQOL, 2f, Zimtohrli when installed |
-| `run_eval.py` | a set of configurations over a corpus set: `results/<tag>.csv` and a summary |
+| `run_eval.py` | a set of configurations over a corpus set: `results/<tag>.csv`, the settings each MULE configuration resolved to (`results/<tag>.params.json`) and a summary |
 | `p4_compare.py` | two codec families at equal rate (interpolated per item), bootstrap intervals, regressions |
 
 Typical use: `python eval/run_eval.py --set dev --tag mytest mule_-6 mule_-9 mule-v2_-6 mule-v2_-9`

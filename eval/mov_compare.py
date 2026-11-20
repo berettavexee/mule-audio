@@ -12,14 +12,11 @@ items, of each MOV's difference with the ODG difference.
 """
 import argparse
 import os
-import re
 import sys
-import tempfile
 from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
 import pandas as pd
-import soundfile as sf
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path[:0] = [HERE, os.path.join(os.path.dirname(HERE), "py")]
@@ -31,34 +28,11 @@ MOVS = ["BandwidthRefB", "BandwidthTestB", "Total NMRB", "WinModDiff1B", "ADBB",
         "AvgModDiff1B", "AvgModDiff2B", "RmsNoiseLoudB", "MFPDB", "RelDistFramesB"]
 
 
-def movs(ref, deg, fs):
-    """PEAQ basic's ODG and MOVs of deg against ref (local GstPEAQ, PEAQ_MOVS=1)."""
-    with tempfile.TemporaryDirectory() as d:
-        r, g = os.path.join(d, "r.wav"), os.path.join(d, "g.wav")
-        metrics._to48k(ref, fs, r)
-        metrics._to48k(deg, fs, g)
-        peaq = metrics._PEAQ_DEFAULT
-        env = dict(os.environ, PEAQ_MOVS="1",
-                   GST_PLUGIN_PATH=os.path.join(os.path.dirname(os.path.dirname(peaq)), "lib", "gstreamer-1.0"))
-        txt = metrics._run_retry([peaq, r, g], env=env)
-    out = {m: metrics._mov(txt, m) for m in MOVS}
-    m = re.search(r"Objective Difference Grade:\s*([-\d.]+)", txt)
-    out["odg"] = float(m.group(1)) if m else float("nan")
-    return out
-
-
 def job(args):
     cfg, name, wav = args
-    x, fs = sf.read(wav, dtype="float64", always_2d=True)
-    with tempfile.TemporaryDirectory() as work:
-        dec, _enc, kbps = refcodecs.run(cfg, wav, work)
-        y, fs2 = metrics.load(dec)
-        if fs2 != fs:
-            import soxr
-            y = soxr.resample(y, fs2, fs, quality="VHQ")
-        ref0 = metrics.subsonic(x, fs)
-        r, y, _lag = metrics.align(ref0, metrics.subsonic(y, fs))
-        return dict(item=name, config=cfg, kbps=kbps, **movs(r, y, fs))
+    r, y, fs, kbps, _lag = refcodecs.run_aligned(cfg, wav)
+    m = metrics.peaq_movs(r, y, fs)
+    return dict(item=name, config=cfg, kbps=kbps, odg=m["odg"], **{k: m.get(k, np.nan) for k in MOVS})
 
 
 def main():
@@ -70,10 +44,7 @@ def main():
     ap.add_argument("--per-item", help="also print these columns item by item (e.g. odg,kbps,ADBB)")
     a = ap.parse_args()
     configs = a.configs.split(",")
-    items = corpus.items(a.set)
-    if a.items:
-        keep = set(a.items.split(","))
-        items = [it for it in items if it[0] in keep]
+    items = corpus.items(a.set, a.items)
     with ProcessPoolExecutor(a.j) as ex:
         rows = list(ex.map(job, [(c, n, w) for c in configs for n, w in items]))
     d = pd.DataFrame(rows)

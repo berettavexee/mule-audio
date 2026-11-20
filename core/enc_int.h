@@ -184,6 +184,7 @@ void psy_fine(const psy_t *p, const mule_enc_params *pr, const double *X, const 
               double *mask);
 void psy_masks(const psy_t *p, const mule_enc_params *pr, const double *P, const double *flat,
                double *mask, double noise_flat);
+void psy_dynalloc(const mule_enc_params *pr, const double *P, double *mask);
 
 /* ---------------------------------------------------------------- enc_tcq.c */
 

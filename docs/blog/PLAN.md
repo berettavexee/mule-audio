@@ -309,7 +309,7 @@ descendre extrait par extrait, puis passage par passage.
 - **La blague, à placer.** Lebanon Hanover, Zombie Zombie et Takemitsu viennent casser notre beau
   modèle psychoacoustique. Une cold wave, un duo de synthés et un compositeur japonais
   contemporain, ligués contre un modèle réglé au décibel près.
-- **Figure `b3-fig1-distributions`** (`docs/blog/tools/figs3.py`). La note de chaque extrait à
+- **Figure `enc-fig1-distributions`** (`docs/blog/tools/figs_enc.py`). La note de chaque extrait à
   128 kb/s, codec par codec. Opus est excellent presque partout, sauf Belenos qui s'effondre à
   −0,69. MULE est régulier, sans accident, mais décalé. Le pire extrait de MULE, d'Apple et de
   Vorbis est Zombie Zombie ; celui d'Opus et de FDK est Belenos. Deux groupes suffisent à
@@ -317,8 +317,8 @@ descendre extrait par extrait, puis passage par passage.
 - **Les extraits les plus faciles** sont aussi nommés sur la figure : Monster Magnet pour Opus,
   MULE (à 128 kb/s) et FDK ; Spector pour Apple ; Foo Fighters pour Vorbis. À 160 kb/s, Belenos,
   la bête noire d'Opus et de FDK, devient l'extrait le plus facile pour Vorbis. Figure à 160 kb/s :
-  `b3-fig1-distributions-160`.
-- **Figure `b3-fig2-avant-apres`** (et `-160`) : MULE avant et après la journée de réglage fin,
+  `enc-fig1-distributions-160`.
+- **Figure `enc-fig2-avant-apres`** (et `-160`) : MULE avant et après la journée de réglage fin,
   avec Opus. Lebanon Hanover, la valeur aberrante du matin (−0,58 à 128 kb/s), rentre dans le
   rang ; le cœur du nuage bouge à peine (médiane −0,157 → −0,151). À 160 kb/s, MULE rejoint Opus
   en moyenne et en médiane. La figure 1 montre désormais la production réglée.

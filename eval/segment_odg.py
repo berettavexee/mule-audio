@@ -10,36 +10,26 @@ estimate, comparable between configurations on the same window, not with a whole
 import argparse
 import os
 import sys
-import tempfile
 from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
 import pandas as pd
-import soundfile as sf
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path[:0] = [HERE, os.path.join(os.path.dirname(HERE), "py")]
 import corpus  # noqa: E402
 import metrics  # noqa: E402
-import mov_compare  # noqa: E402
 import refcodecs  # noqa: E402
 
 
 def job(args):
     cfg, name, wav, win = args
-    x, fs = sf.read(wav, dtype="float64", always_2d=True)
-    with tempfile.TemporaryDirectory() as work:
-        dec, _enc, kbps = refcodecs.run(cfg, wav, work)
-        y, fs2 = metrics.load(dec)
-        if fs2 != fs:
-            import soxr
-            y = soxr.resample(y, fs2, fs, quality="VHQ")
-        r, y, _lag = metrics.align(metrics.subsonic(x, fs), metrics.subsonic(y, fs))
+    r, y, fs, _kbps, _lag = refcodecs.run_aligned(cfg, wav)
     n = int(win * fs)
     rows = []
     for k in range(len(r) // n):
         s = slice(k * n, (k + 1) * n)
-        m = mov_compare.movs(r[s], y[s], fs)
+        m = metrics.peaq_movs(r[s], y[s], fs)
         lvl = 10 * np.log10(np.mean(r[s] ** 2) + 1e-20)
         rows.append(dict(item=name, config=cfg, seg=k, t0=k * win, level_db=lvl, odg=m["odg"],
                          nmr=m["Total NMRB"], adb=m["ADBB"], bw=m["BandwidthTestB"]))
@@ -56,8 +46,7 @@ def main():
     ap.add_argument("-j", type=int, default=min(os.cpu_count(), 8))
     a = ap.parse_args()
     configs = a.configs.split(",")
-    keep = a.items.split(",")
-    items = [it for it in corpus.items(a.set) if it[0] in keep]
+    items = corpus.items(a.set, a.items)
     with ProcessPoolExecutor(a.j) as ex:
         d = pd.DataFrame([r for rows in ex.map(job, [(c, n, w, a.win) for c in configs for n, w in items])
                           for r in rows])
