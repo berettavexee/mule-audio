@@ -49,8 +49,12 @@ void mule_enc_defaults(mule_enc_params *p)
     p->tg_db = 6.0;
     p->tg_a = 1;
     p->tg_band = 0;
+    p->nf_top = NB;
+    p->spread_mode = 3;         /* Schroeder, then Terhardt beyond 2 Bark (N-LOG.md, 20/11/2026) */
+    p->sp_dz = 2.0;
+    p->dyn_a = 0.0;
     p->tg_ton = 5.0;
-    p->tr_db = 10.0;
+    p->tr_db = 8.5;             /* 10 before 20/11/2026 (eval/results/N-LOG.md) */
     p->group_mode = 1;          /* adaptive grouping per frequency region (N-LOG.md) */
     p->short_db = 0.0;
 }
@@ -254,6 +258,24 @@ static void frame_analysis(const mule_enc_params *pr, const psy_t *py, double X[
             psy_masks(py, pr, f->P[c][g], f->FL[c][g], f->MK[c][g], pr->fft_tonal ? pr->fft_noise_db : 5.5);
             if (pr->fine_p > 0 && f->type == 0)
                 psy_fine(py, pr, X[c], f->FL[c][g], f->MK[c][g]);
+            if (pr->dyn_a > 0) {                /* Opus' dynalloc criterion (N-LOG.md): a band */
+                double e[NB], fo[NB];           /* above the lower envelope of the band levels */
+                for (int b = 0; b < NB; b++)    /* (CELT's follower: +9 dB per band upwards, */
+                    e[b] = 10 * log10(f->P[c][g][b] + 1e-30);   /* +12 downwards) gets its */
+                fo[0] = e[0];                   /* mask lowered by dyn_a times the excess, */
+                for (int b = 1; b < NB; b++)    /* at most 12 dB */
+                    fo[b] = fo[b - 1] + 9 < e[b] ? fo[b - 1] + 9 : e[b];
+                for (int b = NB - 2; b >= 0; b--)
+                    if (fo[b + 1] + 12 < fo[b])
+                        fo[b] = fo[b + 1] + 12;
+                for (int b = 0; b < NB; b++) {
+                    double x = e[b] - fo[b];
+                    if (x > 12)
+                        x = 12;
+                    if (x > 0)
+                        f->MK[c][g][b] *= pow(10, -pr->dyn_a * x / 10);
+                }
+            }
         }
     if (pr->pre_db > 0) {
         if (f->type == 0) {
@@ -574,6 +596,9 @@ static void encode_frame(const mule_enc_params *pr, const psy_t *psy_l, const ps
             alloc_from_masks(pr, f, s, c, g, q, a);
             if (pr->tg)
                 tonal_guard(pr, f, c, g, q, a);
+            for (int b = pr->nf_top; b < NB; b++)   /* nf_top: uncoded high bands silent, not */
+                if (a[b] == 0)                      /* noise (Apple above 16 kHz, N-LOG.md) */
+                    q[b] = MULE_QMIN;
             if (pr->rd_lambda > 0 && o->mr)
                 alloc_rd(pr, f, s, o, c, g, q, a, inter_ok, tail1, tail2);
             if (pr->nf_bias > 0)                /* noise-filled bands: energy sent lower */
@@ -623,7 +648,7 @@ static int params_ok(const mule_enc_params *pr)
     return pr->keyframe > 0 && pr->keyframe % 4 == 0 &&
            (ns == 8 || ns == 16 || ns == 32 || ns == 64) &&
            (nr == 0 || nr == 8 || nr == 16 || nr == 32 || nr == 64) &&
-           pr->tg_band >= 0 && pr->tg_band <= NB;
+           pr->tg_band >= 0 && pr->tg_band <= NB && pr->nf_top >= 0 && pr->nf_top <= NB;
 }
 
 /* Analysis and frame coding of the whole signal: its operations (out) and each frame's first

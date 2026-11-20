@@ -56,9 +56,18 @@ typedef struct {
     double tg_db;       /* guard: the strongest line at least the target minus this (dB; 6) */
     int tg_a;           /* guard: the allocation given (1 .. MULE_AMAX; 1) */
     int tg_band;        /* guard: from this band up only (0) */
+    int spread_mode;    /* psy band masks: 0 Schroeder's spreading, 1 Terhardt's (level-dependent),
+                         * 2 the smaller of the two, 3 Schroeder then Terhardt beyond sp_dz (3;
+                         * 0 before 20/11/2026) */
+    double sp_dz;       /* spread_mode 3: Schroeder's spreading up to this many Bark above (2) */
+    double dyn_a;       /* > 0: masks lowered by dyn_a times a band's excess over the lower
+                         * envelope of the band levels (Opus' dynalloc criterion; 0: off) */
+    int nf_top;         /* from this band up, a band at allocation 0 is sent silent instead of
+                         * noise-filled (MULE_NB: none) */
     int group_mode;     /* adaptive grouping: 0 the window's energy only, 1 also per frequency
                          * region (1; eval/results/N-LOG.md) */
-    double tr_db;       /* transient detector: energy rise over its decaying memory (10 dB) */
+    double tr_db;       /* transient detector: energy rise over its decaying memory (8.5 dB;
+                         * 10 before 20/11/2026, eval/results/N-LOG.md) */
     double short_db;    /* noise target offset in short frames (0 dB; < 0: more bits) */
     double tg_ton;      /* a lone line: the band's strongest coefficient this many dB above the
                          * strongest of a noise of the same lines, 2 ln n times the mean (5) */

@@ -204,10 +204,19 @@ class Mule:
         "tg1b19": {"tg": 1, "tg_band": 19}, "tg1b20": {"tg": 1, "tg_band": 20},
         "tg1t3": {"tg": 1, "tg_ton": 3.0}, "tg1t8": {"tg": 1, "tg_ton": 8.0},
         # Lebanon Hanover (N-LOG.md): fewer short frames, or more bits in them
-        # production since 20/11/2026 = gr1d12; gr0 = the grouping before (whole window, 6 dB)
+        # production since 20/11/2026 = gr1d12; gr0 = the grouping before (whole window, 6 dB).
+        # A variant sets only its own fields: it inherits every other production default (tr_db
+        # 8.5 since 20/11/2026; the measurements before used 10, see N-LOG.md)
         "gr0": {"group_mode": 0, "group_db": 6.0},
         "gr1": {"group_mode": 1, "group_db": 6.0}, "gr1d8": {"group_mode": 1, "group_db": 8.0},
         "gr1d10": {"group_mode": 1, "group_db": 10.0}, "gr1d12": {"group_mode": 1, "group_db": 12.0}, "gd4": {"group_mode": 0, "group_db": 4.0}, "gd3": {"group_mode": 0, "group_db": 3.0},
+        # production since 20/11/2026 = tr85; tr10 = the detector before
+        "tr7": {"tr_db": 7.0}, "tr85": {"tr_db": 8.5}, "tr10": {"tr_db": 10.0},
+        "nf21": {"nf_top": 21}, "nf20": {"nf_top": 20},
+        # production since 20/11/2026 = sp3d2; sp0 = Schroeder's spreading alone, as before
+        "sp0": {"spread_mode": 0}, "sp1": {"spread_mode": 1}, "sp2": {"spread_mode": 2},
+        "sp3": {"spread_mode": 3, "sp_dz": 1.0}, "sp3d2": {"spread_mode": 3, "sp_dz": 2.0},
+        "dy05": {"dyn_a": 0.5}, "dy1": {"dyn_a": 1.0},
         "tr13": {"tr_db": 13.0}, "tr16": {"tr_db": 16.0}, "tr20": {"tr_db": 20.0}, "tr99": {"tr_db": 99.0},
         "sh3": {"short_db": -3.0}, "sh6": {"short_db": -6.0}, "sh9": {"short_db": -9.0},
         "tg1a2": {"tg": 1, "tg_a": 2}, "tg1a3": {"tg": 1, "tg_a": 3}, "tg1a4": {"tg": 1, "tg_a": 4},

@@ -43,8 +43,12 @@ class Params:
     tg_db: float = 6.0          # guard: strongest line within this of the mask target (dB)
     tg_a: int = 1               # guard: the allocation given
     tg_band: int = 0            # guard: from this band up only
+    spread_mode: int = 3        # band masks' spreading: 0 Schroeder, 1 Terhardt, 2 min, 3 Schroeder then Terhardt
+    sp_dz: float = 2.0          # spread_mode 3: Schroeder up to this many Bark above the masker
+    dyn_a: float = 0.0          # Opus-like: masks lowered by dyn_a x a band's excess over the follower
+    nf_top: int = 22            # from this band up, uncoded bands silent instead of noise (22: none)
     group_mode: int = 1         # adaptive grouping: 0 window energy, 1 also per frequency region
-    tr_db: float = 10.0         # transient detector threshold (dB)
+    tr_db: float = 8.5          # transient detector threshold (dB; 10 before 20/11/2026)
     short_db: float = 0.0       # noise target offset in short frames (dB; < 0: more bits)
     tg_ton: float = 5.0         # a lone line: peak this many dB above a noise's (2 ln n x mean)
 

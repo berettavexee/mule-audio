@@ -86,9 +86,11 @@ void psy_init(psy_t *p, int m)
 {
     int scale = m / 128;
     double hz = 44100.0 / 2 / m;
+    p->m = m;
     for (int b = 0; b < NB; b++) {
         double lo = EDGES[b] * scale * hz, hi = EDGES[b + 1] * scale * hz;
         p->zc[b] = bark((lo + hi) / 2);
+        p->fc[b] = (lo + hi) / 2;
         p->width[b] = (EDGES[b + 1] - EDGES[b]) * scale;
         double amin = 1e300;
         for (int i = 0; i < 16; i++) {
@@ -183,13 +185,37 @@ void psy_fine(const psy_t *p, const mule_enc_params *pr, const double *X,
 void psy_masks(const psy_t *p, const mule_enc_params *pr, const double *P,
                       const double *flat, double *mask, double noise_flat)
 {
-    double E[NB];
-    for (int b = 0; b < NB; b++)
+    double E[NB], L[NB];
+    for (int b = 0; b < NB; b++) {
         E[b] = P[b] * p->width[b];
+        L[b] = 96.0 + 10 * log10(E[b] * 2.0 / p->m + 1e-30);  /* dB SPL, 96 = full scale */
+    }
     for (int i = 0; i < NB; i++) {
         double C = 0;
-        for (int j = 0; j < NB; j++)
-            C += p->spread[i][j] * E[j];
+        if (pr->spread_mode)                    /* Terhardt (PEAQ's ear model): the upper slope */
+            for (int j = 0; j < NB; j++) {      /* steeper for a quiet masker (N-LOG.md); */
+                double dz = p->zc[i] - p->zc[j];    /* mode 2: never above Schroeder's */
+                double su = -24.0 - 230.0 / p->fc[j] + 0.2 * L[j];
+                double s = dz >= 0 ? (su < 0 ? su : 0) * dz : 27.0 * dz;
+                double w = s > -60 ? pow(10, s / 10) : 0.0;
+                if (pr->spread_mode == 2 && p->spread[i][j] < w)
+                    w = p->spread[i][j];
+                if (pr->spread_mode == 3) {     /* MPEG-1 model 1's shape: Schroeder within sp_dz */
+                    w = p->spread[i][j];        /* Bark above the masker, then Terhardt's level- */
+                    if (dz > pr->sp_dz) {       /* dependent slope from there, if steeper */
+                        double d0 = pr->sp_dz + 0.474;
+                        double s0 = 15.81 + 7.5 * d0 - 17.5 * sqrt(1 + d0 * d0);
+                        double s3 = s0 + (su < 0 ? su : 0) * (dz - pr->sp_dz);
+                        double w3 = s3 > -60 ? pow(10, s3 / 10) : 0.0;
+                        if (w3 < w)
+                            w = w3;
+                    }
+                }
+                C += w * E[j];
+            }
+        else
+            for (int j = 0; j < NB; j++)
+                C += p->spread[i][j] * E[j];
         double t = pr->tonal_all ? 1.0 : (flat[i] + noise_flat) / -pr->ton_scale;
         t = t < 0 ? 0 : (t > 1 ? 1 : t);
         double tm = 14.5 + p->zc[i];

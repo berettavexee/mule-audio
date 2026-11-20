@@ -633,3 +633,268 @@ Quatre juges, à débit égal, contre la production. Zimtohrli en écart relatif
 
 À l'écoute, l'auteur n'entend pas de différence sur Beethoven 59, Zombie Zombie et Takemitsu. La
 garde reste disponible (`tg` 1, variantes `tg1*`) et désactivée par défaut.
+
+## Ce que décide l'encodeur d'Apple, lu dans ses trames (`eval/aac_frames.py`)
+
+Lecteur de flux AAC-LC écrit pour l'occasion. Il s'arrête avant les données spectrales : il lit le
+type de bloc, le regroupement des fenêtres courtes, `max_sfb` (la bande passante), le masque
+M/S, le codebook de chaque bande du premier canal (bande à zéro, PNS, intensité, codée) et la
+taille des trames. Apple q63 (~124 kb/s) contre FDK 128 et MULE q −7. Les 0,2 % de blocs courts
+communs à tous sont les premières trames du fichier.
+
+| extrait | blocs courts Apple / FDK / MULE | groupes par trame courte | M/S Apple / FDK | taille max/moyenne Apple / FDK |
+|---|---|---|---|---|
+| Lebanon Hanover | 17,7 / 10,2 / 17,2 % | 3,1 / 4,0 / 1,9 | 87 / 98 % | 1,68 / 1,43 |
+| Eminem | **20,2** / 6,8 / 11,4 % | 2,3 / 4,0 / 1,8 | 63 / 99 % | 2,16 / 1,51 |
+| New Order | **12,2** / 2,2 / 3,1 % | 2,2 / 4,0 / 1,9 | 59 / 99 % | 1,82 / 1,57 |
+| Salut c'est cool | 7,2 / 5,2 / 5,9 % | 2,6 / 4,0 / 1,8 | 75 / 99 % | 1,90 / 1,50 |
+| Monster Magnet | 2,8 / 0,3 / 0,8 % | 2,4 / 4,0 / 2,0 | **27** / 100 % | 1,63 / 1,41 |
+| Zombie Zombie | 0,8 / 2,2 / 2,3 % | 2,8 / 4,0 / 2,9 | 61 / 100 % | **2,44** / 1,48 |
+| Takemitsu, Belenos, Max Richter, Mravinsky, Beethoven 59, Classical | ≤ 1 % partout | | 75 à 94 / 80 à 100 % | 1,25 à 1,57 / 1,41 à 1,54 |
+
+Aucun des deux AAC n'utilise la PNS ni l'intensité stéréo à ce débit.
+
+**Les bandes mises à zéro** (trames longues, premier canal) :
+
+| | 0-4 kHz | 4-8 | 8-12 | 12-16 | 16-20 kHz |
+|---|---|---|---|---|---|
+| Apple, Takemitsu | 0,3 % | 0,2 | 0,3 | 1,9 | **82** |
+| Apple, Zombie Zombie | 1,0 | 7,0 | 6,3 | 14,2 | **78** |
+| Apple, Lebanon Hanover | 0,2 | 0,2 | 0,3 | 1,6 | **78** |
+| Apple, Monster Magnet | 0,1 | 0,2 | 0,6 | 5,8 | **86** |
+| Apple, Max Richter | 0,1 | 0,2 | 0,3 | 1,5 | **99** |
+| FDK (coupe à 15,8 kHz) | 0 à 1,7 | 0 à 1,2 | 0 à 3,9 | 0,2 à 13,2 | – |
+
+### Lecture
+
+- **Le haut du spectre, à la demande.** Apple déclare une bande passante de 20 kHz, mais met à zéro
+  80 à 99 % des bandes entre 16 et 20 kHz. Il ne les code que lorsqu'elles contiennent quelque
+  chose qui vaut la peine : c'est ainsi qu'il garde la raie de Takemitsu, tout en atténuant
+  16-20 kHz de 10 dB en moyenne. En dessous de 16 kHz, il ne met presque rien à zéro. FDK coupe
+  net à 15,8 kHz. MULE, lui, remplit toujours de bruit à l'énergie de la bande au-dessus de
+  13,4 kHz : il ne coupe jamais et ne garde jamais une raie seule dans ses bandes à 0 bit.
+- **Plus de blocs courts sur la musique percussive.** Apple en met beaucoup plus sur Eminem
+  (20 % contre 11 % pour MULE) et New Order (12 % contre 3 %). Sur la musique calme, tous sont à
+  zéro. Ses trames courtes reçoivent 1,0 à 1,3 fois les octets d'une trame longue.
+- **Le regroupement des fenêtres courtes.** FDK fait toujours 4 groupes. Apple en fait 2 à 3 et
+  s'adapte. MULE en fait encore moins (1,8 à 2,0), même avec le nouveau regroupement par régions.
+- **Le M/S, bande par bande.** FDK est en M/S presque partout (80 à 100 %). Apple choisit vraiment :
+  27 % seulement sur Monster Magnet, 59 à 63 % sur New Order, Zombie Zombie et Eminem.
+- **Les octets suivent le signal.** La plus grosse trame d'Apple fait 1,3 à 2,4 fois la moyenne,
+  contre 1,4 à 1,5 pour FDK, limité par son débit constant et son réservoir.
+
+### Pistes pour MULE (encodeur seul)
+
+1. **Plus de groupes dans les trames courtes** : `group_db` 6 ou 8 avec les régions donnait le même
+   ODG sur Lebanon Hanover pour plus de débit, mais n'a pas été mesuré par Zimtohrli ni sur les
+   extraits percussifs (Eminem, New Order).
+2. **Plus de blocs courts sur les attaques modestes** (Eminem, New Order) : `tr_db` plus bas. À
+   remesurer maintenant que les trames courtes sont mieux regroupées : le levier F (`tr_db` 7 et
+   8,5) datait d'avant.
+3. **La bande 21 (17,2-19,9 kHz) muette plutôt que remplie de bruit**, sauf quand elle est codée, à
+   la manière d'Apple au-dessus de 16 kHz.
+
+### Les trois pistes inspirées d'Apple, sur 12 extraits (`pistes_apple.csv`)
+
+Eminem, New Order, Lebanon Hanover, Salut c'est cool, Monster Magnet, Zombie Zombie, Takemitsu,
+Max Richter, Belenos, Spector, Airbourne, Korpiklaani. q −6 et −9, interpolé à 135 kb/s, contre
+la production. Pour Zimtohrli, écart relatif, plus petit = mieux.
+
+| variante | ODG | ODG avancé | ViSQOL | Zimtohrli | pire extrait (ODG) |
+|---|---|---|---|---|---|
+| régions, 6 dB (`gr1`) | −0,008 | −0,011 | −0,001 | +2,9 % | New Order −0,018 |
+| régions, 8 dB (`gr1d8`) | −0,003 | −0,006 | −0,001 | +1,3 % | New Order −0,012 |
+| attaques à 7 dB (`tr7`) | −0,001 | −0,005 | +0,001 | −1,8 % | Salut c'est cool −0,013 |
+| **attaques à 8,5 dB (`tr85`)** | **+0,001** | **+0,000** | **+0,000** | **−1,8 %** | New Order −0,003 |
+| muettes au-dessus de 17,2 kHz (`nf21`) | −0,024 | −0,003 | −0,097 | +13,8 % | Max Richter −0,070 |
+| muettes au-dessus de 13,4 kHz (`nf20`) | −0,030 | −0,007 | −0,107 | +15,9 % | Max Richter −0,165 |
+
+- **Des groupes plus fins : rejeté.** Moins bien sur les quatre juges. Les 12 dB restent.
+- **Le détecteur d'attaques à 8,5 dB : candidat.** Les quatre juges vont dans le même sens, sans
+  régression. Validation lancée sur les 30 extraits.
+- **Les bandes hautes muettes : rejeté, nettement.** ViSQOL −0,1, Zimtohrli +14 à 16 %
+  (Takemitsu +60 %). Le remplissage de bruit des aigus est un atout de MULE. Couper comme Apple
+  n'est pas à copier, et c'est peut-être une raison du ViSQOL plus faible d'Apple (4,49). Inutile
+  d'essayer une coupure au milieu d'une bande en v3 ; l'idée v4 reste valable pour la forme du
+  bruit, pas pour couper.
+
+### Détecteur d'attaques à 8,5 dB sur `test` (`tr85_test.csv`), contre la production
+
+Débit identique à q égal (119,96 contre 119,99 kb/s à q −6). Intervalles bootstrap à 95 %.
+Zimtohrli en écart relatif, plus petit = mieux.
+
+| | ODG | ODG avancé | ViSQOL | Zimtohrli | régressions |
+|---|---|---|---|---|---|
+| @128 | +0,0007 [−0,0003 ; +0,0016] | +0,0010 [−0,0007 ; +0,0025] | +0,0004 [+0,0002 ; +0,0007] | **−0,97 %** [−2,05 ; −0,05] | aucune |
+| @160 | +0,0006 [−0,0012 ; +0,0018] | +0,0002 | +0,0003 | **−0,98 %** [−2,09 ; −0,16] | Kompromat, Zimtohrli +2,7 % |
+
+Les quatre juges vont dans le même sens. L'effet est minuscule pour PEAQ et ViSQOL, mais net
+pour Zimtohrli : Lebanon Hanover −9 à −14 %, Garbage −8 à −9 %. Le gain tient sur la longueur
+des pré-échos que l'on évite, ce que Zimtohrli mesure mieux que PEAQ. Seul accroc : Kompromat,
++2,7 % pour Zimtohrli à 160 kb/s.
+
+### Décision (20/11/2026) : le détecteur d'attaques à 8,5 dB devient la production
+
+`tr_db` passe de 10 à 8,5 dB par défaut (C et Python). La nouvelle production donne exactement les
+fichiers de `tr85`, et `tr10` redonne exactement la précédente. Les 42 tests passent. Les
+variantes ne fixent que leurs propres champs : celles mesurées avant cette décision (`gr0`,
+`tg1*`, `nf2*`…) l'ont été avec 10 dB, celles d'après hériteront de 8,5 dB. L'effet sur la
+moyenne est trop petit pour changer les chiffres du README (+0,0007 d'ODG à 128 kb/s).
+
+## Les morceaux calmes
+
+### Ce que PEAQ reproche (MULE q −7 contre Opus 128)
+
+| extrait | ODG Opus / MULE | kb/s | NMR total | ADBB | AvgModDiff1B | BandwidthTestB |
+|---|---|---|---|---|---|---|
+| Max Richter | −0,042 / −0,198 | 143 / 118 | −14,0 / −13,6 | −0,68 / +0,17 | 7,6 / **10,6** | 905 / 855 |
+| Mravinsky | −0,131 / −0,233 | 143 / 120 | −12,7 / −13,1 | −0,09 / +0,40 | 7,9 / **9,7** | 898 / 855 |
+| Spector | −0,047 / −0,182 | 134 / **137** | −14,5 / −14,9 | −0,32 / **+0,78** | 8,2 / 8,5 | 902 / 864 |
+| Salut c'est cool | −0,036 / −0,171 | 137 / 120 | −15,5 / −14,9 | −0,40 / +0,42 | 7,0 / 7,8 | 895 / 857 |
+| Beethoven 59 | −0,062 / −0,139 | 140 / 122 | −13,2 / −13,2 | −0,83 / −0,48 | 8,7 / 9,8 | 895 / 855 |
+| Brahms | −0,109 / −0,095 | 131 / 118 | −13,7 / −14,1 | −0,14 / −0,41 | 8,2 / 9,2 | 901 / 855 |
+
+- **Ce n'est pas d'abord une question de bits** : le NMR de PEAQ est équivalent, et Spector perd
+  autant avec autant de bits qu'Opus. Ce qui s'écarte : la modulation de l'enveloppe
+  (AvgModDiff1B) et la probabilité de détection (ADBB).
+- **BandwidthTestB** : environ 45 raies FFT plus bas chez MULE, qui s'arrête à 19,98 kHz. C'est le
+  piège des 20 kHz (une coupure inaudible que PEAQ pénalise), connu et laissé de côté.
+
+### Où l'enveloppe est déformée
+
+Enveloppe par bande (STFT, pas de 5,8 ms). Erreur rms de l'enveloppe en dB, MULE / Opus :
+
+- **Classique calme** (Max Richter, Mravinsky) : MULE est pire entre 2 et 6 kHz (0,59 à 0,91
+  contre 0,45 à 0,54 dB). Ce sont des bandes faibles, quelques Bark au-dessus de l'énergie
+  principale.
+- **Pop** (Spector, Salut c'est cool) : MULE est pire de 6 à 17 kHz (Spector 13,4-17,2 kHz : 2,40
+  contre 1,00), avec une enveloppe aplatie (modulation à 73 à 94 % de l'original, Opus 91 à
+  101 %). C'est l'étalement temporel des trames longues et du remplissage de bruit.
+
+### Hypothèse pour le classique calme : l'étalement du masquage ne dépend pas du niveau
+
+Le modèle de MULE étale le masquage avec la fonction de Schroeder : une pente vers l'aigu
+d'environ −10 dB par Bark, quel que soit le niveau. Selon Terhardt (la formule du modèle d'oreille
+de PEAQ), cette pente vaut −24 − 230/f + 0,2·L dB par Bark : environ −16 à 40 dB SPL, −8 à
+80 dB SPL. Sur un passage calme, Schroeder surestime donc le masquage quelques Bark au-dessus de
+l'énergie principale, là où MULE déforme l'enveloppe. Option `spread_mode` 1 : l'étalement de
+Terhardt, dépendant du niveau (96 dB SPL = pleine échelle, pente vers le grave −27 dB par Bark),
+pour les masques de bandes ; les masques fins des bandes graves gardent Schroeder. La production
+reste identique au bit près. Le débit monte nettement à q égal (+4 % sur Takemitsu, +17 à +20 %
+sur Zombie Zombie et Eminem) : la comparaison se fait donc à débit égal (`calme_sp.csv`,
+12 extraits).
+
+### Résultat : l'étalement de Terhardt (`calme_sp.csv`, 12 extraits, débit égal)
+
+| à 135 kb/s | ODG | ODG avancé | ViSQOL | Zimtohrli |
+|---|---|---|---|---|
+| moyenne des 12 | −0,005 | −0,005 | +0,000 | **+5,8 %** |
+| Max Richter | **+0,089** | +0,048 | 0,000 | **−15,2 %** |
+| Mravinsky | **+0,061** | +0,050 | +0,013 | **−18,7 %** |
+| Belenos | −0,067 | −0,015 | −0,005 | +12,8 % |
+| Classical | −0,063 | −0,025 | −0,013 | +12,2 % |
+| Takemitsu | −0,037 | −0,081 | −0,072 | +13,2 % |
+| Lebanon Hanover | −0,001 | 0,000 | −0,002 | +19,1 % |
+| Airbourne | −0,005 | −0,032 | +0,001 | +22,2 % |
+
+À 125 kb/s, même tableau, en plus marqué (Zimtohrli +9,6 %).
+
+- **L'hypothèse est confirmée là où elle était posée.** Sur Max Richter et Mravinsky, tous les
+  juges s'améliorent nettement : le masque de Schroeder était trop indulgent au-dessus de leur
+  énergie principale.
+- **Appliqué partout, l'étalement de Terhardt dégrade le reste.** Il est bien plus raide que
+  Schroeder près de la bande masquante, même à niveau moyen (−12 dB contre −4 dB à 1 Bark,
+  à 60 dB SPL). Il abaisse donc les masques presque partout (+17 à +20 % de débit à q égal sur
+  Zombie Zombie et Eminem) et rompt l'équilibre des décalages (14,5 + z, 5,5, `low_db`,
+  `mid_db`), réglés avec Schroeder.
+- **`spread_mode` 2** (le plus petit des deux étalements) coûte presque le même débit que le
+  mode 1 : ce ne sont pas les sons forts, au-delà de 80 dB SPL, qui posent problème.
+- **Aucun niveau ne sépare les cas.** Bande la plus forte : Max Richter 76 dB SPL, Mravinsky 72 (ils
+  gagnent) ; Belenos 77, Brahms 57, Takemitsu 47 (ils perdent). Brahms et Takemitsu, les plus
+  calmes, perdent. Le spectre très incliné de Max Richter et Mravinsky (environ 30 à 40 dB entre
+  la bande la plus forte et 1,4-4,8 kHz) se retrouve chez Lebanon Hanover, qui perd aussi.
+- Options laissées : non adoptées. Pistes : une pente intermédiaire (un réglage, donc une
+  recalibration des décalages à la clé), ou un critère qui reste à trouver.
+
+### Pistes 1 (étalement à la MPEG-1) et 3 (critère relatif d'Opus), sur 12 extraits (`calme_p13.csv`)
+
+Contre la production (`calme_sp.csv`), interpolé à 130 kb/s. Zimtohrli en écart relatif, plus
+petit = mieux.
+
+| variante | ODG | ODG avancé | ViSQOL | Zimtohrli | gagnants | perdants |
+|---|---|---|---|---|---|---|
+| **`sp3`** (Schroeder jusqu'à 1 Bark, puis Terhardt si plus raide) | **+0,0074** | **+0,0060** | **+0,0010** | **−1,2 %** | Max Richter +0,076 / −19,8 %, Mravinsky +0,030 / −12,2 %, Beethoven 59 +0,015 / −3,0 % | Airbourne −0,012 / +8,3 %, Eminem −0,008 / +3,2 %, Lebanon Hanover +3,3 %, Takemitsu −0,008 / +2,8 % |
+| `sp3d2` (à partir de 2 Bark) | +0,0016 | +0,0029 | +0,0013 | −0,5 % | Max Richter +0,028 / −8,5 % | Airbourne +2,3 % |
+| `dy05` (Opus, 0,5) | +0,0079 | −0,0073 | +0,0030 | +1,4 % | **Belenos +0,217 / −25,6 %** | tous les autres, −0,007 à −0,022 |
+| `dy1` (Opus, 1) | −0,0043 | −0,0259 | +0,0026 | +6,1 % | Belenos +0,254 / −32,7 % | tous les autres |
+
+- **La piste 1 marche.** Les quatre juges s'améliorent en moyenne. `sp3` garde l'essentiel du gain
+  de Terhardt sur Max Richter et Mravinsky, sans les grosses pertes (Belenos −0,067 → −0,002). Il
+  reste des pertes modérées sur le rock fort (Airbourne, Eminem, Lebanon Hanover). La cause : au-delà
+  d'un Bark, la pente de Schroeder n'est que de −7 à −8 dB par Bark ; celle de Terhardt est plus
+  raide dès que la bande masquante est sous 80 dB SPL environ, donc sur presque toute la musique.
+  `sp3d2` est plus prudent : gains et pertes plus petits.
+- **La piste 3 ne sert qu'à Belenos**, mais de façon spectaculaire : +0,22 à +0,25 d'ODG, −26 à −33 %
+  pour Zimtohrli. C'est justement l'extrait où Opus s'effondre. Partout ailleurs, elle dégrade.
+  À comprendre : Belenos a des bandes qui ressortent nettement de leurs voisines, et le masque de
+  MULE les y sous-dote.
+
+### Le paradoxe de Belenos : un morceau affamé, pas un critère miracle
+
+Le critère d'Opus (`dy05`) fait passer Belenos de 157 à 183 kb/s à q −7 (+16 %) : il y trouve
+beaucoup de bandes qui dépassent l'enveloppe basse et leur donne des bits. **Au même débit sur
+Belenos (175 kb/s), il fait un peu moins bien que la production** (ODG −0,093 contre −0,072). Son
+« gain » à débit moyen égal sur les 12 extraits n'était qu'un transfert de bits vers Belenos, pris
+aux autres extraits.
+
+| Belenos | kb/s | ODG |
+|---|---|---|
+| MULE q −6 | 148 | −0,41 |
+| MULE q −9 | 176 | −0,06 |
+| Opus 128 | 153 | −0,64 |
+| Opus 160 | 187 | −0,27 |
+| Apple q63 | 134 | −0,68 |
+
+Belenos a une courbe débit/qualité très raide : +0,35 d'ODG pour +19 % de débit chez MULE. Opus
+et Apple s'y effondrent parce que leur débit variable ne lui donne pas assez de bits pour franchir
+la pente, pas à cause de leur critère. MULE, qui vise le même rapport bruit/masque partout, lui en
+donne déjà plus. C'est la même leçon que l'analyse Apple contre FDK : la répartition des bits
+entre extraits pèse autant que le codage. La bande passante de référence de Belenos est basse
+(BandwidthRefB 727, environ 17 kHz) : ce n'est pas un effet des 20 kHz.
+
+### Piste 1 sur `test` (`sp3_test.csv`), contre la production actuelle (`tr85_test.csv`)
+
+Intervalles bootstrap à 95 %. Zimtohrli en écart relatif, plus petit = mieux. Régression : ODG
+ou ODG avancé < −0,02, ViSQOL < −0,01, Zimtohrli > +3 %.
+
+| | ODG @128 | @160 | ODG avancé @128 | @160 | ViSQOL @128 | Zimtohrli @128 | @160 | débit à q égal |
+|---|---|---|---|---|---|---|---|---|
+| `sp3` (1 Bark) | +0,0055 [−0,0008 ; +0,0128] | **+0,0107** [+0,0027 ; +0,0187] | +0,0064 | +0,0023 | +0,0025 | −1,4 % | 0,0 % | +2,7 % |
+| `sp3d2` (2 Bark) | +0,0021 [−0,0006 ; +0,0050] | +0,0034 | +0,0028 [+0,0000 ; +0,0068] | +0,0007 | +0,0009 | −0,4 % | +0,1 % | +0,5 % |
+
+- **`sp3`** gagne plus : Max Richter +0,08 à +0,09 et −19 à −22 %, Mravinsky, Zombie Zombie. Mais il
+  fait régresser plusieurs extraits : Monster Magnet −0,058 d'ODG à 160 kb/s ; Takemitsu −0,022,
+  ViSQOL −0,011 à −0,021 et Zimtohrli +8,5 % ; Zimtohrli +3 à +6 % sur le rock et la synthwave
+  (Airbourne, Carpenter Brut, Foo Fighters, Steel Panther, Dance with the Dead).
+- **`sp3d2`** gagne moins, mais proprement. À 128 kb/s, les quatre juges sont positifs, sans
+  aucune régression. À 160 kb/s, c'est neutre, avec une seule régression limite (Classical
+  −0,021 d'ODG). Gains : Max Richter +0,03 / −9 %, Zombie Zombie, Beethoven 59.
+
+### Décision (20/11/2026) : l'étalement à la MPEG-1, au-delà de 2 Bark, devient la production
+
+`spread_mode` 3 et `sp_dz` 2 par défaut, dans l'encodeur C et en Python. La production donne
+exactement les fichiers de `sp3d2`, et `sp0` (Schroeder seul) redonne exactement la précédente.
+Les 42 tests passent. Le seuil de 1 Bark gagnait plus (ODG +0,011 à 160 kb/s), mais faisait
+régresser Monster Magnet, Takemitsu, et le rock pour Zimtohrli : à reprendre plus tard, en
+comprenant ces pertes.
+
+## Bilan de la phase de réglage fin (20/11/2026)
+
+Adoptés, encodeur seul, format v3 inchangé :
+1. le regroupement des fenêtres courtes par régions de fréquence, à 12 dB (Lebanon Hanover) ;
+2. le détecteur d'attaques à 8,5 dB ;
+3. l'étalement du masquage à la MPEG-1 au-delà de 2 Bark (Max Richter, Mravinsky).
+
+En option : la garde tonale (`tg`), l'étalement de Terhardt (`spread_mode` 1, 2), le critère
+d'Opus (`dyn_a`), les bandes hautes muettes (`nf_top`), le seuil de 1 Bark. Rejetés : des groupes
+plus fins, les bandes hautes muettes.

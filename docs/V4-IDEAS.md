@@ -121,3 +121,15 @@ isolée dans une bande sinon bruitée ; ses autres coefficients, arrondis à zé
 PEAQ applaudit la raie, ViSQOL et Zimtohrli sanctionnent le trou. L'USAC remplit de bruit les
 coefficients quantifiés à zéro, à un niveau transmis. Ce serait le complément naturel de la
 garde, et peut-être une alternative aux bandes plus étroites.
+
+**Ajout du 20/11/2026 : une limite au remplissage de bruit, à l'intérieur d'une bande.** Les bandes
+hautes de la v3 sont larges (bande 20 : 13,4-17,2 kHz, bande 21 : 17,2-19,9 kHz) : une bande sans
+bits est remplie de bruit sur toute sa largeur, et on ne peut couper qu'à 13,4 ou 17,2 kHz.
+Apple, avec des bandes de 0,7 kHz au-dessus de 16 kHz, met à zéro 80 à 99 % de ce qui est au-dessus
+de 16 kHz et ne code que ce qui en vaut la peine (`eval/results/N-LOG.md`). Un champ de
+l'en-tête, ou de chaque trame, donnerait la dernière raie remplie de bruit. Avec du bruit dans les
+coefficients nuls des bandes codées (plus haut), ce serait le même chantier : la forme du bruit à
+l'intérieur d'une bande. En v3, sans changer le format : un passe-bas avant l'encodeur (le bruit
+de la bande coupée s'étale sur toute sa largeur, 1 dB plus bas par raie), ou une bande codée dont
+on met à zéro les coefficients au-dessus de la limite (une coupure nette, mais des bits pour la
+partie basse).

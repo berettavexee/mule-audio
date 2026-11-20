@@ -174,7 +174,8 @@ double win_half(int i, int h, int s);
  * between bands, the threshold in quiet per coefficient, the bands' widths. */
 typedef struct {
     double zc[NB], spread[NB][NB], ath[NB];
-    int width[NB];
+    double fc[NB];              /* band centres (Hz): spread_mode 1 */
+    int width[NB], m;
 } psy_t;
 
 int block_types(const double *x, int64_t L, int T, uint8_t *types, double ratio_db);
