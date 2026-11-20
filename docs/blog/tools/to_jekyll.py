@@ -35,7 +35,7 @@ def main():
     assert first.startswith("# "), "the post must start with its H1 title"
     title = first[2:].strip()
     body = rest.lstrip("\n")
-    body = re.sub(r"^(\*Premier billet[^*]*?»\.)[^*]*\*\n", r"\1*\n", body, count=1)
+    body = re.sub(r"^(\*[^*\n]*? billet [^*]*?»\.)[^*]*\*\n", r"\1*\n", body, count=1)
     figdir = os.path.join(os.path.dirname(os.path.abspath(a.src)), "fig")
     figs = []
 

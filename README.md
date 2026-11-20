@@ -146,6 +146,7 @@ MULE is built from other people's ideas:
 - **[AV1](https://aomedia.org/specifications/av1/)**, for the adaptive CDF update;
 - the measuring tools: [GstPEAQ](https://github.com/HSU-ANT/gstpeaq),
   [ViSQOL](https://github.com/google/visqol), [QEMU](https://www.qemu.org/), and the EBU SQAM disc;
+- the player's firmware: [echo-mini-newfw](https://github.com/berettavexee/echo-mini-newfw).
 
 ## License
 
