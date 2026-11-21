@@ -88,9 +88,8 @@ static double schroeder_db(double d)
 
 /* The tables for m coefficients (1024 or 128): the threshold in quiet (Terhardt's formula, at
  * the band's most sensitive point, 96 dB = full scale), Schroeder's spreading function. */
-void psy_init(psy_t *p, int m, int ath_parent)
+void psy_init(psy_t *p, int m)
 {
-    static const int E22[24] = MULE_EDGES22_INIT;   /* ath_parent: a split band's v3 band */
     int scale = m / 128;
     double hz = 44100.0 / 2 / m;
     p->m = m;
@@ -100,14 +99,6 @@ void psy_init(psy_t *p, int m, int ath_parent)
         p->fc[b] = (lo + hi) / 2;
         p->width[b] = (EDGES[b + 1] - EDGES[b]) * scale;
         double alo = lo, ahi = hi, aw = p->width[b];
-        if (ath_parent) {                       /* the threshold in quiet of the v3 band holding it */
-            int k = 0;
-            while (k < 21 && E22[k + 1] <= EDGES[b])
-                k++;
-            alo = E22[k] * scale * hz;
-            ahi = E22[k + 1] * scale * hz;
-            aw = (E22[k + 1] - E22[k]) * scale;
-        }
         double amin = 1e300;
         for (int i = 0; i < 16; i++) {
             double f = (alo + (ahi - alo) * i / 15.0) / 1000;
@@ -246,8 +237,6 @@ void psy_masks(const psy_t *p, const mule_enc_params *pr, const double *P,
             off += pr->low_db;
         if (i >= 8 && i < pr->mid_hi)
             off += pr->mid_db;
-        if (pr->hi_db != 0 && i >= pr->hi_b0)   /* more bits in the highs (N-LOG.md) */
-            off += pr->hi_db;
         double mk = C * pow(10, -off / 10) / p->width[i];
         double at = p->ath[i] * pow(10, pr->ath_db / 10);
         mask[i] = mk > at ? mk : at;

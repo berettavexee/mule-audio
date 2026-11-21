@@ -45,8 +45,9 @@ annoying *(good)*, −4 = very annoying (shit). ViSQOL (Virtual Speech Quality O
 | AAC (FDK-AAC) | −0.54 | −0.21 | −0.57 / −0.27 | 4.30 |
 | Vorbis (libvorbis) | −0.45 | −0.16 | −0.63 / −0.34 | 4.47 |
 | AAC (Apple, qaac TVBR) | −0.31 | −0.02 | −0.46 / −0.22 | 4.49 |
-| Opus (libopus) | **−0.12** | **0.00** | −0.45 / −0.24 | 4.54 |
-| MULE (format v3) | −0.16 | **0.00** | **−0.36 / −0.14** | **4.61** |
+| Opus (libopus) | **−0.12** | 0.00 | −0.45 / −0.24 | 4.54 |
+| MULE (format v3) | −0.16 | 0.00 | **−0.36 / −0.14** | 4.61 |
+| MULE (format v4, branch `v4`) | −0.14 | **+0.01** | −0.37 / −0.15 | **4.63** |
 
 In plain words:
 - **at 128 kb/s and above**, MULE beats Vorbis and FDK-AAC everywhere, loses to Opus on PEAQ's
@@ -60,6 +61,11 @@ In plain words:
   and 91 KiB of RAM, with the same output, bit for bit, on the PC, the firmware's emulator and
   the Cortex-M3 (measured with format v2; v3 needs 8 % fewer instructions, not yet ported).
 
+Format v4 (branch `v4`, frozen on 21/11/2026, [`docs/V4.md`](docs/V4.md)) adds two ways of filling
+with noise what the encoder does not code, noise in the zeros of coded bands and noise that
+follows the slope of its neighbours, plus a tonal guard in the encoder: +0.02 ODG over v3 at
+121 to 151 kb/s for 0.26 kb/s of side information and 3 to 7 % more decoder instructions.
+
 So, officially: a codec that is worse than Opus on almost every count, and sometimes as good.
 This is a surprise; outperforming Vorbis was by no means a sure thing. Coming close to Opus
 was unexpected.
@@ -69,6 +75,26 @@ decision was taken by automated measures instead (PEAQ basic and advanced, ViSQO
 noise-to-mask ratio), and an idea was kept only if they agreed on an independent test set.
 Those machines have blind spots, and this project walked into most of them: see
 [`docs/LESSONS.md`](docs/LESSONS.md).
+
+### Track by track
+
+Averages hide a lot. Each dot below is one of the 30 test tracks at 128 kb/s: Opus is excellent
+almost everywhere but collapses on one track (Belenos, bagpipes); MULE is more even, and v4 shifts
+the whole cloud up from v3; Apple's AAC is spread wide and pays for its lowpass in PEAQ's eyes.
+
+![PEAQ's score of each of the 30 test tracks at 128 kb/s, for Opus, MULE v4, MULE v3 and Apple's AAC](docs/blog/fig/enc-fig3-v4-en.svg)
+
+### Where each codec puts its bits
+
+The same excerpt (EBU SQAM harpsichord, free of rights) at the same bitrate through the three
+encoders shows three strategies. **MULE** keeps the whole band up to 20 kHz and fills what it does
+not code with noise at the right energy. **Opus** also goes to 20 kHz, with holes coming and going
+between 15 and 20 kHz. **Apple's AAC** cuts the top, between 16 and 19 kHz depending on the
+passage, and spends the bits on cleaner harmonics below. PEAQ, ViSQOL and Zimtohrli all punish
+the energy Apple removes; whether the ear does is what the ABX kit of v4 is for
+(`data/listen/v4/`, results in [`eval/results/V4-ABX.md`](eval/results/V4-ABX.md)).
+
+![Spectrograms of the EBU SQAM harpsichord: the original, MULE v4, Opus and Apple's AAC, all at 117 kb/s](docs/blog/fig/enc-fig4-spectro-en.svg)
 
 ## What was learned
 

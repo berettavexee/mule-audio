@@ -50,9 +50,9 @@ typedef struct {
                          * at 15, for comparisons only (1; header flag MULE_COEF_A8) */
     int tcq_rd_states;  /* encoder speed: the trellis of the RD choice's per-band estimates
                          * (a-1, a, a+1), 8 to 64; 0: tcq_states (8) */
-    int tg;             /* zero-bit tonal bands (eval/results/N-LOG.md): 0 off (production),
-                         * 1 guard: the band gets allocation 1 if its strongest line is within
-                         * tg_db of the mask target; 2 muted: sent silent instead of noise (0) */
+    int tg;             /* zero-bit tonal bands (eval/results/N-LOG.md): 1 guard (production, v4):
+                         * the band gets allocation tg_a if its strongest line is within tg_db of
+                         * the mask target; 2 muted: sent silent instead of noise; 0 off (1) */
     double tg_db;       /* guard: the strongest line at least the target minus this (dB; 6) */
     int tg_a;           /* guard: the allocation given (1 .. MULE_AMAX, else refused; 1) */
     int tg_band;        /* guard: from this band up only (0) */
@@ -62,39 +62,7 @@ typedef struct {
     double sp_dz;       /* spread_mode 3: Schroeder's spreading up to this many Bark above (2) */
     double dyn_a;       /* > 0: masks lowered by dyn_a times a band's excess over the lower
                          * envelope of the band levels (Opus' dynalloc criterion; 0: off) */
-    int lpd;            /* 1: a low-pass decided frame by frame (dyn_lowpass, enc.c; 0) */
-    double lpd_db;      /* its criterion: a line lpd_db above its mask target is kept (0) */
-    double lpd_min_hz;  /* never below this frequency (11025) */
-    double lp_hz;       /* > 0: the spectrum above this frequency set to 0 before coding (0) */
-    int fold;           /* v4 probe (MULE_FOLD): zero-bit bands filled by folding (0) */
-    int fold_start;     /* from this band up (12) */
-    int fold_mix;       /* 0 the lines below .. 8 noise (2) */
-    int fold_dyn;       /* 1: decided per channel and frame, from the source bands' tonality (0) */
-    double fold_ton_db; /* fold_dyn: a source band flatter than -fold_ton_db dB votes for folding (8) */
-    int rot;            /* v4 probe (MULE_ROT): low-allocation coded bands rotated (spreading; 0) */
-    int rot_deg;        /* the angle at allocation 1, degrees, halved every 2 allocations (40) */
-    int rot_amax;       /* the last allocation rotated (4) */
-    int rot_b0;         /* the first band rotated (12) */
-    int rot_dyn;        /* 1: a 2-bit level per channel and frame from the tonality (0) */
-    double rot_ton_db;  /* rot_dyn: the flatness of a band of level 2 (8) */
-    int tnf;            /* v4 probe (MULE_TNF): TNS on the zero-bit bands' noise, long frames (0) */
-    int tnf_order;      /* its largest order (8) */
-    double tnf_gain_db; /* sent when the prediction gain reaches this (1.5 dB) */
-    int tnf_b0;         /* from this band up (12) */
-    int nf_slope;       /* v4 probe (MULE_SLOPE): noise-filled bands sloped like their neighbours (0) */
-    int nf_slope_b0;    /* from this band up (12) */
-    int nf_slope_mode;  /* bit 0: +-6 dB at most; 1: only between two heard neighbours; 2: the top
-                         * band falls by 4 dB at least (0) */
-    int sp;             /* v4 probe (MULE_SUBPART): coded bands may leave subpartitions to noise (0) */
-    int sp_b0;          /* from this band up (19) */
-    double sp_db;       /* a subpartition is coded if its strongest line reaches the mask target
-                         * plus this (0 dB) */
-    int ath_parent;     /* split-band builds (MULE_SPLIT): each band's threshold in quiet from its
-                         * v3 band (most sensitive point, width; 0) */
-    double hi_db;       /* extra masking offset (more bits) from band hi_b0 up (0) */
-    int hi_b0;          /* (19) */
-    int nf_coded;       /* v4 probe (MULE_NF_CODED): noise in the coded bands' zero coefficients (0) */
-    double nf_off_db;   /* its level: the measured one plus this (dB; 0) */
+    double nf_off_db;   /* v4: the zero coefficients' noise level, the measured one plus this (dB; -6) */
     int nf_top;         /* from this band up, a band at allocation 0 is sent silent instead of
                          * noise-filled (MULE_NB: none) */
     int group_mode;     /* adaptive grouping: 0 the window's energy only, 1 also per frequency

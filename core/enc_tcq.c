@@ -158,45 +158,6 @@ static int64_t inter_pm(const band_in *in, int idx)
 
 /* A coded band's Viterbi inputs at allocation a: samples in D/2 units, the inter-frame terms,
  * its allocation class, its noise unit u (D/2 rms) and lambda. */
-/* v4 probe (MULE_ROT): the band's rotation angle at allocation a (radians; 0: none), as the
- * decoder computes it; and the inverse of its rotations (dec.c rot_pass, rot_segment), on the
- * targets: the passes in reverse order, each reversed, with -s. */
-static double rot_angle(const band_in *in, int a)
-{
-    const mule_enc_params *pr = in->pr;
-    if (!pr || !pr->rot || in->rot_scale <= 0 || in->b < pr->rot_b0 || a > pr->rot_amax)
-        return 0;
-    return in->rot_scale * pr->rot_deg * pow(2.0, -(a - 1) / 2.0) * 3.14159265358979323846 / 180;
-}
-
-static void rot_pass_inv(double *x, int len, int stride, double c, double s)
-{
-    for (int i = 0; i <= len - 2 * stride - 1; i++) {
-        double x1 = x[i], x2 = x[i + stride];
-        x[i + stride] = c * x2 - s * x1;
-        x[i] = c * x1 + s * x2;
-    }
-    for (int i = len - stride - 1; i >= 0; i--) {
-        double x1 = x[i], x2 = x[i + stride];
-        x[i + stride] = c * x2 - s * x1;
-        x[i] = c * x1 + s * x2;
-    }
-}
-
-static void rot_segment_inv(double *x, int len, double th)
-{
-    if (len < 2 || th <= 0)
-        return;
-    double c = cos(th), s = sin(th);
-    if (len >= 8) {
-        int st = 1;
-        while (st * st + st < len)
-            st++;
-        rot_pass_inv(x, len, st, c, s);
-    }
-    rot_pass_inv(x, len, 1, c, s);
-}
-
 void band_prep(const band_in *in, int a, double *xt, int64_t *pmv, int *ac, double *u,
                       double *lam)
 {
@@ -211,12 +172,6 @@ void band_prep(const band_in *in, int a, double *xt, int64_t *pmv, int *ac, doub
             int64_t p = inter_pm(in, idx);
             pmv[i] = p > 31 ? 31 : p;
         }
-    }
-    double th = rot_angle(in, a);
-    if (th > 0) {                               /* v4 probe: quantise in the rotated domain */
-        int seg = in->type ? EDGES[in->b + 1] - EDGES[in->b] : n;
-        for (int k = 0; k + seg <= n; k += seg)
-            rot_segment_inv(xt + k, seg, th);
     }
     *u = (D / 2) * in->rms;                     /* (D/2)^2 rms^2: the noise of one unit */
     *lam = in->pr ? in->pr->tcq_rdl * in->pr->rd_lambda * in->mtq / (*u * *u) : 0.0;
@@ -257,10 +212,9 @@ void band_code(const band_in *in, int a, int64_t *tail1, int64_t *tail2, ops_t *
         tcq_viterbi(xt, n, in->tcq_lam, nst, mask, tst, kt);
     if (klev)
         lam_used = lam;
-    int rot = rot_angle(in, a) > 0;
     for (int i = 0; i < n; i++) {
         int idx = coef_index(in->g, in->b, i);
-        double xn = rot ? xt[i] * (D / 2) : in->Y[idx] / in->rms;   /* rotated: its own target */
+        double xn = in->Y[idx] / in->rms;
         /* TCQ level -> index within the state's union (odd states: no zero, sign always) */
         int64_t k = kt[i], ak = k < 0 ? -k : k;
         int even = !(tst & 1);
@@ -309,7 +263,7 @@ void band_code(const band_in *in, int a, int64_t *tail1, int64_t *tail2, ops_t *
         }
         if (emit && in->type == 0)
             ycur[idx] = mag < 65535 ? (int)mag : 65535;   /* stored saturated (spec 5.3) */
-        if (emit && in->nf_acc && k == 0) {     /* v4 probe: what the zeros leave out */
+        if (emit && in->nf_acc && k == 0) {     /* v4: what the zeros leave out (their noise) */
             double r = xn / (D / 2);
             in->nf_acc[0] += r * r;
             in->nf_acc[1] += 1;

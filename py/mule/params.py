@@ -39,43 +39,14 @@ class Params:
     tcq_chain: int = 1          # trellis state across the bands, one Viterbi (0: comparisons only)
     coef_a8: int = 1            # 8-symbol coefficient alphabet (0: 16 symbols, comparisons only)
     tcq_rd_states: int = 8      # encoder speed: trellis of the RD choice's estimates (0: tcq_states)
-    tg: int = 0                 # zero-bit tonal bands: 0 off, 1 guard (allocation 1), 2 muted
+    tg: int = 1                 # zero-bit tonal bands: 1 guard (production, v4), 2 muted, 0 off
     tg_db: float = 6.0          # guard: strongest line within this of the mask target (dB)
     tg_a: int = 1               # guard: the allocation given
     tg_band: int = 0            # guard: from this band up only
     spread_mode: int = 3        # band masks' spreading: 0 Schroeder, 1 Terhardt, 2 min, 3 Schroeder then Terhardt
     sp_dz: float = 2.0          # spread_mode 3: Schroeder up to this many Bark above the masker
     dyn_a: float = 0.0          # Opus-like: masks lowered by dyn_a x a band's excess over the follower
-    lpd: int = 0                # 1: low-pass decided frame by frame (lines above their mask target)
-    lpd_db: float = 0.0         # a line this many dB above its mask target is kept
-    lpd_min_hz: float = 11025.0  # never below this frequency
-    lp_hz: float = 0.0          # > 0: low-pass at this frequency (line precision), before coding
-    fold: int = 0               # v4 probe: zero-bit bands filled by folding (MULE_FOLD)
-    fold_start: int = 12        # from this band up
-    fold_mix: int = 2           # 0 the lines below .. 8 noise
-    fold_dyn: int = 0           # 1: decided per channel and frame (source bands' tonality)
-    fold_ton_db: float = 8.0    # a source band flatter than -fold_ton_db dB votes for folding
-    rot: int = 0                # v4 probe: low-allocation coded bands rotated (MULE_ROT)
-    rot_deg: int = 40           # angle at allocation 1 (degrees), halved every 2 allocations
-    rot_amax: int = 4           # last allocation rotated
-    rot_b0: int = 12            # first band rotated
-    rot_dyn: int = 0            # 1: a 2-bit level per channel and frame from the tonality
-    rot_ton_db: float = 8.0     # rot_dyn: flatness of a level-2 band
-    tnf: int = 0                # v4 probe: TNS on the zero-bit bands' noise (MULE_TNF)
-    tnf_order: int = 8          # its largest order
-    tnf_gain_db: float = 1.5    # sent when the prediction gain reaches this
-    tnf_b0: int = 12            # from this band up
-    nf_slope: int = 0           # v4 probe: noise-filled bands sloped like their neighbours (MULE_SLOPE)
-    nf_slope_b0: int = 12       # from this band up
-    nf_slope_mode: int = 0      # bit 0: +-6 dB at most; 1: two heard neighbours only; 2: top band falls 4 dB
-    sp: int = 0                 # v4 probe: coded bands may leave subpartitions to noise (MULE_SUBPART)
-    sp_b0: int = 19             # from this band up
-    sp_db: float = 0.0          # a subpartition is coded if its strongest line reaches the target + this
-    ath_parent: int = 0         # split-band builds: each band's threshold in quiet from its v3 band
-    hi_db: float = 0.0          # extra masking offset (more bits) from band hi_b0 up
-    hi_b0: int = 19
-    nf_coded: int = 0           # v4 probe: noise in the coded bands' zero coefficients (MULE_NF_CODED)
-    nf_off_db: float = 0.0      # its level: the measured one plus this (dB)
+    nf_off_db: float = -6.0     # v4: the zeros' noise level, the measured one plus this (dB)
     nf_top: int = 22            # from this band up, uncoded bands silent instead of noise (22: none)
     group_mode: int = 1         # adaptive grouping: 0 window energy, 1 also per frequency region
     tr_db: float = 8.5          # transient detector threshold (dB; 10 before 20/11/2026)
@@ -86,7 +57,7 @@ class Params:
 # the model streams in the decoder's order: (name, symbols, contexts) (core/models.c)
 STREAMS = [("btype", 2, 1), ("alpha", 4, 1), ("stereo", 2, 3), ("energy", 16, 9),
            ("alloc", 16, 6), ("amode", 2, 1), ("cesc", 16, 16), ("coef", 16, 96),
-           ("eaesc", 16, 1), ("spart", 2, 3)]     # spart: v4 probe (MULE_SUBPART)
+           ("eaesc", 16, 1)]
 OFF = {}                        # first model of each stream
 _o = 0
 for _n, _s, _c in STREAMS:

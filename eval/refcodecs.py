@@ -104,14 +104,15 @@ class AACVBR(AAC):
 
 class AppleAAC:
     """Apple's AAC encoder (CoreAudioToolbox) through qaac under wine, AAC-LC in true VBR
-    (--tvbr N, 0..127), default bandwidth; decoded by ffmpeg. Needs third_party/qaac (git-ignored:
+    (aapl_q<N>: --tvbr N, 0..127) or constrained VBR (aaplc_<kb/s>: --cvbr, aiming at that rate
+    file by file), default bandwidth; decoded by ffmpeg. Needs third_party/qaac (git-ignored:
     Apple's libraries are never published). The rate counts the AAC packets only (no MP4)."""
 
     ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "third_party", "qaac")
 
-    def __init__(self, q):
-        self.q = q
-        self.name = f"aapl_q{q}"
+    def __init__(self, q, cvbr=False):
+        self.q, self.cvbr = q, cvbr
+        self.name = f"aaplc_{q}" if cvbr else f"aapl_q{q}"
 
     @staticmethod
     def _win(path):
@@ -121,7 +122,8 @@ class AppleAAC:
         enc = os.path.join(work, "enc.m4a")
         dec = os.path.join(work, "dec.wav")
         env = dict(os.environ, WINEPREFIX=os.path.join(self.ROOT, "wine"), WINEDEBUG="-all")
-        subprocess.run(["wine", os.path.join(self.ROOT, "bin", "qaac64.exe"), "-s", "--tvbr", str(self.q),
+        subprocess.run(["wine", os.path.join(self.ROOT, "bin", "qaac64.exe"), "-s",
+                        "--cvbr" if self.cvbr else "--tvbr", str(self.q),
                         "-o", self._win(enc), self._win(wav)], check=True, env=env,
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         _sh(["ffmpeg", "-nostdin", "-v", "error", "-y", "-i", enc, "-c:a", "pcm_s16le", dec])
@@ -136,7 +138,7 @@ class Mule:
     (build/mule-dec). Name mule[-variant]_<q_db>, e.g. mule_-9, mule-g8_-9 (VARIANTS below)."""
 
     ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    VARIANTS = {                # over params.Params; "" = production (format v3)
+    VARIANTS = {                # over params.Params; "" = production (format v4)
         "": {},
         "g8": {"groups": "8"},
         "g1": {"groups": "1"},
@@ -215,76 +217,15 @@ class Mule:
         # 8.5 since 20/11/2026; the measurements before used 10, see N-LOG.md). run_eval.py writes
         # the settings each configuration resolved to next to its CSV (<tag>.params.json)
         "gr0": {"group_mode": 0, "group_db": 6.0},
-        # v4 probe (branch v4): noise in the coded bands' zero coefficients, level offset (dB)
-        "lp15": {"lp_hz": 15000.0}, "lp16": {"lp_hz": 16000.0}, "lp17": {"lp_hz": 17000.0},
-        "lp18": {"lp_hz": 18000.0},
-        "lpd0": {"lpd": 1}, "lpd6": {"lpd": 1, "lpd_db": 6.0}, "lpdm6": {"lpd": 1, "lpd_db": -6.0},
-        # v4 probe: folding of zero-bit bands (start band, mix 0 fold .. 8 noise)
-        "fd0": {"fold": 1, "fold_mix": 0}, "fd2": {"fold": 1, "fold_mix": 2},
-        "fd4": {"fold": 1, "fold_mix": 4}, "fd2s16": {"fold": 1, "fold_mix": 2, "fold_start": 16},
-        "fd2tg": {"fold": 1, "fold_mix": 2, "tg": 1},
         # check (N-LOG.md): every zero-bit band from 12 (16) up coded at allocation 1 instead of
         # noise-filled, through the tonal guard with its two criteria disabled
         "code12": {"tg": 1, "tg_ton": -100.0, "tg_db": 100.0, "tg_band": 12},
         "code16": {"tg": 1, "tg_ton": -100.0, "tg_db": 100.0, "tg_band": 16},
-        # code rather than fill (Apple), with noise in the zeros: allocation 2 or 3 (N-LOG.md)
-        "code12a2nf": {"tg": 1, "tg_ton": -100.0, "tg_db": 100.0, "tg_band": 12, "tg_a": 2,
-                       "nf_coded": 1, "nf_off_db": -6.0},
-        "code12a3nf": {"tg": 1, "tg_ton": -100.0, "tg_db": 100.0, "tg_band": 12, "tg_a": 3,
-                       "nf_coded": 1, "nf_off_db": -6.0},
-        "code16a3nf": {"tg": 1, "tg_ton": -100.0, "tg_db": 100.0, "tg_band": 16, "tg_a": 3,
-                       "nf_coded": 1, "nf_off_db": -6.0},
-        # v4 probe: rotation of low-allocation coded bands (Opus' spreading), R0 fixed level,
-        # R1 per channel and frame (rtd), R2 combinations
-        # v4 probe: TNS on the noise of zero-bit bands (order, gain threshold), and with the candidate
-        "tn8g0": {"tnf": 1, "tnf_gain_db": 0.0}, "tn8g0b16": {"tnf": 1, "tnf_gain_db": 0.0, "tnf_b0": 16},
-        "spv4": {"sp": 1, "nf_slope": 1, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
-        "sp17v4": {"sp": 1, "sp_b0": 17, "nf_slope": 1, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
-        "spm6v4": {"sp": 1, "sp_db": -6.0, "nf_slope": 1, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
-        "spm3v4": {"sp": 1, "sp_db": -3.0, "nf_slope": 1, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
-        "spp3v4": {"sp": 1, "sp_db": 3.0, "nf_slope": 1, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
-        "spp6v4": {"sp": 1, "sp_db": 6.0, "nf_slope": 1, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
-        "sl6v4": {"nf_slope": 1, "nf_slope_mode": 1, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
-        "slbv4": {"nf_slope": 1, "nf_slope_mode": 2, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
-        "sltv4": {"nf_slope": 1, "nf_slope_mode": 4, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
-        "slbtv4": {"nf_slope": 1, "nf_slope_mode": 6, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
-        "sl6btv4": {"nf_slope": 1, "nf_slope_mode": 7, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
-        "sl": {"nf_slope": 1}, "sl19": {"nf_slope": 1, "nf_slope_b0": 19},
-        "slnfm6tg": {"nf_slope": 1, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
-        "sl19nfm6tg": {"nf_slope": 1, "nf_slope_b0": 19, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
-        "tn8": {"tnf": 1}, "tn4": {"tnf": 1, "tnf_order": 4}, "tn8g3": {"tnf": 1, "tnf_gain_db": 3.0},
-        "tn8nfm6tg": {"tnf": 1, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
-        "tn4g0b16": {"tnf": 1, "tnf_gain_db": 0.0, "tnf_b0": 16, "tnf_order": 4},
-        "tn8g0b16nfm6tg": {"tnf": 1, "tnf_gain_db": 0.0, "tnf_b0": 16, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
-        "tn4g0b16nfm6tg": {"tnf": 1, "tnf_gain_db": 0.0, "tnf_b0": 16, "tnf_order": 4, "tg": 1, "nf_coded": 1,
-                           "nf_off_db": -6.0},
-        "rt20": {"rot": 1, "rot_deg": 20}, "rt40": {"rot": 1, "rot_deg": 40}, "rt60": {"rot": 1, "rot_deg": 60},
-        "rt40a6": {"rot": 1, "rot_deg": 40, "rot_amax": 6},
-        "rtd40": {"rot": 1, "rot_deg": 40, "rot_dyn": 1}, "rtd60": {"rot": 1, "rot_deg": 60, "rot_dyn": 1},
-        "rtd40tg": {"rot": 1, "rot_deg": 40, "rot_dyn": 1, "tg": 1},
-        "rtd40nfm6tg": {"rot": 1, "rot_deg": 40, "rot_dyn": 1, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
-        "fdd0": {"fold": 1, "fold_mix": 0, "fold_dyn": 1}, "fdd2": {"fold": 1, "fold_mix": 2, "fold_dyn": 1},
-        "fdd2t5": {"fold": 1, "fold_mix": 2, "fold_dyn": 1, "fold_ton_db": 5.0},
-        "fdd2t12": {"fold": 1, "fold_mix": 2, "fold_dyn": 1, "fold_ton_db": 12.0},
-        "fdd2nfm6tg": {"fold": 1, "fold_mix": 2, "fold_dyn": 1, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
-        "fd2nfm6tg": {"fold": 1, "fold_mix": 2, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
-        # hypothesis: too few bits from 10 kHz up (N-LOG.md): extra margin in the highs
-        # bands 20 and 21 cut in two: run with MULE_BUILD=build-nb24 (make BUILD=build-nb24
-        # CFLAGS="-O2 -Wall -Wextra -std=c99 -DMULE_BANDS24"); nf_top = the 24 bands
-        "nb24": {"nf_top": 24}, "nb24nfm6tg": {"nf_top": 24, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
-        "nb24ap": {"nf_top": 24, "ath_parent": 1},
-        "nb24apnfm6tg": {"nf_top": 24, "ath_parent": 1, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
-        # MULE_SPLIT 1 (band 20 only) or 2 (band 21 only): 23 bands, builds build-s20, build-s21
-        "nb23ap": {"nf_top": 23, "ath_parent": 1},
-        "nb23apnfm6tg": {"nf_top": 23, "ath_parent": 1, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
-        "hi3": {"hi_db": 3.0}, "hi6": {"hi_db": 6.0}, "hi6b18": {"hi_db": 6.0, "hi_b0": 18},
+        # format v4 (21/11/2026): the probes of branch v4 (folding, rotation, TNS on the noise,
+        # low-pass, split bands, subpartitions, line tracking, Viterbi weights, ...) were removed
+        # when the format was frozen; their results are in eval/results/N-LOG.md
+        "tg0": {"tg": 0},
         "midhi22": {"mid_hi": 22},
-        "nfc": {"nf_coded": 1}, "nfcm3": {"nf_coded": 1, "nf_off_db": -3.0},
-        "nfcm6": {"nf_coded": 1, "nf_off_db": -6.0},
-        "nfctg": {"nf_coded": 1, "tg": 1}, "nfcm3tg": {"nf_coded": 1, "nf_off_db": -3.0, "tg": 1},
-        "nfcm9": {"nf_coded": 1, "nf_off_db": -9.0}, "nfcm12": {"nf_coded": 1, "nf_off_db": -12.0},
-        "nfcm6tg": {"nf_coded": 1, "nf_off_db": -6.0, "tg": 1},
-        "nfcm9tg": {"nf_coded": 1, "nf_off_db": -9.0, "tg": 1},
         "gr1": {"group_mode": 1, "group_db": 6.0}, "gr1d8": {"group_mode": 1, "group_db": 8.0},
         "gr1d10": {"group_mode": 1, "group_db": 10.0}, "gr1d12": {"group_mode": 1, "group_db": 12.0}, "gd4": {"group_mode": 0, "group_db": 4.0}, "gd3": {"group_mode": 0, "group_db": 3.0},
         # production since 20/11/2026 = tr85; tr10 = the detector before
@@ -358,6 +299,8 @@ def get(name):
         return AACVBR(int(val))
     if kind == "aapl":
         return AppleAAC(int(val.lstrip("q")))
+    if kind == "aaplc":
+        return AppleAAC(int(val), cvbr=True)
     raise ValueError(f"unknown codec configuration {name!r}")
 
 

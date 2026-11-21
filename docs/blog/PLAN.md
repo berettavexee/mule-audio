@@ -322,3 +322,31 @@ descendre extrait par extrait, puis passage par passage.
   avec Opus. Lebanon Hanover, la valeur aberrante du matin (−0,58 à 128 kb/s), rentre dans le
   rang ; le cœur du nuage bouge à peine (médiane −0,157 → −0,151). À 160 kb/s, MULE rejoint Opus
   en moyenne et en médiane. La figure 1 montre désormais la production réglée.
+
+
+## Notes pour un billet sur la v4 (« remplir de bruit, mais pas n'importe comment »)
+
+Matériau : `docs/V4.md` (synthèse), `eval/results/N-LOG.md` (20-21/11/2026), figure
+`enc-fig3-v4` (répartition des notes, `docs/blog/tools/figs_enc.py`).
+
+- **Le fil** : deux jours de sondes derrière des drapeaux d'en-tête, une douzaine de pistes, trois
+  retenues. Ce qui a marché : mieux remplir de bruit ce qu'on ne code pas (les zéros des bandes
+  codées, la pente des bandes sans bits) et coder les raies isolées. Ce qui a échoué : toucher au
+  découpage des bandes, et tout ce qui retirait de l'énergie.
+- **La comparaison avec Vorbis et AAC** : Vorbis décrit l'enveloppe par une courbe (son « floor »),
+  AAC laisse des trous, MULE (comme Opus) met du bruit à la bonne énergie. La pente de la v4 est un
+  petit pas vers le « floor » de Vorbis, gratuit en bits.
+- **« Les juges n'aiment pas qu'on retire »** : sur Belenos, les spectrogrammes montrent MULE qui
+  remplit les creux entre les harmoniques (+3 dB) quand Apple les respecte (+1 dB). Les corrections
+  (poids asymétrique, zone morte) vident les creux… et les quatre juges les rejettent, de plus en
+  plus fort. L'oreille de l'auteur ne fait pas la différence : les creux restent 45 dB sous les
+  partiels, masqués.
+- **« La raie qui était une télévision »** : une nuit passée à faire clignoter moins une raie à
+  15,6 kHz sur Beethoven 59… qui s'est révélée être le balayage ligne d'un téléviseur cathodique
+  (15 625 Hz). Takemitsu, l'autre extrait vedette, portait un peigne de raies fixes. Morale : se
+  méfier des pires extraits, et valider sur tout le jeu.
+- **Les chiffres** : ODG +0,022 vers 121 kb/s et +0,019 vers 151 contre la v3, médiane à 128 kb/s
+  −0,151 → −0,130 ; 0,26 kb/s d'information en plus ; +3 à +7 % d'instructions dans le décodeur
+  (QEMU), +1,4 Kio de code.
+- **À produire** : spectrogrammes à débit égal (bruit plat contre pente, Lebanon Hanover ; creux de
+  Belenos), la figure `enc-fig3-v4`, le résultat de l'ABX (`eval/results/V4-ABX.md`).

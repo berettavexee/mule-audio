@@ -26,13 +26,16 @@
   0,5 LSB). Mis de côté le 19/11/2026 : le travail se fait sur PC pour l'instant. Il change la
   sortie normative du décodeur (nouveaux vecteurs de test).
 
-## v4 (branche `v4`)
+## v4 (branche `v4`, format figé le 21/11/2026, `docs/V4.md`)
 
-- **Candidat actuel** (21/11/2026) : bruit dans les zéros des bandes codées (`nf_coded`,
-  −6 dB), garde tonale (`tg`), bruit en pente dans les bandes remplies (`nf_slope`, dès 2,8 kHz,
-  bornée à ±6 dB : `nf_slope_mode` 1 ; variante `sl6v4`).
-- **Inclinaison transmise de la bande 21** (à essayer) : les règles fixes du 21/11 ont échoué
-  (Max Richter monte vers 20 kHz, la plupart des extraits descendent) ; envoyer l'inclinaison de
-  la bande 21 quand elle est remplie de bruit, 2 bits par trame longue et par canal (environ
-  0,2 kb/s). Viser aussi les régressions ViSQOL de la pente sur Crystal Castles, Astroqueen et
-  Dance with the Dead.
+- **Écoute ABX à 128 kb/s** : kit `data/listen/v4/` (MULE v4 contre l'original, contre AAC Apple),
+  résultats dans `eval/results/V4-ABX.md`.
+- **Portage** du décodeur v4 dans la branche Mule du firmware, puis mesure sur l'appareil (QEMU :
+  +3 à +7 % d'instructions par trame, +1,4 Kio de code, `docs/PORT.md` §8).
+- **Inclinaison transmise de la bande 21** (idée non essayée) : envoyer l'inclinaison de la bande 21
+  quand elle est remplie de bruit, 2 bits par trame longue et par canal (environ 0,2 kb/s), aucune
+  règle fixe ne convenant à tous les extraits (Max Richter monte vers 20 kHz).
+- Pistes refermées au gel (sondes retirées du code, résultats dans `eval/results/N-LOG.md`) :
+  bandes plus fines, sous-partitions, suivi des raies, poids et zone morte dans la quantification,
+  réglages du modèle psychoacoustique. Le clignotement des raies de la bande 20 venait surtout
+  d'artefacts d'enregistrement (Beethoven 59 : 15 625 Hz, Takemitsu).
