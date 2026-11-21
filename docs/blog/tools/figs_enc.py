@@ -19,9 +19,10 @@ from figs import (APPLE, BLUE, FS, GREEN, GRID, INK, MUTED, ORANGE, RESULTS, VIO
 import corpus  # noqa: E402  (eval/, put on the path by figs)
 
 
-def odg_at(df, fam, rate):
-    """Each item's ODG at a mean rate: interpolated between the family's two configurations whose
-    mean rates bracket it (the same weights for every item: VBR rates differ per item)."""
+def odg_at(df, fam, rate, col="odg"):
+    """Each item's ODG (or another metric, col) at a mean rate: interpolated between the family's
+    two configurations whose mean rates bracket it (the same weights for every item: VBR rates
+    differ per item)."""
     x = df[df.fam == fam]
     mean = x.groupby("config").kbps.mean().sort_values()
     cs, ks = list(mean.index), mean.values
@@ -29,8 +30,8 @@ def odg_at(df, fam, rate):
         raise ValueError(f"{fam}: {rate} kb/s outside the measured {ks[0]:.1f}-{ks[-1]:.1f} kb/s")
     i = int(np.clip(np.searchsorted(ks, rate) - 1, 0, len(ks) - 2))
     t = (rate - ks[i]) / (ks[i + 1] - ks[i])
-    lo = x[x.config == cs[i]].set_index("item").odg
-    hi = x[x.config == cs[i + 1]].set_index("item").odg.loc[lo.index]
+    lo = x[x.config == cs[i]].set_index("item")[col]
+    hi = x[x.config == cs[i + 1]].set_index("item")[col].loc[lo.index]
     return lo * (1 - t) + hi * t
 
 
@@ -54,15 +55,20 @@ def _results(*names):
     return df
 
 
-def _strip(rows, rate, name, figsize=(9, 5.2), lang="fr"):
+def _strip(rows, rate, name, figsize=(9, 5.2), lang="fr", zimt=False):
     """One row of dots per (values: item -> ODG, label, colour, marker): the median, the 10-90 %
-    range, the hardest and the easiest item named. lang "en": English captions (the README)."""
+    range, the hardest and the easiest item named. lang "en": English captions (the README).
+    zimt: the values are Zimtohrli distances (lower = better), drawn as -distance x 1e4 so that
+    better stays on the right, the ticks labelled with the distances themselves."""
+    if zimt:
+        rows = [(-v * 1e4, lab, c, mk) for v, lab, c, mk in rows]
     vals = [r[0] for r in rows]
     lo = np.floor(min(v.min() for v in vals) * 10) / 10
     hi = max(v.max() for v in vals)
-    xlab = max(hi, 0.0) + 0.08                  # the rows' names, right of every dot
+    xlab = (hi + 0.08 * (hi - lo)) if zimt else max(hi, 0.0) + 0.08   # the rows' names, right of every dot
     fig, ax = plt.subplots(figsize=figsize)
-    ax.axvline(0, color=GRID, lw=1, zorder=0)
+    if not zimt:
+        ax.axvline(0, color=GRID, lw=1, zorder=0)
     rng = np.random.default_rng(7)
     span = (xlab + 0.32 * (hi - lo + 0.1)) - (lo - 0.05)
     for k, (v, lab, c, mk) in enumerate(rows):
@@ -89,12 +95,19 @@ def _strip(rows, rate, name, figsize=(9, 5.2), lang="fr"):
                                     relpos=(1, 0)))
     ax.set_yticks([])
     ax.spines["left"].set_visible(False)
-    step = 0.2 if hi - lo > 0.8 else 0.1
-    ax.set_xticks(np.round(np.arange(lo, max(hi, 0.0) + 1e-9, step), 2))
-    ax.set_xlim(lo - 0.05, xlab + 0.32 * (hi - lo + 0.1))
-    ax.set_ylim(-0.7, len(rows) - 0.45)
     en = lang == "en"
-    ax.set_xlabel(f"PEAQ's ODG of each track, at {rate} kb/s" if en else f"ODG (PEAQ) de chaque extrait, à {rate} kb/s")
+    if zimt:
+        ticks = np.arange(np.floor(lo), np.ceil(hi) + 1e-9, 1.0 if hi - lo > 4 else 0.5)
+        ax.set_xticks(ticks, [f"{abs(t):g}" for t in ticks])
+        ax.set_xlim(lo - 0.05 * (hi - lo), xlab + 0.32 * (hi - lo))
+        ax.set_xlabel(f"Zimtohrli distance of each track (x 1e-4, lower = better), at {rate} kb/s" if en else
+                      f"distance Zimtohrli de chaque extrait (x 1e-4, plus bas = mieux), à {rate} kb/s")
+    else:
+        step = 0.2 if hi - lo > 0.8 else 0.1
+        ax.set_xticks(np.round(np.arange(lo, max(hi, 0.0) + 1e-9, step), 2))
+        ax.set_xlim(lo - 0.05, xlab + 0.32 * (hi - lo + 0.1))
+        ax.set_xlabel(f"PEAQ's ODG of each track, at {rate} kb/s" if en else f"ODG (PEAQ) de chaque extrait, à {rate} kb/s")
+    ax.set_ylim(-0.7, len(rows) - 0.45)
     notes = (("one dot = one track;  line = 10 to 90 % of the tracks;  bar = median",
               "the 30 tracks of the test set, never used for tuning") if en else
              ("un point = un extrait ;  trait = de 10 à 90 % des extraits ;  barre = médiane",
@@ -157,6 +170,30 @@ def enc_fig3b_v4_160():
     enc_fig3_v4(160)
 
 
+def enc_fig5_zimt(rate=128, lang="fr"):
+    """The distribution figure of format v4 (enc_fig3_v4) with Zimtohrli instead of PEAQ: each
+    test item's distance at a mean rate, Opus, MULE v4, MULE v3 and Apple's AAC. Opus and Apple
+    from ref2_test.csv and aapl2_test.csv: ref_test and aapl_test hold Zimtohrli rounded to 1e-4
+    (written before run_eval's %.6g)."""
+    df = _results("prod2_test.csv", "sl6v4_test.csv", "ref2_test.csv", "aapl2_test.csv")
+    rows = [(odg_at(df, "opus", rate, "zimt"), "Opus", ORANGE, "D"),
+            (odg_at(df, "mule-sl6v4", rate, "zimt"), "MULE v4", GREEN, "o"),
+            (odg_at(df, "mule", rate, "zimt"), "MULE v3", BLUE, "o"),
+            (odg_at(df, "aapl", rate, "zimt"), "AAC (Apple)", APPLE, "v")]
+    _strip(rows, rate, "enc-fig5-zimt" + ("" if rate == 128 else f"-{rate}") + ("-en" if lang == "en" else ""),
+           figsize=(9, 4.4), lang=lang, zimt=True)
+
+
+def enc_fig5b_zimt_160():
+    """The same at 160 kb/s."""
+    enc_fig5_zimt(160)
+
+
+def enc_fig5c_zimt_en():
+    """The same at 128 kb/s, in English (the README)."""
+    enc_fig5_zimt(128, "en")
+
+
 def enc_fig3c_v4_en():
     """The same at 128 kb/s, in English (the README)."""
     enc_fig3_v4(128, "en")
@@ -213,7 +250,8 @@ def enc_fig4_spectro_en(item="harpsichord", seconds=6.0):
 
 
 ALL = [enc_fig1_distributions, enc_fig1b_distributions_160, enc_fig2_avant_apres, enc_fig2b_avant_apres_160,
-       enc_fig3_v4, enc_fig3b_v4_160, enc_fig3c_v4_en, enc_fig4_spectro_en]
+       enc_fig3_v4, enc_fig3b_v4_160, enc_fig3c_v4_en, enc_fig4_spectro_en, enc_fig5_zimt,
+       enc_fig5b_zimt_160, enc_fig5c_zimt_en]
 
 if __name__ == "__main__":
     style()

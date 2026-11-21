@@ -2221,3 +2221,60 @@ normatif : `spec/FORMAT.md` (version 4).
 - **ABX à 128 kb/s** : kit `data/listen/v4/` (`eval/abx_v4.py`) : glockenspiel, clavecin,
   castagnettes, Belenos, Lebanon Hanover, Takemitsu ; AAC Apple en VBR contraint 128 (`aaplc_128`,
   110 à 140 kb/s selon l'extrait) et MULE v4 au même débit. Résultats : `eval/results/V4-ABX.md`.
+
+## Répartition des notes Zimtohrli (21/11/2026) et correction des fichiers d'Opus et d'Apple
+
+`ref_test.csv` (Opus) et `aapl_test.csv` (Apple) dataient d'avant le `%.6g` de `run_eval.py` :
+Zimtohrli y est arrondi à 1e-4 (11 et 12 valeurs distinctes sur 270 et 180). Remesurés en entier
+sur les 30 extraits : `ref2_test.csv` (opus 112 à 176) et `aapl2_test.csv` (q63 à q91), précis ;
+PEAQ identique aux anciens fichiers (seul l'arrondi de Zimtohrli était en cause). Les comparaisons
+Zimtohrli de MULE contre MULE n'étaient pas touchées ; les médianes d'Opus et d'Apple données
+pendant la v4 l'étaient (Opus 3,16 annoncé à 128 kb/s, 3,38 en réalité).
+
+Figure `enc-fig5-zimt` (et `-160`, `-en`, `docs/blog/tools/figs_enc.py`) ; distance ×1e-4 par
+extrait, à débit moyen égal (plus bas = mieux) :
+
+| | médiane 128 | p10-p90 128 | pire 128 | médiane 160 | p10-p90 160 | pire 160 |
+|---|---|---|---|---|---|---|
+| Opus | **3,38** | 2,43-4,16 | 4,44 (Steel Panther) | 2,26 | 1,53-2,87 | 3,02 (Belenos) |
+| MULE v4 | 3,53 | 2,57-4,73 | 6,39 (Garbage) | 1,80 | 1,28-2,33 | 4,61 (Garbage) |
+| MULE v3 | 3,49 | 2,57-5,35 | 6,59 (Garbage) | **1,77** | 1,27-2,77 | 4,54 (Garbage) |
+| Apple | 4,12 | 3,44-4,96 | 5,20 (Dance with the Dead) | 2,29 | 1,86-2,60 | 2,79 (Takemitsu) |
+
+- À 128 kb/s, Opus a la meilleure médiane ; à 160 kb/s, MULE passe nettement devant (1,8 contre
+  2,3 pour Opus et Apple). La v4 resserre surtout le haut de la distribution (p90 5,35 → 4,73 à
+  128 kb/s), sa médiane bouge peu.
+- Zimtohrli ne voit pas les mêmes extraits que PEAQ : le pire de MULE est Garbage (et non Belenos
+  ou Zombie Zombie), et Belenos est son extrait le plus facile, alors qu'il est le pire pour PEAQ.
+
+## Pourquoi Zimtohrli pénalise autant Garbage (21/11/2026)
+
+Remarque de l'auteur : Zimtohrli est probablement un meilleur juge que PEAQ à ces débits ; il
+pénalise beaucoup Garbage (pire extrait de MULE). Zimtohrli ×1e-4 :
+
+| Garbage | ~128 kb/s | ~160 kb/s | ~200 kb/s |
+|---|---|---|---|
+| MULE v4 | 6,86 | 4,90 | 3,94 |
+| Opus | 3,97 | 2,67 | 2,19 (173 kb/s) |
+| Apple | 5,42 | 2,58 (167 kb/s) | 1,33 (206 kb/s) |
+
+Diagnostic (scratchpad `zimt_diag.py`, à ~128 kb/s, MULE v4 q −6, Opus 128, Apple q63) :
+- **Erreur gardée dans une seule bande** (l'original ailleurs) : 12-21 kHz MULE 3,66, Opus 0,30,
+  Apple 1,54 ; sous 12 kHz, MULE fait jeu égal avec Opus (0,5 à 1,1). Par passage de 3 s, MULE
+  passe de 3,4 à 8,6, Opus reste vers 3,7-4,2. Stéréo hors de cause (L, R, S comme Opus).
+- **Pas une coupure** : l'original a un contenu fort jusqu'à 20 kHz et MULE en rend l'énergie
+  moyenne à 0,5 dB près.
+- **L'énergie des aigus fluctue d'une trame à l'autre** : écart-type de l'erreur d'énergie
+  12-20 kHz dans le temps, analyse de 46 ms, MULE 1,65 dB contre 0,54 pour Opus (5,8 ms : 3,12
+  contre 1,11) ; Spector 0,94, Lebanon Hanover 0,50.
+- **Par décision de l'encodeur** (bandes 19-21, trames longues) : bandes remplies de bruit
+  (35 %) écart médian +0,49 dB, écart-type 3,83 dB (Spector 2,38) ; bandes codées justes
+  (écart-type 0,22 à 0,93 dB). L'énergie d'une bande de bruit, mesurée sur toute la fenêtre longue,
+  est restituée stationnaire : les aigus de Garbage (cymbales, charleston) varient vite, le bruit ne
+  suit pas. C'est le défaut d'enveloppe du début de la v4, à l'échelle des trames.
+- **Essais d'encodeur** (erreur 12-21 kHz) : `code16` (bandes à partir de la 16 codées à
+  l'allocation 1 au lieu du bruit) 3,66 → 2,42 pour +0,2 kb/s ; `tr7` (plus de blocs courts) 3,12 ;
+  `tr99` (aucun) 4,21 ; `sh6` sans effet.
+- Pistes (encodeur seul, format v4 inchangé) : réévaluer `code16` sur 30 extraits avec Zimtohrli
+  comme critère principal ; une « garde d'enveloppe » qui code une bande des aigus au lieu de la
+  remplir quand son énergie varie fortement dans la trame.

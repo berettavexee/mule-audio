@@ -84,6 +84,15 @@ the whole cloud up from v3; Apple's AAC is spread wide and pays for its lowpass 
 
 ![PEAQ's score of each of the 30 test tracks at 128 kb/s, for Opus, MULE v4, MULE v3 and Apple's AAC](docs/blog/fig/enc-fig3-v4-en.svg)
 
+The same tracks seen by Zimtohrli (Google's psychoacoustic distance, lower is better; the axis is
+reversed so that better stays on the right), which I trust more than PEAQ at these bitrates: Opus
+keeps the best median at 128 kb/s, MULE takes it at 160 kb/s. Zimtohrli does not pick the same
+hard tracks as PEAQ: MULE's worst is Garbage, whose dense cymbals are noise-filled by MULE in the
+top bands with the right average energy but not the right movement from frame to frame
+(`eval/results/N-LOG.md`).
+
+![Zimtohrli distance of each of the 30 test tracks at 128 kb/s, for Opus, MULE v4, MULE v3 and Apple's AAC](docs/blog/fig/enc-fig5-zimt-en.svg)
+
 ### Where each codec puts its bits
 
 The same excerpt (EBU SQAM harpsichord, free of rights) at the same bitrate through the three
