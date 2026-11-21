@@ -224,10 +224,19 @@ def c_params(params):
     p.tg_band = params.tg_band
     p.nf_top = params.nf_top
     p.nf_coded = params.nf_coded
+    p.hi_db = params.hi_db
+    p.ath_parent = params.ath_parent
+    p.hi_b0 = params.hi_b0
     p.tnf = params.tnf
     p.tnf_order = params.tnf_order
     p.tnf_gain_db = params.tnf_gain_db
     p.tnf_b0 = params.tnf_b0
+    p.nf_slope = params.nf_slope
+    p.nf_slope_b0 = params.nf_slope_b0
+    p.nf_slope_mode = params.nf_slope_mode
+    p.sp = params.sp
+    p.sp_b0 = params.sp_b0
+    p.sp_db = params.sp_db
     p.rot = params.rot
     p.rot_deg = params.rot_deg
     p.rot_amax = params.rot_amax
@@ -298,7 +307,7 @@ TRACE_FIELDS = {
     "energy": ["kind", "op", "frame", "ch", "type", "band", "q", "pred", "r", "ctx", "alpha", "group",
                "key", "qprev", "ms", "_1", "_2", "_3", "_4", "_5"],
     "band": ["kind", "op", "frame", "ch", "type", "band", "a", "ms", "group", "mask_mdb", "pow_mdb", "q",
-             "k0", "k1", "flat_cdb", "peak_mdb", "_3", "_4", "_5", "_6"],
+             "k0", "k1", "flat_cdb", "peak_mdb", "sp", "_4", "_5", "_6"],
 }
 
 

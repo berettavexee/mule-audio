@@ -27,8 +27,7 @@
 
 /* Band edges in units of 8 long-frame lines (spec 5); a short window's band b spans
  * EDGES[b] .. EDGES[b + 1] of its 128 lines. */
-static const int EDGES[NB + 2] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 20, 24, 28,
-                                  34, 40, 48, 60, 78, 100, 116, 128};
+static const int EDGES[NB + 2] = MULE_EDGES_INIT;
 static const int64_t POW4[4] = {256, 304, 362, 431};   /* 2^(i/4) in Q8: inter-frame rescaling */
 
 /* ---------------------------------------------------------------- small helpers */
@@ -71,12 +70,14 @@ static inline int nc_map(int64_t m)
 /* A group of windows: type 0, the long frame's one window; type 1, short windows [k0, k1). */
 typedef struct {
     int type, k0, k1;
+    uint32_t sp[NB];            /* v4 probe (MULE_SUBPART): long bands' noise subpartitions */
 } group;
 
 /* The number of coefficients of band b in group g. */
 static inline int band_n(const group *g, int b)
 {
-    return g->type == 0 ? (EDGES[b + 1] - EDGES[b]) * 8 : (EDGES[b + 1] - EDGES[b]) * (g->k1 - g->k0);
+    return g->type == 0 ? mule_sp_count(EDGES[b], EDGES[b + 1], g->sp[b])
+                        : (EDGES[b + 1] - EDGES[b]) * (g->k1 - g->k0);
 }
 
 /* The place in X of band b's coefficient i in group g (window, then frequency; short frames lay
@@ -84,7 +85,7 @@ static inline int band_n(const group *g, int b)
 static inline int coef_index(const group *g, int b, int i)
 {
     if (g->type == 0)
-        return EDGES[b] * 8 + i;
+        return g->sp[b] ? mule_sp_index(EDGES[b], EDGES[b + 1], g->sp[b], i) : EDGES[b] * 8 + i;
     int w = EDGES[b + 1] - EDGES[b];
     return (g->k0 + i / w) * 128 + EDGES[b] + i % w;
 }
@@ -179,7 +180,7 @@ typedef struct {
 } psy_t;
 
 int block_types(const double *x, int64_t L, int T, uint8_t *types, double ratio_db);
-void psy_init(psy_t *p, int m);
+void psy_init(psy_t *p, int m, int ath_parent);
 void psy_fine(const psy_t *p, const mule_enc_params *pr, const double *X, const double *flat,
               double *mask);
 void psy_masks(const psy_t *p, const mule_enc_params *pr, const double *P, const double *flat,

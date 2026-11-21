@@ -98,7 +98,7 @@ def test_rejects_unknown_header():
     h = bytearray(oggfile.packets(data)[0][0])
     assert h[8] == 3 and len(h) == 22 and h[20] == 6 and h[21] == 3
     native.Decoder(bytes(h))
-    for pos, val in ((8, 4), (8, 1), (19, h[19] ^ 1), (20, 2), (20, 7), (21, 16)):
+    for pos, val in ((8, 4), (8, 1), (19, h[19] ^ 1), (20, 2), (20, 7), (21, 128)):  # 128: too short
         bad = bytearray(h)
         bad[pos] = val
         with pytest.raises(ValueError):

@@ -5,9 +5,9 @@
 #include "init_cdf_a8.h"
 
 const int mule_init_cdf_id = MULE_INIT_CDF_ID;
-const int mule_stream_nsyms[MULE_S_COUNT] = {2, 4, 2, 16, 16, 2, 16, 16, 16};
-const int mule_stream_nctx[MULE_S_COUNT] = {1, 1, 3, 9, 6, 1, 16, 96, 1};
-const int mule_stream_off[MULE_S_COUNT] = {0, 1, 2, 5, 14, 20, 21, 37, 133};
+const int mule_stream_nsyms[MULE_S_COUNT] = {2, 4, 2, 16, 16, 2, 16, 16, 16, 2};
+const int mule_stream_nctx[MULE_S_COUNT] = {1, 1, 3, 9, 6, 1, 16, 96, 1, 3};
+const int mule_stream_off[MULE_S_COUNT] = {0, 1, 2, 5, 14, 20, 21, 37, 133, 134};
 
 /* Every model to its initial state (a key packet, spec 4): the trained CDF of its stream and
  * context, or the uniform one for a stream without table. */
@@ -21,7 +21,7 @@ void mule_models_reset(mule_models *ms)
 void mule_models_reset_a8(mule_models *ms, int a8)
 {
     for (int s = 0; s < MULE_S_COUNT; s++) {
-        const uint16_t *init = mule_init_cdf[s];
+        const uint16_t *init = s < (int)(sizeof mule_init_cdf / sizeof *mule_init_cdf) ? mule_init_cdf[s] : NULL;
         int n = mule_stream_nsyms[s];
         if (a8 && s == MULE_S_COEF) {
             init = mule_init_coef8;

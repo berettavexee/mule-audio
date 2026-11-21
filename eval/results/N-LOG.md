@@ -1358,3 +1358,383 @@ des trames, avec 57 et 61 % de zéros ; bande 21 toujours remplie de bruit.
   0,3 kb/s.
 - MULE coupe à 19,98 kHz alors que l'original monte à 22 kHz : c'est la bande passante, le piège
   des 20 kHz, laissé de côté.
+
+## Hypothèse : un manque de bits entre 11 et 16 kHz (`hibits_12.csv`)
+
+Option `hi_db` : une marge de masquage supplémentaire (plus de bits) à partir de la bande `hi_b0`.
+12 extraits, 135 kb/s, à débit égal contre la production :
+
+| variante | débit à q égal | ODG | ODG avancé | ViSQOL | Zimtohrli | régressions |
+|---|---|---|---|---|---|---|
+| +3 dB dès 10,3 kHz (`hi3`) | +5 % | −0,010 | −0,018 | −0,000 | +7,4 % | 22 |
+| +6 dB dès 10,3 kHz (`hi6`) | +11 % | −0,034 | −0,040 | −0,002 | +17,6 % | 29 |
+| +6 dB dès 8,3 kHz (`hi6b18`) | +17 % | −0,043 | −0,044 | −0,001 | +21,0 % | 31 |
+| `mid_db` 4 dB jusqu'à la bande 21 (`midhi22`) | +14 % | −0,018 | −0,016 | −0,001 | +16,1 % | 25 |
+
+**Hypothèse réfutée, nettement.** Prendre des bits au reste du spectre pour les donner aux aigus
+dégrade presque tous les extraits, et Zimtohrli le plus fortement (+7 à +21 %). Seuls quelques
+morceaux denses gagnent un peu en ODG à +3 dB (Airbourne +0,031, Eminem +0,021, Spector +0,016).
+La répartition actuelle des bits entre aigus et reste du spectre est la bonne pour les juges. Les
+défauts visibles au spectrogramme (pavés de bruit, trous) ne valent pas des bits pris ailleurs ;
+le candidat v4 les corrige pour 0,3 kb/s. Option laissée dans l'encodeur, désactivée.
+
+## Les spectrogrammes vers 160 kb/s (MULE q −10, Opus 160, Apple q82)
+
+Fichiers et images : `eval/spectro_compare.py`, quatre extraits (ABBA, castagnettes, Takemitsu,
+Spector).
+
+- **Takemitsu est le cas le plus parlant.** L'original porte tout un peigne de raies entre 14 et
+  20 kHz.
+  - **MULE v3** : la bande 21 (17,2-20 kHz) est remplie de bruit plat dans toutes les trames, même
+    à 160 kb/s, et les raies y disparaissent. La bande 20 est codée avec beaucoup de trous.
+  - **Candidat v4** : il restaure les raies de la bande 20, mais pas celles de la bande 21. La garde
+    tonale ne vise qu'une raie isolée : un peigne de raies n'a pas de crête assez marquée pour la
+    déclencher.
+  - **Opus** garde les raies dans les deux bandes. **Apple** les garde jusque vers 17,5 kHz, met à
+    zéro tout ce qui est entre elles, et coupe au-dessus.
+- **ABBA** : à 160 kb/s, la bande 20 de MULE v3 est codée, avec des trous en bandes verticales ;
+  le candidat v4 les comble. Apple garde la raie à 15,7 kHz intacte, au prix de zéros partout
+  autour.
+- La bande 21 n'est jamais codée par MULE sur ces extraits : son modèle la juge sous le seuil
+  absolu d'audition (élevé à 17-20 kHz). Opus, qui n'a pas de masque, la code.
+
+## Hypothèse : des bandes plus étroites dans les aigus (24 bandes)
+
+Variante de compilation `MULE_BANDS24`, dans un répertoire séparé (`make BUILD=build-nb24
+CFLAGS="... -DMULE_BANDS24"`, puis `MULE_BUILD=build-nb24`) : la bande 20 est coupée à 15,3 kHz
+et la bande 21 à 18,6 kHz. La table des bornes de bandes est désormais mise en commun dans
+`mule.h` (`MULE_EDGES_INIT`). Les contextes du codage entropique ne changent pas : les nouvelles
+bandes restent dans la classe 2. L'en-tête annonce 24 bandes, et l'aller-retour est cohérent. À q
+égal, le débit varie de −4,4 % (Spector) à +0,6 % (Takemitsu). Mesure à débit égal en cours
+(`nb24_12.csv`).
+
+### 24 bandes, à débit égal (`nb24_12.csv`), 12 extraits, 135 kb/s, contre la production v3 (22 bandes)
+
+| variante | débit à q égal | ODG | ODG avancé | ViSQOL | Zimtohrli | régressions |
+|---|---|---|---|---|---|---|
+| 24 bandes | −3 % | −0,029 | −0,027 | **+0,021** | **−5,5 %** | 18 |
+| 24 bandes + garde + bruit dans les zéros | −2,8 % | −0,007 | −0,026 | **+0,032** | **−7,6 %** | 15 |
+| rappel : 22 bandes + garde + bruit dans les zéros | +0,3 % | **+0,017** | −0,002 | +0,021 | −2,4 % | 1 |
+
+24 bandes + garde + bruit dans les zéros, par extrait :
+
+| | ODG | ViSQOL | Zimtohrli |
+|---|---|---|---|
+| Takemitsu | +0,053 | +0,217 | **−35,7 %** |
+| Mravinsky | +0,062 | +0,078 | −19,6 % |
+| Zombie Zombie | +0,036 | +0,053 | −14,7 % |
+| Max Richter | +0,037 | +0,131 | −11,9 % |
+| Beethoven 59 | +0,023 | +0,046 | −8,5 % |
+| Belenos | **−0,200** | **−0,158** | **+15,7 %** |
+| Salut c'est cool, Classical, Lebanon Hanover | −0,014 à −0,034 | ≈ 0 | −6 à +3 % |
+
+- **Sur la musique tonale, c'est le plus gros gain mesuré depuis le début** : ViSQOL et Zimtohrli
+  progressent fortement (Takemitsu −36 %, Mravinsky −20 %). Les raies des bandes hautes y sont
+  enfin codées.
+- **Mais PEAQ recule, et Belenos s'effondre** (−0,20 d'ODG). À q égal, les 24 bandes **retirent
+  des bits** aux aigus du rock dense : Belenos passe de 149 à 136 kb/s (−9 %), Airbourne −5 %. Le
+  seuil absolu de chaque demi-bande est pris à son point le plus sensible, donc plus haut dans la
+  demi-bande supérieure, et le masque y monte. Même à son propre débit, Belenos reste moins bon
+  (environ −0,1 d'ODG à 162 kb/s), et il est très sensible au débit.
+- **Deux effets sont mêlés** : la résolution (le bon) et un changement de répartition des bits dû
+  au seuil absolu par demi-bande (le mauvais). Suite : séparer les deux, en gardant le seuil absolu
+  de la bande d'origine pour ses deux moitiés, et essayer la coupe de la seule bande 20 ou de la
+  seule bande 21.
+
+### Les seuils : le seuil absolu de la bande d'origine (`ath_parent`), et une seule bande coupée
+
+`ath_parent` : chaque bande coupée garde le seuil absolu par coefficient de sa bande v3, c'est-à-dire
+son point le plus sensible **et** sa largeur. Le seuil par coefficient est divisé par la largeur de
+la bande, et une demi-bande avait donc un seuil 3 dB plus haut. Variantes de compilation :
+`MULE_SPLIT` 1 (bande 20 seule, 23 bandes, `build-s20`), 2 (bande 21 seule, `build-s21`), 3 (les
+deux, 24 bandes). Sans coupe, l'option ne change rien (production identique au bit près).
+
+12 extraits, 135 kb/s, à débit égal contre la production v3 (`nb24ap_12.csv`, `s20_12.csv`,
+`s21_12.csv`) :
+
+| variante | ODG | ODG avancé | ViSQOL | Zimtohrli | régressions | Belenos, ODG | Takemitsu, Zimtohrli |
+|---|---|---|---|---|---|---|---|
+| 24 bandes, seuil par demi-bande | −0,029 | −0,027 | +0,021 | −5,5 % | 18 | −0,232 | −30,7 % |
+| 24 bandes, seuil d'origine | −0,007 | −0,000 | +0,040 | −6,2 % | 9 | −0,009 | −26,6 % |
+| bande 20 coupée, seuil d'origine | −0,005 | +0,003 | +0,025 | −6,1 % | 7 | −0,002 | −27,4 % |
+| bande 21 coupée, seuil d'origine | −0,002 | −0,005 | +0,014 | +0,4 % | 2 | −0,002 | +2,4 % |
+| 24 bandes, seuil d'origine + garde + bruit dans les zéros | +0,011 | −0,007 | **+0,050** | −8,4 % | 8 | −0,003 | −37,4 % |
+| **bande 20 coupée, seuil d'origine + garde + bruit dans les zéros** | **+0,013** | −0,003 | +0,034 | **−8,3 %** | 6 | −0,003 | **−38,2 %** |
+| bande 21 coupée, seuil d'origine + garde + bruit dans les zéros | +0,016 | −0,006 | +0,036 | −2,1 % | 5 | +0,018 | −20,5 % |
+| rappel : 22 bandes + garde + bruit dans les zéros | +0,017 | −0,002 | +0,021 | −2,4 % | 1 | +0,017 | −23,5 % |
+
+- **Le seuil d'origine supprime l'effet indésirable** : Belenos passe de −0,23 à −0,01, et PEAQ
+  avancé revient à zéro. C'était bien le seuil absolu par demi-bande qui retirait des bits au rock.
+- **La coupe de la bande 20 porte l'essentiel du gain.** Celle de la bande 21 n'apporte presque rien
+  à Zimtohrli : au-dessus de 17 kHz, le seuil absolu reste trop haut pour que les raies soient
+  codées.
+- **Bande 20 coupée + candidat v4, contre le candidat v4 seul** : Zimtohrli −8,3 % contre −2,4 %,
+  ViSQOL +0,034 contre +0,021, mais ODG +0,013 contre +0,017, et 6 régressions contre 1. Extrait
+  par extrait :
+  - la musique tonale progresse nettement (Zimtohrli : Takemitsu −38 %, Mravinsky −17 %, Zombie
+    Zombie −14 %, Belenos −8 %, Classical −7 %), et Beethoven 59 passe de +4,2 à −5,5 % ;
+  - le rock et la pop perdent un peu en PEAQ avancé (Lebanon Hanover −0,052, Spector −0,038,
+    Eminem −0,035, Airbourne −0,027), et en ODG sur Airbourne et Salut c'est cool (−0,02).
+- Suite : valider la coupe de la bande 20 avec le candidat v4 sur les 30 extraits.
+
+### Validation sur `test` : bande 20 coupée (seuil d'origine) + candidat v4 (`s20v4_test.csv`)
+
+Intervalles bootstrap à 95 %. Zimtohrli en écart relatif, plus petit = mieux.
+
+| | ODG @128 | @160 | ODG avancé @128 | @160 | ViSQOL @128 | @160 | Zimtohrli @128 | @160 |
+|---|---|---|---|---|---|---|---|---|
+| candidat v4 (22 bandes), contre v3 | **+0,018** [+0,012 ; +0,025] | **+0,013** | −0,010 | −0,005 | +0,017 | +0,008 | −1,3 % | −0,2 % |
+| bande 20 coupée + v4, contre v3 | +0,009 [−0,001 ; +0,019] | −0,008 | −0,015 | −0,006 | **+0,023** | +0,011 | **−6,5 %** [−9,6 ; −4,0] | **−5,8 %** |
+| bande 20 coupée + v4, contre v4 | −0,009 [−0,016 ; −0,002] | **−0,021** [−0,032 ; −0,010] | −0,005 | −0,001 | +0,006 | +0,003 | **−5,4 %** [−6,9 ; −4,0] | **−5,7 %** |
+
+Distribution de l'ODG à 128 kb/s : médiane / p10 / écart type / pire.
+- v3 : −0,151 / −0,256 / 0,070 / −0,308
+- v4 : **−0,133** / −0,225 / 0,063 / −0,278
+- bande 20 coupée + v4 : −0,146 / **−0,208** / **0,054** / −0,288
+
+- **Les juges se contredisent.** Zimtohrli donne un gain net et sûr à la coupe de la bande 20 (−5,4 à
+  −5,7 % de mieux que le candidat v4, sans aucune régression), ViSQOL un petit gain. PEAQ la
+  sanctionne, surtout à 160 kb/s (−0,021 d'ODG contre le candidat v4), avec 17 extraits de rock et de
+  pop en recul de 0,02 à 0,08 (New Order −0,069, Red Fang −0,075, Judas Priest −0,064).
+- **La distribution se resserre encore** (écart type 0,054, p10 −0,208), mais la médiane recule par
+  rapport au candidat v4.
+- Selon la règle du projet (des juges en désaccord, donc l'écoute tranche), la coupe de la bande 20
+  n'est pas adoptée sur les mesures seules. Le candidat v4 à 22 bandes reste le seul où tous les
+  juges vont dans le même sens. Écoute à prévoir : un rock à 160 kb/s (Red Fang ou New Order), où
+  PEAQ la sanctionne, et Takemitsu à 128 kb/s, où Zimtohrli la récompense le plus.
+
+## Spectrogrammes à débit égal par extrait (cible : le débit d'Apple q63 sur chaque extrait)
+
+L'auteur remarque que les comparaisons à réglage fixe désavantagent MULE sur les extraits calmes :
+à q −7, Takemitsu reçoit 105 kb/s contre 125 pour Opus et 122 pour Apple. Les notes globales,
+interpolées au même débit moyen sur 30 extraits, restent équitables : elles mesurent aussi la
+répartition des bits entre extraits, choix propre à chaque codec. Pour les comparaisons visuelles,
+chaque codec est donc réglé sur le débit d'Apple, extrait par extrait (dichotomie sur q pour MULE,
+sur le débit nominal pour Opus, à 0,6 kb/s près). Fichiers : `scratchpad/eq_wav/`.
+
+**Observation de l'auteur** : les écarts d'Apple sont presque toujours négatifs (il retire, il
+n'ajoute pas), alors que MULE « bave » sur les fréquences voisines. Mesure, 8-20 kHz, cellules STFT
+à moins de 60 dB du maximum, moyenne sur 6 extraits :
+
+| | énergie ajoutée (> +6 dB) | énergie retirée (< −6 dB) | bilan d'énergie 8-20 kHz |
+|---|---|---|---|
+| MULE v3 | 9,2 % | 11,6 % | −0,4 dB |
+| MULE v4 | 9,0 % | 10,9 % | −0,4 dB |
+| MULE v4, bande 20 coupée | 9,4 % | 11,6 % | −0,4 dB |
+| Opus | 10,6 % | 10,5 % | +0,1 dB |
+| Apple AAC | **4,2 %** | **31,4 %** | **−1,0 dB** |
+
+- **Confirmé : Apple ne fait presque que retirer.** C'est la logique d'AAC-LC : pas de remplissage
+  de bruit (une bande à zéro est muette), et une quantification dont l'arrondi tire les valeurs vers
+  zéro. Ses erreurs sont d'un seul signe, et il perd de l'énergie (−1,0 dB, −4,6 dB sur Takemitsu).
+- **MULE ne bave pas plus qu'Opus.** Tous deux conservent l'énergie de chaque bande, transmise à
+  part, et répartissent leurs erreurs des deux côtés. Leur « bavure » vient du remplissage :
+  l'énergie d'une raie non codée est étalée sur toute la bande. C'est le plus visible sur Takemitsu
+  (18 % de cellules ajoutées) : le bruit plat de la bande 21 remplit les creux entre les raies du
+  peigne.
+- Ce sont deux philosophies d'erreur : AAC laisse des trous, MULE et Opus mettent du bruit à la
+  bonne énergie. Les juges ont jusqu'ici préféré le bruit (couper ou rendre muet les aigus a toujours
+  été sanctionné). Mais, sur les raies, la précision d'AAC est meilleure.
+
+## Le coût réel d'une bande de plus
+
+Coût de l'information auxiliaire (énergies, allocations, mode et échappements d'allocation), compté
+comme le codec le code : modèles adaptatifs, distributions initiales apprises, remises à zéro aux
+paquets clés. 22 bandes contre 23 (bande 20 coupée, seuil d'origine), même q (−7), 10 extraits.
+
+| extrait | bits de plus par canal, trame et groupe | dont énergie | dont allocation | kb/s de plus |
+|---|---|---|---|---|
+| Takemitsu, Max Richter, Mravinsky | 2,4 à 2,8 | 2,0 à 2,2 | 0,4 à 0,6 | 0,21 à 0,24 |
+| ABBA, castagnettes, Eminem, Airbourne | 5,0 à 5,3 | 2,5 à 3,5 | 1,9 à 2,6 | 0,44 à 0,59 |
+| Spector, Lebanon Hanover, Belenos | 5,7 à 7,2 | 3,1 à 3,7 | 2,7 à 3,5 | 0,50 à 0,64 |
+| **moyenne** | **4,75** | | | **0,45 (0,35 % à 128 kb/s)** |
+
+- Une bande de plus coûte environ 2 à 3,5 bits d'énergie, plus une allocation presque gratuite si
+  la bande reste à 0 bit (musique calme) et de 2 à 3,5 bits si elle est codée (rock). C'est 2 à
+  5 fois plus que chez AAC (environ 1 bit par facteur d'échelle quand il bouge peu), mais 0,45 kb/s
+  en moyenne seulement.
+- **Ce coût n'explique pas le recul de PEAQ sur le rock.** À q égal, la coupe fait surtout baisser
+  les bits des **coefficients** sur le rock : Spector 124,0 → 117,8 kb/s, Airbourne 131,9 → 124,5,
+  Belenos 145,1 → 138,3, alors que la musique calme ne bouge pas. Même avec le seuil absolu
+  d'origine, les deux demi-bandes reçoivent moins de bits que la bande entière : la planéité et
+  l'étalement du masquage, calculés sur des bandes plus étroites, relèvent leurs masques. C'est une
+  nouvelle répartition des bits, que la comparaison à débit égal ne compense qu'en moyenne.
+
+### 24 bandes, frontières déplacées (`s4_12.csv`, `s5_12.csv`), 12 extraits, 135 kb/s, contre la production v3
+
+- **A** (`MULE_SPLIT` 4) : les bandes 19 et 20 coupées en deux (10,3 / 11,9 / 13,4 / 15,3 / 17,2 / 20 kHz).
+- **B** (`MULE_SPLIT` 5) : cinq bandes régulières d'environ 1,9 kHz (10,3 / 12,2 / 14,1 / 16,0 / 17,9 / 20 kHz).
+
+Toutes avec le seuil absolu d'origine (`ath_parent`).
+
+| variante | ODG | ODG avancé | ViSQOL | Zimtohrli | régressions | ODG rock (6) | ODG tonal (6) |
+|---|---|---|---|---|---|---|---|
+| A seule | −0,003 | +0,012 | +0,022 | −6,4 % | 7 | −0,023 | +0,017 |
+| B seule | −0,006 | +0,011 | +0,033 | −4,3 % | 9 | −0,027 | +0,016 |
+| bande 20 coupée seule | −0,005 | +0,003 | +0,025 | −6,1 % | 7 | −0,025 | +0,016 |
+| bandes 20 et 21 coupées | −0,007 | −0,000 | +0,040 | −6,2 % | 9 | −0,030 | +0,015 |
+| **A + candidat v4** | **+0,016** | **+0,006** | +0,033 | **−9,9 %** | **4** | −0,006 | **+0,039** |
+| B + candidat v4 | +0,012 | +0,005 | +0,041 | −9,1 % | 7 | −0,009 | +0,033 |
+| bande 20 coupée + v4 | +0,013 | −0,003 | +0,034 | −8,3 % | 6 | −0,009 | +0,035 |
+| bandes 20 et 21 coupées + v4 | +0,011 | −0,007 | +0,050 | −8,4 % | 8 | −0,012 | +0,035 |
+| candidat v4 (22 bandes) | +0,017 | −0,002 | +0,021 | −2,4 % | 1 | +0,012 | +0,023 |
+
+- **A + candidat v4 est le meilleur compromis mesuré.** Les quatre juges sont positifs : l'ODG est
+  au niveau du candidat v4 (+0,016 contre +0,017), PEAQ avancé passe de −0,002 à +0,006, ViSQOL
+  +0,033, et Zimtohrli −9,9 %, le meilleur chiffre de toute l'étude. Il y a 4 régressions. Le rock
+  ne perd presque plus rien (−0,006), et la musique tonale gagne +0,039.
+- Couper la bande 19 (10,3-13,4 kHz) plutôt que la bande 21 est le bon choix : au-dessus de
+  17 kHz, le seuil absolu empêche de toute façon les raies d'être codées.
+- Suite : valider A + candidat v4 sur les 30 extraits.
+
+### Validation de « A + candidat v4 » sur les 30 extraits (`s4v4_test.csv`) : le gain ne tient pas
+
+Contre le candidat v4 à 22 bandes, à débit égal (IC à 95 %) :
+
+| | ODG | ODG avancé | ViSQOL | Zimtohrli | régressions ODG |
+|---|---|---|---|---|---|
+| 128 kb/s | −0,011 [−0,020 ; −0,003] | −0,010 | +0,004 | −2,8 % [−5,0 ; −0,6] | 14 |
+| 160 kb/s | −0,027 [−0,037 ; −0,017] | −0,002 | +0,002 | −5,0 % [−7,0 ; −2,9] | 19 |
+
+Contre la production v3 : ODG +0,007 à 128 kb/s, −0,014 à 160 kb/s. Distribution à 128 kb/s :
+écart type 0,055 (v4 : 0,063), p10 −0,218 (v4 : −0,225), mais médiane −0,152 (v4 : −0,133).
+
+- **Les régressions sont toutes dans le rock** (New Order, Orange Goblin, Red Fang, Steel Panther,
+  Judas Priest…). Zimtohrli reste favorable en moyenne, mais il pénalise aussi Orange Goblin,
+  New Order/Joy Division et Astroqueen (+5 à +10 %).
+- **Le jeu de 12 extraits était biaisé** : 6 extraits calmes ou tonals sur 12, contre 8 sur 30
+  dans le jeu de test.
+- **Cause : la répartition des bits.** À q égal, les bandes étroites font baisser le débit de
+  6,9 % sur le rock (de −4,0 à −10,7 %) et de 3,4 % seulement sur la musique calme. À débit moyen
+  égal, le rock perd donc des bits au profit du reste. Les masques des bandes étroites sont plus
+  hauts (tonalité et étalement calculés sur moins de raies), et ce n'est pas le coût des énergies
+  (0,45 kb/s par bande).
+- **Piste** : calculer le modèle psychoacoustique sur les bandes d'origine (masque, tonalité,
+  seuil absolu) et ne coder qu'avec les bandes fines. On séparerait ainsi le gain de résolution
+  du changement de répartition des bits.
+
+## Bruit en pente, à la manière du floor de Vorbis (sonde `MULE_SLOPE`, `slope_12.csv`)
+
+Dans les trames longues, une bande remplie de bruit prend la pente en dB du niveau de ses bandes
+voisines (les deux si elles sont audibles, sinon celle qui l'est). La pente est bornée à ±12 dB aux
+bords de la bande, et l'énergie de la bande reste exacte. Aucun bit : seul le décodeur change, le
+débit est identique, et la production v3 reste exacte au bit près.
+
+- Effet mesuré (écart entre les deux moitiés de la bande) : sur la bande 20, la pente est presque
+  juste (Takemitsu : −3,5 dB, original −4,1, sans pente −0,1). Sur la bande 21, tirée de la seule
+  voisine du dessous, elle reste trop faible (+1 dB contre +3 à +9 dans l'original), et va dans le
+  mauvais sens sur Takemitsu.
+- 12 extraits, à q égal (donc à débit égal) :
+
+| variante | ODG | ODG avancé | ViSQOL | Zimtohrli | régressions |
+|---|---|---|---|---|---|
+| pente dès 2,8 kHz, contre v3 (q −6 / −9) | +0,003 / +0,003 | +0,002 / +0,001 | +0,041 / +0,028 | −3,3 / −3,7 % | 3 / 2 |
+| pente dès la bande 19, contre v3 | +0,003 / +0,003 | +0,002 / +0,001 | +0,042 / +0,029 | −2,6 / −3,1 % | 3 / 2 |
+| pente dès 2,8 kHz + v4, contre v4 | +0,002 / +0,001 | +0,001 / −0,000 | +0,017 / +0,013 | −2,6 / −2,8 % | 1 / 1 |
+| pente dès la bande 19 + v4, contre v4 | +0,001 / +0,001 | +0,000 / −0,000 | +0,017 / +0,013 | −1,8 / −2,2 % | 1 / 1 |
+
+- Les quatre juges vont dans le même sens, sans régression ODG (pire −0,016). Les seules
+  régressions sont ViSQOL sur Airbourne (−0,011, juste au seuil) et, sans la v4, Zimtohrli sur
+  Beethoven 59 et Belenos (+4 à +6,5 %). Avec la v4, Zimtohrli n'en a plus aucune.
+- Pente dès 2,8 kHz un peu meilleure que dès la bande 19. Validation de « pente + v4 » sur
+  30 extraits : `slv4_test.csv`.
+
+### Validation de « pente + v4 » sur 30 extraits (`slv4_test.csv`), contre le candidat v4, à débit égal
+
+| q (≈ kb/s) | ODG | ODG avancé | ViSQOL | Zimtohrli | régressions |
+|---|---|---|---|---|---|
+| −6 (121) | +0,0015 [+0,0003 ; +0,0029] | +0,000 | +0,005 [−0,002 ; +0,014] | −1,4 % [−2,5 ; −0,6] | ViSQOL 5 |
+| −9 (151) | +0,0009 [−0,0003 ; +0,0023] | −0,001 | +0,003 | −1,2 % [−2,7 ; −0,2] | ViSQOL 4 |
+| −12 (182) | −0,0020 [−0,0039 ; −0,0004] | −0,001 | +0,002 | −0,5 % (n.s.) | ODG 1, ViSQOL 4, Zimtohrli 1 |
+
+- Le gain se réduit sur 30 extraits : à peine positif à 120-150 kb/s, légèrement négatif à 180 kb/s.
+- ViSQOL pénalise toujours les mêmes extraits, électroniques ou denses : Crystal Castles (jusqu'à
+  −0,029), Astroqueen (−0,034), Dance with the Dead, Airbourne. Hypothèse : à côté de bandes
+  codées très fortes, la pente tirée des voisines exagère l'inclinaison du bruit.
+- **Non retenu tel quel** : sous le seuil d'un changement de format (+0,01), et les juges ne sont pas
+  unanimes. Il reste en sonde. Pistes : borner la pente plus bas (±6 dB), ou ne l'appliquer que
+  quand les deux voisines sont audibles.
+
+**Décision de l'auteur (21/11/2026) : la pente actuelle entre dans le candidat v4** (elle ne
+coûte rien et apporte de petits gains). Nouveau candidat : `slnfm6tg` (pente dès 2,8 kHz, bruit
+dans les zéros à −6 dB, garde tonale). Affinage de la pente noté dans `docs/TODO.md`.
+
+## Classes par sous-partition, à la manière des classes de résidu de Vorbis (sonde `MULE_SUBPART`)
+
+Dans les trames longues, une bande codée à partir de la bande 19 (au moins 2 sous-partitions de
+4 unités, soit 32 raies ; la dernière prend le reste : 4, 5 et 4 sous-partitions pour les bandes
+19, 20 et 21) peut laisser des sous-partitions au bruit. Après les allocations du canal : 1 bit
+brut par bande concernée (au moins une sous-partition en bruit), puis 1 bit par sous-partition.
+Les raies laissées au bruit sont sautées par le codage des coefficients : le masque est porté par
+la structure `group`, donc `band_n` et `coef_index` les sautent partout (choix d'allocation,
+Viterbi chaîné, codage, décodage). Leur bruit reprend l'énergie de la bande moins celle des raies
+codées, au moins 1/16 du niveau de la bande par raie. L'encodeur laisse au bruit une
+sous-partition dont la raie la plus forte reste sous la cible du masque plus `sp_db`. Une bande
+entièrement en bruit passe à l'allocation 0.
+
+- Usage (q −7, bandes 19-21 codées en trames longues, avec au moins une sous-partition en bruit) :
+  Takemitsu 21 %, ABBA 22 % (25 % à +6 dB), Spector 0,6 % (16 % à +6 dB), Lebanon Hanover 0,2 %
+  (10 % à +6 dB), Max Richter 0 %. Le débit augmente un peu à q égal (+0,1 à +0,4 kb/s) :
+  l'indicateur coûte 1 bit par bande codée, et des zéros en TCQ coûtaient déjà peu.
+- Mesure sur 12 extraits : `sp_12.csv`.
+
+**Correctifs avant la mesure.** (1) Les indicateurs passent par le rANS : un flux adaptatif de
+2 symboles et 3 contextes (`MULE_S_SPART` : l'indicateur de bande ; le bit de chaque
+sous-partition selon celui de la précédente), au départ uniforme, sans table entraînée ; les flux
+existants ne changent pas (v3 exacte au bit près). (2) Le niveau du bruit des sous-partitions
+sautées, « énergie de la bande moins celle des raies codées », est la différence de deux grandes
+énergies dans une bande tonale : la première mesure (faite pendant une recompilation, supprimée)
+donnait Zimtohrli +96 à +141 % sur Takemitsu. Il est borné à (D/4)² par raie : une sous-partition
+sautée reste sous le masque, environ D²/12 à sa raie la plus forte.
+
+Mesure sur 12 extraits (`sp_12.csv`), contre le candidat v4 (`slnfm6tg`), à débit égal :
+
+| variante | ODG 128 / 145 kb/s | ODG avancé | ViSQOL | Zimtohrli | régressions 128 / 145 |
+|---|---|---|---|---|---|
+| seuil −6 dB (`spm6v4`) | −0,006 / −0,007 | −0,002 / −0,001 | −0,001 / 0,000 | +0,8 / +1,2 % | 2 / 5 |
+| seuil 0 dB (`spv4`) | −0,007 / −0,011 | −0,001 / −0,002 | 0,000 / 0,000 | +1,2 / +1,8 % | 3 / 6 |
+| seuil +6 dB (`spp6v4`) | −0,018 / −0,027 | −0,006 / −0,003 | +0,001 / 0,000 | +3,1 / +4,5 % | 6 / 10 |
+| dès la bande 17, 0 dB (`sp17v4`) | −0,008 / −0,011 | −0,002 / −0,002 | 0,000 / 0,000 | +1,4 / +1,9 % | 3 / 6 |
+
+- **Négatif, et d'autant plus que davantage de sous-partitions vont au bruit.** Les régressions
+  sont sur Belenos (ODG −0,05 à −0,09), Eminem, Salut c'est cool et Takemitsu (Zimtohrli +3 à
+  +20 %). Le débit ne baisse pas (+0,1 kb/s à q égal) : les raies sous le masque coûtaient déjà peu
+  en TCQ.
+- **Enseignement** : les raies faibles que la TCQ code sous le masque (souvent ±1, ou un zéro avec
+  le bruit de `nf_coded`) valent mieux, pour tous les juges, qu'un bruit au bon niveau. Le défaut
+  des aigus de MULE est le bruit plat des bandes sans bits, pas le codage des bandes codées. Le
+  sens utile des sous-partitions serait l'inverse, coder une sous-partition dans une bande sans
+  bits, mais la garde tonale le fait déjà à l'échelle de la bande, et les sous-partitions
+  sautées autour de la raie ont aussi régressé (Takemitsu).
+- **Non retenu.** La sonde reste dans le code (`sp`), désactivée.
+
+## Affinage du bruit des bandes sans bits (`slr_12.csv`)
+
+Trois règles, côté décodeur seul (octet 30 de l'en-tête, bits 5 à 7) : pente bornée à ±6 dB au lieu
+de ±12 (`sl6v4`) ; pente seulement entre deux voisines audibles, sinon bruit plat (`slbv4`) ; bande
+21 qui tombe d'au moins 4 dB d'un bord à l'autre (`sltv4`) ; et leurs combinaisons (`slbtv4`,
+`sl6btv4`). 12 extraits, débit identique, contre le candidat v4 (`slnfm6tg`), q −6 / −9 :
+
+| variante | ODG | ODG avancé | ViSQOL | Zimtohrli | régressions |
+|---|---|---|---|---|---|
+| ±6 dB | −0,000 / +0,000 | −0,000 / +0,000 | +0,000 / +0,000 | +0,0 / −0,0 % | 0 / 0 |
+| deux voisines | −0,001 / −0,000 | +0,001 / +0,001 | −0,008 / −0,008 | +0,2 / +0,0 % | 2 / 2 |
+| bande 21 qui tombe | −0,000 / +0,000 | −0,001 / −0,001 | −0,022 / −0,021 | +0,7 / +1,0 % | 2 / 4 |
+| deux voisines + bande 21 | −0,001 / −0,000 | −0,000 / −0,000 | −0,020 / −0,020 | +0,6 / +0,9 % | 2 / 4 |
+| les trois | −0,001 / +0,000 | +0,000 / −0,000 | −0,020 / −0,020 | +0,7 / +0,9 % | 3 / 4 |
+
+- Aucune ne fait mieux que la pente actuelle. ±6 dB est neutre ; les autres font régresser
+  ViSQOL sur Max Richter (jusqu'à −0,20) et Zombie Zombie.
+- **Max Richter : son spectre monte vers 20 kHz** (−110 dB vers 17 kHz, −104 dB à 20 kHz, un bruit
+  d'enregistrement). Une règle fixe de chute inverse la forme ; « deux voisines » aplatit la bande
+  21, qui n'en a qu'une. Aucune règle fixe ne convient à tous : la suite logique serait de
+  transmettre l'inclinaison de la bande 21 quand elle est remplie (2 bits par trame longue et par
+  canal, environ 0,2 kb/s).
+- La pente actuelle reste dans le candidat. Spectrogrammes et WAV à débit égal :
+  `scratchpad/eq_wav/*_eqrate_slope.png`, `*_2b_mule_v4_slope_*kbps.wav`.
+
+**Décision de l'auteur (21/11/2026)** : à l'écoute, pas de différence perçue entre avec et sans
+pente ; les juges étant cohérents sur la pente bornée à ±6 dB (les quatre à ±0,0002 près, aucune
+régression sur 12 extraits), elle remplace la pente à ±12 dB dans le candidat v4 : **`sl6v4`**
+(`nf_slope` 1, `nf_slope_mode` 1, bruit dans les zéros à −6 dB, garde tonale). Confirmation sur
+30 extraits : `sl6v4_test.csv`.

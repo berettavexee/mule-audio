@@ -238,6 +238,20 @@ class Mule:
         # R1 per channel and frame (rtd), R2 combinations
         # v4 probe: TNS on the noise of zero-bit bands (order, gain threshold), and with the candidate
         "tn8g0": {"tnf": 1, "tnf_gain_db": 0.0}, "tn8g0b16": {"tnf": 1, "tnf_gain_db": 0.0, "tnf_b0": 16},
+        "spv4": {"sp": 1, "nf_slope": 1, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
+        "sp17v4": {"sp": 1, "sp_b0": 17, "nf_slope": 1, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
+        "spm6v4": {"sp": 1, "sp_db": -6.0, "nf_slope": 1, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
+        "spm3v4": {"sp": 1, "sp_db": -3.0, "nf_slope": 1, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
+        "spp3v4": {"sp": 1, "sp_db": 3.0, "nf_slope": 1, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
+        "spp6v4": {"sp": 1, "sp_db": 6.0, "nf_slope": 1, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
+        "sl6v4": {"nf_slope": 1, "nf_slope_mode": 1, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
+        "slbv4": {"nf_slope": 1, "nf_slope_mode": 2, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
+        "sltv4": {"nf_slope": 1, "nf_slope_mode": 4, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
+        "slbtv4": {"nf_slope": 1, "nf_slope_mode": 6, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
+        "sl6btv4": {"nf_slope": 1, "nf_slope_mode": 7, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
+        "sl": {"nf_slope": 1}, "sl19": {"nf_slope": 1, "nf_slope_b0": 19},
+        "slnfm6tg": {"nf_slope": 1, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
+        "sl19nfm6tg": {"nf_slope": 1, "nf_slope_b0": 19, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
         "tn8": {"tnf": 1}, "tn4": {"tnf": 1, "tnf_order": 4}, "tn8g3": {"tnf": 1, "tnf_gain_db": 3.0},
         "tn8nfm6tg": {"tnf": 1, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
         "tn4g0b16": {"tnf": 1, "tnf_gain_db": 0.0, "tnf_b0": 16, "tnf_order": 4},
@@ -254,6 +268,17 @@ class Mule:
         "fdd2t12": {"fold": 1, "fold_mix": 2, "fold_dyn": 1, "fold_ton_db": 12.0},
         "fdd2nfm6tg": {"fold": 1, "fold_mix": 2, "fold_dyn": 1, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
         "fd2nfm6tg": {"fold": 1, "fold_mix": 2, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
+        # hypothesis: too few bits from 10 kHz up (N-LOG.md): extra margin in the highs
+        # bands 20 and 21 cut in two: run with MULE_BUILD=build-nb24 (make BUILD=build-nb24
+        # CFLAGS="-O2 -Wall -Wextra -std=c99 -DMULE_BANDS24"); nf_top = the 24 bands
+        "nb24": {"nf_top": 24}, "nb24nfm6tg": {"nf_top": 24, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
+        "nb24ap": {"nf_top": 24, "ath_parent": 1},
+        "nb24apnfm6tg": {"nf_top": 24, "ath_parent": 1, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
+        # MULE_SPLIT 1 (band 20 only) or 2 (band 21 only): 23 bands, builds build-s20, build-s21
+        "nb23ap": {"nf_top": 23, "ath_parent": 1},
+        "nb23apnfm6tg": {"nf_top": 23, "ath_parent": 1, "tg": 1, "nf_coded": 1, "nf_off_db": -6.0},
+        "hi3": {"hi_db": 3.0}, "hi6": {"hi_db": 6.0}, "hi6b18": {"hi_db": 6.0, "hi_b0": 18},
+        "midhi22": {"mid_hi": 22},
         "nfc": {"nf_coded": 1}, "nfcm3": {"nf_coded": 1, "nf_off_db": -3.0},
         "nfcm6": {"nf_coded": 1, "nf_off_db": -6.0},
         "nfctg": {"nf_coded": 1, "tg": 1}, "nfcm3tg": {"nf_coded": 1, "nf_off_db": -3.0, "tg": 1},

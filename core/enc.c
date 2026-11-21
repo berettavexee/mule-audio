@@ -51,6 +51,9 @@ void mule_enc_defaults(mule_enc_params *p)
     p->tg_band = 0;
     p->nf_top = NB;
     p->nf_coded = 0;
+    p->hi_db = 0.0;
+    p->ath_parent = 0;
+    p->hi_b0 = 19;
     p->fold = 0;
     p->fold_start = 12;
     p->fold_mix = 2;
@@ -66,6 +69,12 @@ void mule_enc_defaults(mule_enc_params *p)
     p->tnf_order = 8;
     p->tnf_gain_db = 1.5;
     p->tnf_b0 = 12;
+    p->nf_slope = 0;
+    p->nf_slope_b0 = 12;
+    p->nf_slope_mode = 0;
+    p->sp = 0;
+    p->sp_b0 = 19;
+    p->sp_db = 0.0;
     p->lp_hz = 0.0;
     p->lpd = 0;
     p->lpd_db = 0.0;
@@ -194,7 +203,7 @@ static void frame_groups(const mule_enc_params *pr, double X[2][F], frame_t *f, 
     f->ng = 0;
     put(o, MULE_S_BTYPE, 0, f->type);
     if (!f->type) {
-        f->grp[f->ng++] = (group){0, 0, 1};
+        f->grp[f->ng++] = (group){0, 0, 1, {0}};
         return;
     }
     static const int REGIONS[2][5] = {{0, 128}, {0, 8, 24, 48, 128}};
@@ -226,12 +235,12 @@ static void frame_groups(const mule_enc_params *pr, double X[2][F], frame_t *f, 
             }
         }
         if (split) {
-            f->grp[f->ng++] = (group){1, k0, k};
+            f->grp[f->ng++] = (group){1, k0, k, {0}};
             k0 = k;
             mask |= 1u << (k - 1);
         }
     }
-    f->grp[f->ng++] = (group){1, k0, MULE_N_SUB};
+    f->grp[f->ng++] = (group){1, k0, MULE_N_SUB, {0}};
     raw(o, 7, mask);
 }
 
@@ -444,6 +453,55 @@ static void tonal_guard(const mule_enc_params *pr, const frame_t *f, int c, int 
             q[b] = MULE_QMIN;
         else if (peak >= band_mask(f, c, g, b) * f->tq * pow(10, -pr->tg_db / 10))
             a[b] = pr->tg_a;
+    }
+}
+
+/* v4 probe (sp, MULE_SUBPART): in a long frame, the subpartitions of each coded band from sp_b0
+ * up whose strongest line stays under the mask target plus sp_db are left to noise (the decoder
+ * gives them the band's energy less the coded lines'); a band left to noise in full gets
+ * allocation 0. Sets the group's masks: band_n and coef_index then skip those lines. */
+static void subparts(const mule_enc_params *pr, frame_t *f, int c, int g, const int *q, int *a)
+{
+    group *gr = &f->grp[g];
+    memset(gr->sp, 0, sizeof gr->sp);
+    if (!pr->sp || gr->type != 0)
+        return;
+    for (int b = pr->sp_b0; b < NB; b++) {
+        int w = EDGES[b + 1] - EDGES[b], ns = mule_sp_n(w);
+        if (q[b] <= MULE_QMIN || a[b] == 0 || ns < 2)
+            continue;
+        double target = band_mask(f, c, g, b) * f->tq * pow(10, pr->sp_db / 10);
+        uint32_t m = 0;
+        for (int s = 0; s < ns; s++) {
+            double peak = 0;
+            for (int l = 8 * (EDGES[b] + mule_sp_lo(s)); l < 8 * (EDGES[b] + mule_sp_hi(w, s)); l++)
+                peak = fmax(peak, f->Y[c][l] * f->Y[c][l]);
+            if (peak < target)
+                m |= 1u << s;
+        }
+        if (m == (1u << ns) - 1)
+            a[b] = 0;                           /* all noise: a noise-filled band */
+        else
+            gr->sp[b] = m;
+    }
+}
+
+/* The flags of the group's subpartition masks (MULE_S_SPART) (after the allocations; dec.c reads them). */
+static void code_subparts(const mule_enc_params *pr, const frame_t *f, ops_t *o, int g, const int *q,
+                          const int *a)
+{
+    if (!pr->sp || f->grp[g].type != 0)
+        return;
+    for (int b = pr->sp_b0; b < NB; b++) {
+        int ns = mule_sp_n(EDGES[b + 1] - EDGES[b]);
+        if (q[b] <= MULE_QMIN || a[b] == 0 || ns < 2)
+            continue;
+        uint32_t m = f->grp[g].sp[b];
+        put(o, MULE_S_SPART, 0, m != 0);
+        for (int s = 0, prev = 0; m && s < ns; s++) {
+            put(o, MULE_S_SPART, 1 + prev, (int)(m >> s & 1));
+            prev = (int)(m >> s & 1);
+        }
     }
 }
 
@@ -766,6 +824,7 @@ static void encode_frame(const mule_enc_params *pr, const psy_t *psy_l, const ps
             for (int b = pr->nf_top; b < NB; b++)   /* nf_top: uncoded high bands silent, not */
                 if (a[b] == 0)                      /* noise (Apple above 16 kHz, N-LOG.md) */
                     q[b] = MULE_QMIN;
+            subparts(pr, f, c, g, q, a);        /* v4 probe (no-op without sp) */
             if (pr->rd_lambda > 0 && o->mr)
                 alloc_rd(pr, f, s, o, c, g, q, a, inter_ok, tail1, tail2);
             if (pr->nf_bias > 0)                /* noise-filled bands: energy sent lower */
@@ -778,6 +837,7 @@ static void encode_frame(const mule_enc_params *pr, const psy_t *psy_l, const ps
                 fold_votes(pr, f, c, g, q, a, fd_vote);
             code_energies(f, s, o, c, g, q);
             code_allocations(pr, s, o, c, a);
+            code_subparts(pr, f, o, g, q, a);
             if (mule_enc_trace)                 /* band records: the figures (docs/blog) */
                 for (int b = 0; b < NB; b++) {
                     double pw = f->ms[b] ? f->PM[g][b][c] : f->P[c][g][b];
@@ -789,10 +849,11 @@ static void encode_frame(const mule_enc_params *pr, const psy_t *psy_l, const ps
                                                  (int32_t)lround(1000 * log10(pw + 1e-30)), q[b],
                                                  f->grp[g].k0, f->grp[g].k1, (int32_t)lround(100 * fl),
                                                  (int32_t)lround(1000 * log10((pk + 1e-30) / (mk * f->tq + 1e-30))),
-                                                 0, 0, 0, 0};
+                                                 (int32_t)f->grp[g].sp[b], 0, 0, 0};
                     trace_add(rec);
                 }
             code_coefficients(pr, f, s, o, c, g, q, a, inter_ok, &tail1, &tail2, ycur, nf_acc);
+            memset(f->grp[g].sp, 0, sizeof f->grp[g].sp);  /* (the next channel sees all lines) */
         }
         if (nf_pos >= 0 && nf_pos < o->n)       /* v4 probe: the level, now measured */
             o->v[nf_pos] = (uint32_t)nf_level(pr, nf_acc);
@@ -821,7 +882,8 @@ static int params_ok(const mule_enc_params *pr)
            pr->tg_a >= 1 && pr->tg_a <= MULE_AMAX && pr->fold_start >= 1 && pr->fold_start <= NB &&
            pr->fold_mix >= 0 && pr->fold_mix <= 8 && pr->rot_deg >= 0 && pr->rot_deg <= 90 &&
            pr->rot_amax >= 0 && pr->rot_amax <= MULE_AMAX && pr->rot_b0 >= 0 && pr->rot_b0 <= NB &&
-           pr->tnf_order >= 1 && pr->tnf_order <= MULE_TNF_MAXP && pr->tnf_b0 >= 0 && pr->tnf_b0 < NB;
+           pr->tnf_order >= 1 && pr->tnf_order <= MULE_TNF_MAXP && pr->tnf_b0 >= 0 && pr->tnf_b0 < NB &&
+           pr->nf_slope_b0 >= 0 && pr->nf_slope_b0 < NB && pr->nf_slope_mode >= 0 && pr->nf_slope_mode < 8 && pr->sp_b0 >= 0 && pr->sp_b0 < NB;
 }
 
 /* Analysis and frame coding of the whole signal: its operations (out) and each frame's first
@@ -842,8 +904,8 @@ static int encode_ops(const double *pcm, int64_t L, const mule_enc_params *pr, i
         mdct_init(&msh, MULE_N_SHORT))
         goto done;
     psy_t pl, ps;
-    psy_init(&pl, 1024);
-    psy_init(&ps, 128);
+    psy_init(&pl, 1024, pr->ath_parent);
+    psy_init(&ps, 128, pr->ath_parent);
     double wl[4][MULE_N_LONG], wsh[MULE_N_SHORT];
     for (int v = 0; v < 4; v++) {                   /* long windows: left short?, right short? */
         int sl = v & 1 ? 128 : 1024, sr = v & 2 ? 128 : 1024;

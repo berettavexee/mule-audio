@@ -65,6 +65,15 @@ class Params:
     tnf_order: int = 8          # its largest order
     tnf_gain_db: float = 1.5    # sent when the prediction gain reaches this
     tnf_b0: int = 12            # from this band up
+    nf_slope: int = 0           # v4 probe: noise-filled bands sloped like their neighbours (MULE_SLOPE)
+    nf_slope_b0: int = 12       # from this band up
+    nf_slope_mode: int = 0      # bit 0: +-6 dB at most; 1: two heard neighbours only; 2: top band falls 4 dB
+    sp: int = 0                 # v4 probe: coded bands may leave subpartitions to noise (MULE_SUBPART)
+    sp_b0: int = 19             # from this band up
+    sp_db: float = 0.0          # a subpartition is coded if its strongest line reaches the target + this
+    ath_parent: int = 0         # split-band builds: each band's threshold in quiet from its v3 band
+    hi_db: float = 0.0          # extra masking offset (more bits) from band hi_b0 up
+    hi_b0: int = 19
     nf_coded: int = 0           # v4 probe: noise in the coded bands' zero coefficients (MULE_NF_CODED)
     nf_off_db: float = 0.0      # its level: the measured one plus this (dB)
     nf_top: int = 22            # from this band up, uncoded bands silent instead of noise (22: none)
@@ -77,7 +86,7 @@ class Params:
 # the model streams in the decoder's order: (name, symbols, contexts) (core/models.c)
 STREAMS = [("btype", 2, 1), ("alpha", 4, 1), ("stereo", 2, 3), ("energy", 16, 9),
            ("alloc", 16, 6), ("amode", 2, 1), ("cesc", 16, 16), ("coef", 16, 96),
-           ("eaesc", 16, 1)]
+           ("eaesc", 16, 1), ("spart", 2, 3)]     # spart: v4 probe (MULE_SUBPART)
 OFF = {}                        # first model of each stream
 _o = 0
 for _n, _s, _c in STREAMS:

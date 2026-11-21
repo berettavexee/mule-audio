@@ -81,6 +81,18 @@ typedef struct {
     int tnf_order;      /* its largest order (8) */
     double tnf_gain_db; /* sent when the prediction gain reaches this (1.5 dB) */
     int tnf_b0;         /* from this band up (12) */
+    int nf_slope;       /* v4 probe (MULE_SLOPE): noise-filled bands sloped like their neighbours (0) */
+    int nf_slope_b0;    /* from this band up (12) */
+    int nf_slope_mode;  /* bit 0: +-6 dB at most; 1: only between two heard neighbours; 2: the top
+                         * band falls by 4 dB at least (0) */
+    int sp;             /* v4 probe (MULE_SUBPART): coded bands may leave subpartitions to noise (0) */
+    int sp_b0;          /* from this band up (19) */
+    double sp_db;       /* a subpartition is coded if its strongest line reaches the mask target
+                         * plus this (0 dB) */
+    int ath_parent;     /* split-band builds (MULE_SPLIT): each band's threshold in quiet from its
+                         * v3 band (most sensitive point, width; 0) */
+    double hi_db;       /* extra masking offset (more bits) from band hi_b0 up (0) */
+    int hi_b0;          /* (19) */
     int nf_coded;       /* v4 probe (MULE_NF_CODED): noise in the coded bands' zero coefficients (0) */
     double nf_off_db;   /* its level: the measured one plus this (dB; 0) */
     int nf_top;         /* from this band up, a band at allocation 0 is sent silent instead of

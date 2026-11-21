@@ -140,13 +140,14 @@ int ogg_write(const mule_enc_params *pr, const ops_t *o, const int64_t *fstart, 
 {
     crc_init();
     buf_t file = {0};
-    uint8_t head[MULE_HEAD_LEN_TNF];
+    uint8_t head[MULE_HEAD_LEN_SUBPART];
     memcpy(head, "MULEHead", 8);
     head[8] = MULE_VERSION;
     head[20] = (uint8_t)(pr->tcq_states == 64 ? 6 : pr->tcq_states == 32 ? 5 : pr->tcq_states == 16 ? 4 : 3);
     head[21] = (uint8_t)((pr->tcq_chain ? MULE_TCQ_CHAIN : 0) | (pr->coef_a8 ? MULE_COEF_A8 : 0) |
                          (pr->nf_coded ? MULE_NF_CODED : 0) | (pr->fold ? MULE_FOLD : 0) |
-                         (pr->rot ? MULE_ROT : 0) | (pr->tnf ? MULE_TNF : 0));
+                         (pr->rot ? MULE_ROT : 0) | (pr->tnf ? MULE_TNF : 0) |
+                         (pr->nf_slope ? MULE_SLOPE : 0) | (pr->sp ? MULE_SUBPART : 0));
     head[22] = (uint8_t)pr->fold_start;         /* v4 probe: read only with MULE_FOLD */
     head[23] = (uint8_t)(pr->fold_mix | (pr->fold_dyn ? 16 : 0));
     head[24] = (uint8_t)pr->rot_deg;            /* v4 probe: read only with MULE_ROT */
@@ -155,6 +156,8 @@ int ogg_write(const mule_enc_params *pr, const ops_t *o, const int64_t *fstart, 
     head[27] = (uint8_t)(pr->rot_dyn ? 1 : 0);
     head[28] = (uint8_t)pr->tnf_b0;             /* v4 probe: read only with MULE_TNF */
     head[29] = 0;
+    head[30] = (uint8_t)(pr->nf_slope_b0 | pr->nf_slope_mode << 5);        /* v4 probe: read only with MULE_SLOPE */
+    head[31] = (uint8_t)pr->sp_b0;              /* v4 probe: read only with MULE_SUBPART */
     head[9] = 2;
     head[10] = MULE_PRE_SKIP & 255;
     head[11] = MULE_PRE_SKIP >> 8;
@@ -164,7 +167,7 @@ int ogg_write(const mule_enc_params *pr, const ops_t *o, const int64_t *fstart, 
     head[18] = 4;
     head[19] = (uint8_t)mule_init_cdf_id;
     const uint8_t *hp[1] = {head};
-    int hl[1] = {pr->tnf ? MULE_HEAD_LEN_TNF : pr->rot ? MULE_HEAD_LEN_ROT : pr->fold ? MULE_HEAD_LEN_FOLD
+    int hl[1] = {pr->sp ? MULE_HEAD_LEN_SUBPART : pr->nf_slope ? MULE_HEAD_LEN_SLOPE : pr->tnf ? MULE_HEAD_LEN_TNF : pr->rot ? MULE_HEAD_LEN_ROT : pr->fold ? MULE_HEAD_LEN_FOLD
                                                                              : MULE_HEAD_LEN};
     uint32_t serial = 0x4D554C45u, seq = 0;
     int rc = page(&file, 2, 0, serial, seq++, hp, hl, 1);
