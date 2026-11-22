@@ -37,8 +37,8 @@ d'un codec audio moderne, en le construisant (mal)*](https://berettavexee.github
 ## Results
 
 Measured on 30 tracks drawn at random from my music library and never used for tuning, at equal
-real bitrate (curves interpolated). ODG is PEAQ's score: 0 = no difference *(audio transparency)*, −1 = audible but not
-annoying *(good)*, −4 = very annoying (shit). Zimtohrli is Google's psychoacoustic distance to the original, in units of 10⁻⁴: lower is better.
+real bitrate (curves interpolated). ODG is PEAQ's score (higher is better, 0 at best); Zimtohrli is a
+distance to the original (lower is better). How to read them is explained below the table.
 
 | | ODG @128 kb/s | ODG @160 kb/s | ODG (advanced) @128 / @160 | Zimtohrli @128 |
 |---|---|---|---|---|
@@ -49,6 +49,25 @@ annoying *(good)*, −4 = very annoying (shit). Zimtohrli is Google's psychoacou
 | MULE (format v3) | −0.16 | 0.00 | −0.36 / −0.14 | 3.74 |
 | MULE (format v4) | −0.15 | 0.00 | −0.34 / −0.14 | 2.84 |
 | MULE (format v5) | −0.15 | **+0.01** | **−0.33 / −0.13** | **2.77** |
+
+**How to read these numbers.** Both measures compare the decoded file with the original through a
+model of the ear and predict what a listener would hear; neither is a listening test.
+- **ODG** (PEAQ, the ITU's standard objective measure, ITU-R BS.1387) predicts the grade an expert
+  listener would give on the ITU's impairment scale: **0** imperceptible, **−1** perceptible but not
+  annoying, **−2** slightly annoying, **−3** annoying, **−4** very annoying. Every codec of the table
+  scores between −0.6 and 0 at 128 kb/s, between "imperceptible" and "perceptible but not
+  annoying": they are all good, and the gaps between them are a few tenths at most. A score just
+  above 0 (+0.01) is the model's noise around "imperceptible". The advanced version of PEAQ uses a
+  finer ear model and is usually stricter.
+- **Zimtohrli** (Google) is a distance between the decoded file and the original as its ear model
+  hears them: **0** means identical, smaller is better. The values are tiny, so the table gives them
+  in units of 10⁻⁴. It has no verbal scale; its authors' conversion to a mean opinion score
+  (1 = bad, 5 = excellent) puts every codec of the table between 4.87 and 4.93, all close to
+  transparent. It is best read in relative terms: MULE v5's distance is 17 % below Opus's and about
+  45 % below Vorbis's and FDK-AAC's.
+- **In practice**, at 128 kb/s these codecs are all close to transparent for most listeners and
+  most music; the differences show on difficult passages (cymbals, bagpipes, harpsichord) and to
+  trained ears.
 
 In plain words:
 - **at 128 kb/s and above**, MULE beats Vorbis and FDK-AAC everywhere, loses to Opus on PEAQ's
