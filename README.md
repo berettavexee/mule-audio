@@ -62,24 +62,9 @@ In plain words:
   and 91 KiB of RAM, with the same output, bit for bit, on the PC, the firmware's emulator and
   the Cortex-M3 (measured with format v2; v3 needs 8 % fewer instructions, not yet ported).
 
-Format v4 (frozen on 21/11/2026, in `main` since 22/11/2026, [`docs/V4.md`](docs/V4.md)) adds two ways of filling
-with noise what the encoder does not code, noise in the zeros of coded bands and noise that
-follows the slope of its neighbours, plus a tonal guard in the encoder: +0.02 ODG over v3 at
-121 to 151 kb/s for 0.26 kb/s of side information and 3 to 7 % more decoder instructions. Its
-encoder was then tuned with Zimtohrli as the judge (more bits below 6 kHz, fewer on tonal bands
-in the highs): Zimtohrli −12 to −13 % at the same bitrate on tracks the search never saw, PEAQ's
-basic score −0.02, and no difference I could hear in ABX. Last, a second transient detector
-looking only above 8 kHz switches to short blocks when cymbals or hi-hats strike under a loud
-guitar or voice: Zimtohrli −3 % more, every judge agreeing.
-
-Format v5 (frozen on 22/11/2026, in `main` since 22/11/2026, [`docs/V5.md`](docs/V5.md)) folds what short frames do not code:
-above 2.8 kHz, a band left without bits takes the fine structure decoded just below it, as Opus
-does, instead of plain noise; and the noise level of the coded bands' zeros gets an adaptive model
-(1.4 bits instead of 3). Its encoder fixes a long-standing defect, a transient detector that took a
-voice's glottal pulses for attacks, then makes the detector above 8 kHz more sensitive, with a veto
-on tonal frames. Against v4, at the same bitrate: Zimtohrli −2.0 % at 128 kb/s and −2.8 % at 160 on
-the test tracks, −1.9 % on the 66 tuning tracks, PEAQ's scores slightly better, no extra side
-information. The v5 row above is that encoder.
+The format has been nearly stable since v3. Formats v4 and v5 are minor changes, both about the
+noise the decoder generates in the bands left without bits ([`docs/V4.md`](docs/V4.md),
+[`docs/V5.md`](docs/V5.md)). Most of the work is now on the encoder side.
 
 So, officially: a codec that is worse than Opus on almost every count, and sometimes as good.
 This is a surprise; outperforming Vorbis was by no means a sure thing. Coming close to Opus
