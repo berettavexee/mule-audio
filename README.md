@@ -45,9 +45,10 @@ annoying *(good)*, −4 = very annoying (shit). Zimtohrli is Google's psychoacou
 | AAC (FDK-AAC) | −0.54 | −0.21 | −0.57 / −0.27 | 5.08 |
 | Vorbis (libvorbis) | −0.45 | −0.16 | −0.63 / −0.34 | 5.12 |
 | AAC (Apple, qaac TVBR) | −0.31 | −0.02 | −0.46 / −0.22 | 4.11 |
-| Opus (libopus) | **−0.12** | **0.00** | −0.45 / −0.24 | 3.32 |
-| MULE (format v3) | −0.16 | **0.00** | −0.36 / −0.14 | 3.74 |
-| MULE (format v4) | −0.15 | **0.00** | **−0.34 / −0.14** | **2.95** |
+| Opus (libopus) | **−0.12** | 0.00 | −0.45 / −0.24 | 3.32 |
+| MULE (format v3) | −0.16 | 0.00 | −0.36 / −0.14 | 3.74 |
+| MULE (format v4) | −0.15 | 0.00 | −0.34 / −0.14 | 2.84 |
+| MULE (format v5) | −0.15 | **+0.01** | **−0.33 / −0.13** | **2.77** |
 
 In plain words:
 - **at 128 kb/s and above**, MULE beats Vorbis and FDK-AAC everywhere, loses to Opus on PEAQ's
@@ -67,7 +68,18 @@ follows the slope of its neighbours, plus a tonal guard in the encoder: +0.02 OD
 121 to 151 kb/s for 0.26 kb/s of side information and 3 to 7 % more decoder instructions. Its
 encoder was then tuned with Zimtohrli as the judge (more bits below 6 kHz, fewer on tonal bands
 in the highs): Zimtohrli −12 to −13 % at the same bitrate on tracks the search never saw, PEAQ's
-basic score −0.02, and no difference I could hear in ABX. The v4 row above is that encoder.
+basic score −0.02, and no difference I could hear in ABX. Last, a second transient detector
+looking only above 8 kHz switches to short blocks when cymbals or hi-hats strike under a loud
+guitar or voice: Zimtohrli −3 % more, every judge agreeing.
+
+Format v5 (frozen on 22/11/2026, in `main` since 22/11/2026, [`docs/V5.md`](docs/V5.md)) folds what short frames do not code:
+above 2.8 kHz, a band left without bits takes the fine structure decoded just below it, as Opus
+does, instead of plain noise; and the noise level of the coded bands' zeros gets an adaptive model
+(1.4 bits instead of 3). Its encoder fixes a long-standing defect, a transient detector that took a
+voice's glottal pulses for attacks, then makes the detector above 8 kHz more sensitive, with a veto
+on tonal frames. Against v4, at the same bitrate: Zimtohrli −2.0 % at 128 kb/s and −2.8 % at 160 on
+the test tracks, −1.9 % on the 66 tuning tracks, PEAQ's scores slightly better, no extra side
+information. The v5 row above is that encoder.
 
 So, officially: a codec that is worse than Opus on almost every count, and sometimes as good.
 This is a surprise; outperforming Vorbis was by no means a sure thing. Coming close to Opus
@@ -83,20 +95,22 @@ Those machines have blind spots, and this project walked into most of them: see
 ### Track by track
 
 Averages hide a lot. Each dot below is one of the 30 test tracks at 128 kb/s: Opus is excellent
-almost everywhere but collapses on one track (Belenos, bagpipes); MULE is more even, and v4 sits
-level with v3 in PEAQ's eyes; Apple's AAC is spread wide and pays for its lowpass in PEAQ's eyes.
+almost everywhere but collapses on one track (Belenos, bagpipes); MULE is more even, and v5 sits
+level with v4 in PEAQ's eyes; Apple's AAC is spread wide and pays for its lowpass in PEAQ's eyes.
 
-![PEAQ's score of each of the 30 test tracks at 128 kb/s, for Opus, MULE v4, MULE v3 and Apple's AAC](docs/blog/fig/enc-fig3-v4-en.svg)
+![PEAQ's score of each of the 30 test tracks at 128 kb/s, for Opus, MULE v5, MULE v4 and Apple's AAC](docs/blog/fig/enc-fig6-v5-en.svg)
 
 The same tracks seen by Zimtohrli (Google's psychoacoustic distance, lower is better; the axis is
 reversed so that better stays on the right), which I trust more than PEAQ at these bitrates.
-MULE v4, whose encoder was tuned on it (on other tracks), has the best median at 128 kb/s (2.94
-against Opus' 3.38) and at 160 kb/s (1.38 against 2.26). Zimtohrli does not pick the same hard
-tracks as PEAQ: MULE's worst is Garbage, whose dense cymbals are noise-filled by MULE in the top
-bands with the right average energy but not the right movement from frame to frame; an envelope
-guard in the encoder brought it from 6.6 (v3) to 4.9 (`eval/results/N-LOG.md`).
+MULE v5, whose encoder was tuned on it (on other tracks), has the best median at 128 kb/s (2.71,
+v4 2.85, Opus 3.38) and at 160 kb/s (1.36, v4 1.38, Opus 2.26). Zimtohrli does not pick the same
+hard tracks as PEAQ: MULE's worst used to be Garbage, whose dense cymbals are noise-filled by MULE
+in the top bands with the right average energy but not the right movement from frame to frame; an
+envelope guard in the encoder, short blocks triggered by the highs, then the folding of v5 brought
+it from 6.6 (v3) to 4.9, 3.7, then 3.1 (`eval/results/N-LOG.md`). The worst is now Zombie Zombie
+(4.8), whose structured highs, under a loud band, MULE fills with noise.
 
-![Zimtohrli distance of each of the 30 test tracks at 128 kb/s, for Opus, MULE v4, MULE v3 and Apple's AAC](docs/blog/fig/enc-fig5-zimt-en.svg)
+![Zimtohrli distance of each of the 30 test tracks at 128 kb/s, for Opus, MULE v5, MULE v4 and Apple's AAC](docs/blog/fig/enc-fig7-zimt-v5-en.svg)
 
 ### Where each codec puts its bits
 
@@ -128,7 +142,10 @@ The details, the numbers and the dead ends are in [`docs/LESSONS.md`](docs/LESSO
   where short windows were grouped on the whole window's energy (dominated by the bass) and an
   attack in the highs spread its noise over the frame; grouping per frequency region fixed it
   (+0.012 ODG on average, +0.33 on that track, at the same rate). The gap that remains is a few
-  hundredths of ODG on which the metrics disagree and that my ears could not hear.
+  hundredths of ODG on which the metrics disagree and that my ears could not hear;
+- **the oldest parts can hide the defects**: the transient detector took a voice's glottal pulses
+  (and other pulsed sounds) for attacks from the start, switching a fifth of a spoken voice's
+  frames to short blocks; found in v5 by asking why a fix made speech worse.
 
 ## Repository
 
@@ -141,7 +158,7 @@ The details, the numbers and the dead ends are in [`docs/LESSONS.md`](docs/LESSO
 | `eval/` | the evaluation (`eval/README.md`): corpus building, reference codecs, metrics (internal NMR, PEAQ, ViSQOL), equal-rate comparisons; logs and results in `eval/results/`, past one-off scripts in `eval/archive/` |
 | `tests/` | unit tests, and frozen decoder test vectors |
 | `bench/qemu/` | Cortex-M3 benchmark under QEMU (instruction counts, bit-exactness) |
-| `docs/` | `LESSONS.md` (everything measured), `ARTICLE.md` (how MULE works, two pages), `PORT.md` (the port to the player), `V3-IDEAS.md` and `V4-IDEAS.md` (the ideas studied for each format), `VARIANTS-BC.md`, `TODO.md`, `blog/` (the blog posts, their figures and tools), `history/` |
+| `docs/` | `LESSONS.md` (everything measured), `ARTICLE.md` (how MULE works, two pages), `PORT.md` (the port to the player), `V3-IDEAS.md` and `V4-IDEAS.md` (the ideas studied for each format), `V4.md` and `V5.md` (what each format changed, and why), `V5-512.md` (the study of intermediate blocks, folded into v5), `VARIANTS-BC.md`, `TODO.md`, `blog/` (the blog posts, their figures and tools), `history/` |
 
 Most of the documentation and logs are in French, my language.
 

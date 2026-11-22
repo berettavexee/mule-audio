@@ -2434,3 +2434,624 @@ Juges : Zimtohrli d'abord, puis PEAQ de base et avancé (2f en dérive) et la NM
 de désaccord, l'écoute. Dans le tableau du README, la colonne ViSQOL @128 devient Zimtohrli @128 :
 Vorbis et FDK-AAC remesurés pour l'occasion (`ref3_test.csv`, `ref3b_test.csv` : Zimtohrli était
 arrondi à 1e-4 dans `ref_test` et `aac_test`), FDK 5,08, Vorbis 5,12.
+
+## v5, idée 1 : bruit en pente centré sur les sommets (branche `v5`, 22/11/2026)
+
+Sonde de décodeur (`noise_band_vtx`, drapeau d'en-tête provisoire `MULE_PROBE_VTX`, paramètre
+`vtx`, variantes `vtx` et `vtxn`). Dans une trame longue, une bande remplie de bruit à partir de
+la bande 12 : chaque frontière prend la moyenne en dB des niveaux des deux bandes qu'elle sépare
+(voisine silencieuse : le niveau de la bande), à ±6 dB du niveau de la bande ; l'amplitude va
+linéairement de la frontière gauche à une valeur centrale puis à la frontière droite, la valeur
+centrale résolvant l'énergie de la bande (équation du second degré, virgule fixe) ; si même un
+centre nul est trop fort (vallée), centre à 0 puis renormalisation. `vtxn` : seules les voisines
+remplies de bruit fixent une frontière (une voisine codée, souvent tonale, ne tire pas le bruit
+vers elle). Même train de bits (débit identique), énergie conservée (rapport 1,0000001 sur
+Garbage). Nouvel outil : `eval/noise_shape_diag.py` (niveau, inclinaison dans la bande, marche aux
+frontières entre bandes de bruit, par contexte : attaque, chute, montée, bruit qui s'arrête).
+
+5 extraits difficiles (Garbage, Belenos, castagnettes, glockenspiel, Zombie Zombie), q −6 et −9
+(`vtx5.csv`, `vtxn5.csv`), contre la production :
+
+| | Zimtohrli moyen | par extrait | ODG | ODG avancé | NMR |
+|---|---|---|---|---|---|
+| `vtx` | +0,7 % | Zombie Zombie +4,2 à +4,8 %, glockenspiel −0,8 à −1,7 % | −0,003 | −0,004 | 0,000 |
+| `vtxn` | +0,5 % | glockenspiel −3,2 à −4,2 %, les 4 autres +0,3 à +3,0 % | +0,002 | +0,010 | +0,010 |
+
+Diagnostic à q −7 (`noise_shape_diag.py`, cellules de bruit des trames longues, médianes) :
+- marche aux frontières entre deux bandes de bruit (erreur absolue) : 4,53 → 4,16 / 4,17 dB en
+  régime stable, p90 10,96 → 10,2 : la continuité visée est obtenue, modestement (l'estimation
+  sur 3 raies de part et d'autre reste bruitée) ;
+- inclinaison dans la bande : la v4 a un biais de −1,1 dB (moitié haute trop basse) ; `vtx` le
+  garde (−1,0), `vtxn` l'annule (−0,05) ;
+- attaques (trame courte avant ou après, 190 cellules) : marche médiane un peu pire (4,7 → 5,3 à
+  5,5 dB), p90 meilleur (11,2 → 10,0) ; chutes de plus de 10 dB d'une trame à l'autre (134
+  cellules) : médiane pire (2,2 → 3,3 à 3,7), p90 meilleur (8,7 → 6,6 à 7,7). L'énergie de chaque
+  bande ne change pas (renormalisation) : la sonde ne touche pas au comportement temporel, qui
+  reste celui de la v4 (chaque trame tirée indépendamment, trames courtes à bruit plat) ;
+- frontières où le bruit de la voisine s'est arrêté depuis la trame précédente (113) :
+  inclinaison absolue 2,13 → 2,10 (`vtx`), 1,77 (`vtxn`).
+
+Lecture : la continuité entre bandes et la correction du biais d'inclinaison ne sont pas ce que
+Zimtohrli entend ; `vtx` ajoute du bruit au pied des bandes codées tonales (Zombie Zombie). Pas de
+gain : idée 1 non retenue en l'état (sonde gardée sur la branche pour l'instant).
+
+## v5, idée 2 : le bruit suit l'enveloppe temporelle des bandes codées (22/11/2026)
+
+Remarque préalable : entre trames, l'interpolation existe déjà (recouvrement de moitié, fenêtre
+complémentaire en puissance : la puissance du bruit passe de E(t) à E(t+1) en w² entre les centres
+des trames). Le défaut est sous la trame (Garbage : écart-type de l'erreur d'énergie des aigus
+3,12 dB à 5,8 ms contre 1,11 pour Opus).
+
+Sonde de décodeur sans bits (`env_gain`, drapeaux provisoires `MULE_PROBE_ENV` / `ENVH`,
+paramètre `env`, variantes `env` et `envh`), trames longues : le bruit des bandes sans bits à
+partir de la bande 12 est synthétisé à part (une IMDCT de plus), multiplié par un gain qui suit
+l'enveloppe (16 blocs de 128 échantillons, interpolée linéairement entre leurs centres, ±18 dB) du
+contenu codé de la même trame au-dessus de 2,8 kHz (une troisième IMDCT), puis remis à son énergie
+fenêtrée. `envh` : demi-force (en dB). Coût de la sonde : deux IMDCT de plus par canal et par trame
+longue, 24 Kio de tampons (statiques ici).
+
+5 extraits difficiles, q −6 et −9 (`env5.csv`), contre la production :
+
+| | Zimtohrli moyen | par extrait | ODG | ODG avancé | NMR |
+|---|---|---|---|---|---|
+| `env` | +2,0 % | Garbage −0,9 / −1,0 %, Belenos −0,3 / −0,5 %, castagnettes +0,7 %, glockenspiel +3,5 / +4,4 %, Zombie Zombie +6,3 / +7,2 % | −0,001 | +0,001 | −0,003 |
+| `envh` | +0,3 % | Garbage −0,8 / −1,0 %, Belenos −0,2 / −0,6 %, castagnettes +0,2 / +0,3 %, glockenspiel +0,9 / +1,7 %, Zombie Zombie +1,3 / +1,6 % | 0,000 | 0,000 | −0,001 |
+
+Diagnostics à q −7 :
+- enveloppe dans la trame des bandes de bruit (`envelope_diag.py`) : l'aplatissement passe de 0,72
+  à 0,84 (`env`) et 0,77 (`envh`), le bruit bouge davantage, mais l'erreur de forme ne baisse pas
+  (2,85 → 2,91 et 2,84) : le mouvement n'est pas au bon endroit. Zombie Zombie : 2,81 → 2,99 ;
+- l'enveloppe de référence ressemble peu à celle des aigus : corrélation, dans la fenêtre, de
+  l'enveloppe 2,8-8 kHz de l'original avec celle de 12-20 kHz : Garbage 0,28, Zombie Zombie 0,28,
+  castagnettes 0,86 (mais leurs attaques sont en trames courtes) ; 8-12 kHz : 0,53, 0,33, 0,92 ;
+- attaques, chutes et montées (`noise_shape_diag.py`) : niveaux par trame inchangés (erreur
+  absolue médiane aux attaques 2,05 → 2,02, aux chutes 2,88 → 2,82), marche aux chutes un peu
+  pire en médiane (2,2 → 2,7), meilleure en p90 (8,7 → 7,6). Rien d'anormal quand le bruit se coupe.
+
+Lecture : sans information transmise, le décodeur n'a pas de bonne enveloppe à donner au bruit des
+aigus ; celle des bandes codées plus bas est souvent celle d'autres instruments (voix, guitares,
+synthés tenus). Idée 2 non retenue en l'état. Il reste l'enveloppe transmise (quelques gains par
+bande de bruit qui varie, alternative de format à la garde d'enveloppe) et, côté encodeur, un
+détecteur de blocs courts sensible aux aigus.
+
+### Idée 2 bis : une source d'enveloppe choisie par l'encodeur et transmise (borne haute, 22/11)
+
+Question de l'auteur : au lieu de la bande adjacente, indiquer quelle(s) bande(s) reprendre.
+Borne haute sur l'original (script de scratchpad `env_oracle.py`) : cellules de bruit des trames
+longues à partir de la bande 12 dont l'enveloppe varie (≥ 1,5 dB sur 8 blocs de 128), 7 extraits
+(les 5 difficiles, Spector, Eminem), 6 418 cellules ; erreur de forme (dB rms, médiane) de
+l'enveloppe de la bande de bruit prédite par une source, « plat » (le bruit v4) toujours permis :
+
+| source | toutes | Garbage | Spector | Eminem | même choix, sources prises 7 trames plus loin (témoin) |
+|---|---|---|---|---|---|
+| plat (v4) | 1,61 | 1,72 | 2,20 | 2,19 | 1,61 |
+| fixe : codé au-dessus de 2,8 kHz (idée 2) | 1,97 | 2,12 | 2,44 | 2,43 | 2,06 |
+| 1 région sur 4, par trame | 1,52 | 1,58 | 1,81 | 1,83 | 1,55 |
+| 1 bande codée, par trame | 1,46 | 1,48 | 1,65 | 1,66 | 1,51 |
+| 1 bande codée, par bande de bruit | 1,42 | 1,48 | 1,63 | 1,66 | 1,46 |
+| somme de 2 bandes, par bande de bruit | 1,25 | 1,22 | 1,35 | 1,34 | 1,29 |
+| 2 gains transmis (pas de 3 dB) | 1,53 | 1,53 | 1,89 | 1,92 | — |
+| 4 gains transmis | 1,28 | 1,23 | 1,56 | 1,47 | — |
+
+Le témoin (sources sans rapport temporel) obtient presque la même baisse : l'essentiel du gain
+d'un choix parmi 10 à 100 sources vient du hasard de la sélection sur 8 points, pas d'une vraie
+ressemblance. Gain réel (oracle moins témoin) : 0,04 à 0,05 dB en moyenne, 0,2 dB sur la pop
+percussive (Spector, Eminem). Et l'enveloppe des bandes de bruit restantes varie peu (1,6 dB
+médian) : la garde d'enveloppe code déjà les plus modulées. Piste non implémentée.
+
+## v5, nuit du 22/11 : détecteur de blocs courts dans les aigus (encodeur seul)
+
+Sonde `tr_hf` : une seconde passe du détecteur de transitoires (`block_types`) sur le signal
+filtré passe-haut à `tr_hf_fc` (au lieu de 3 kHz), seuil `tr_hf_db`, ses attaques ajoutées.
+Variantes `thf<fc kHz>d<seuil>`. Part de trames courtes à q −7 :
+
+| | prod | tr7 | thf8d85 | thf8d11 | thf10d85 | thf6d85 | thf8d6 |
+|---|---|---|---|---|---|---|---|
+| Garbage | 2,0 | 3,2 | 6,8 | 5,3 | 7,0 | 5,7 | 7,6 |
+| Spector | 4,3 | 7,0 | 10,5 | 7,6 | 11,7 | 7,9 | 17,5 |
+| Eminem | 13,0 | 16,4 | 17,8 | 14,7 | 18,4 | 16,1 | 23,6 |
+| castagnettes | 16,4 | 16,4 | 16,4 | 16,4 | 16,4 | 16,7 | 17,1 |
+| Zombie Zombie | 2,8 | 4,2 | 3,2 | 2,9 | 3,1 | 3,1 | 5,4 |
+| glockenspiel / Belenos | 1,4 / 0,3 | inchangé | | | | | 1,5 / 0,5 |
+
+7 extraits, q −6 et −9 (`thf7.csv`), au débit de la production sur chaque extrait :
+Zimtohrli Garbage −22,6 à −24,9 %, Spector −8,3 à −11,6 %, Eminem −0,4 à −2,0 %, Zombie Zombie
++0,4 à +1,8 % (+5,6 avec le seuil 6 dB), glockenspiel +1,2 %, castagnettes et Belenos 0 ;
+moyenne −4,5 à −5,0 % (seuil 6 dB : −3,4 %, ODG −0,009) ; `tr7` (seuil global abaissé) −1,6 %.
+PEAQ et NMR neutres (±0,002). Débit à q égal −0,2 à −0,35 kb/s. Validation sur `dev` lancée
+(`thf_dev.csv`, thf8d85 et thf8d11).
+
+Validation `dev` (66 extraits, `thf_dev.csv`, au débit de la production sur chaque extrait) :
+thf8d85 Zimtohrli **−1,9 %** [−2,9 ; −1,1], 27 extraits à moins de −0,5 %, 4 au-dessus de +0,5 %
+(pire Aphex Twin +3,0 %, glockenspiel +1,2 %, Heilung +1,2 %, Daft Punk +1,1 %) ; meilleurs : orgue
+de Bach −17,6 %, Bat for Lashes −14,1 %, Slayer −12,5 %, guitare −8,6 %. thf8d11 −1,4 % [−2,1 ;
+−0,8], 24 / 3. ODG +0,001, ODG avancé +0,002, NMR neutre. Test (30 extraits) lancé : `thf_test.csv`
+contre `prod4_test.csv`.
+
+Validation `test` (30 extraits, `thf_test.csv` contre `prod4_test.csv`, à débit moyen égal,
+IC bootstrap 95 %), thf8d85 :
+
+| | Zimtohrli | ODG | ODG avancé | NMR | 2f | ViSQOL |
+|---|---|---|---|---|---|---|
+| 128 kb/s | **−3,1 %** [−5,6 ; −1,0] | +0,002 | +0,006 | −0,02 dB | +0,1 | +0,001 |
+| 160 kb/s | **−3,3 %** [−6,2 ; −1,0] | +0,006 | +0,003 | −0,03 dB | +1,2 | +0,001 |
+
+Tous les juges dans le même sens. Par extrait (128) : New Order / Joy Division −27,6 %, Garbage
+−20,9 %, Spector −12,2 %, Astroqueen −10,0 % ; pire Zimtohrli Kompromat +1,0 % ; pire ODG Monster
+Magnet −0,021 (juste au-delà du seuil de 0,02 de la règle). thf8d11 (q −6, −9 seulement) : −2,2 %.
+Candidat à l'adoption (encodeur seul, juges d'accord) : décision laissée à l'auteur.
+
+Affinage sur `dev` (`thf_dev2.csv`), Zimtohrli moyen [IC], extraits à moins de −0,5 % / plus de
++0,5 % : thf8d85 −1,9 % [−2,8 ; −1,1] 27 / 4 ; thf8d7 −1,8 % 28 / 14 (Aphex +5,1 %, voix féminine
++3,3 %) ; thf7d85 −1,6 % 27 / 7 ; thf8d11 −1,4 % 24 / 3 ; garde d'enveloppe retirée (thf8d85eg0)
+−1,8 % 36 / 7 (Rabbitt +4,9 %) ; garde à 7 dB (thf8d85eg7) −2,0 % 35 / 9 (Rabbitt +2,7 %). PEAQ
+partout +0,001 à +0,003. La garde d'enveloppe reste utile avec le détecteur ; **thf8d85** (8 kHz,
+8,5 dB, garde inchangée) est le meilleur compromis. Kit d'écoute : `data/listen/thf/`.
+
+**Décision de l'auteur (22/11/2026)** : `thf8d85` devient la production (`tr_hf` 1, 8 kHz, 8,5 dB ;
+défaut de `core/enc.c` et `py/mule/params.py`). Toutes les variantes de `eval/refcodecs.py`
+mesurées avant (et les points `m6*`) gardent `tr_hf` 0 ; `thf0` = la production d'avant.
+Encodage vérifié identique au bit près à `mule-thf8d85` (Garbage, Spector, Kompromat à q −6) :
+la production sur `test` est donc `thf_test.csv` renommé, `prod5_test.csv` (q −4, −6, −9, −12).
+À débit moyen égal (`figs_enc.odg_at`) : ODG −0,148 / +0,003 (128 / 160 kb/s), ODG avancé −0,335 /
+−0,135, Zimtohrli 2,84e-4 à 128 kb/s (médiane 2,85, écart type 0,68 au lieu de 0,78), 1,48 à 160
+(médiane 1,38). Pire extrait Zimtohrli : Zombie Zombie 4,73 ; Garbage 4,88 → 3,75. README
+(colonne Zimtohrli 2,95 → 2,84), `docs/V4.md` et les figures (`_v4` lit `prod5_test.csv`) à jour.
+
+## v5, blocs de 512 : étape 0 sans format (`docs/V5-512.md`, 22/11/2026)
+
+**Coût en bits** (`eval/b512_study.py` : entropie perceptive et enveloppe du bruit de chaque
+découpage, trame par trame, 30 extraits de test ; bits réels de MULE, encodages forcés à q −6).
+Sur les trames du détecteur des aigus, le 512 fait la moitié du chemin pour l'enveloppe (erreur
+2,64 → 1,41 dB contre 0,69 en 256 ; pré-écho 11,0 → 7,7 dB contre 3,8). Mais dans MULE une trame
+courte ne coûte pas plus de bits qu'une longue : informations annexes 258 bits contre 270
+(médianes), total +1 % si toutes les trames sont courtes. Un critère en bits ne peut pas
+départager les découpages ; c'est la qualité qui tranche.
+
+**Codec jouet jugé par Zimtohrli** (`eval/b512_toy.py`, `b512_toy_test.csv`) : canal milieu,
+fenêtres de MULE, quantification uniforme au même niveau de bruit pour tous les découpages, bruit
+de remplissage dès 2,8 kHz, débit par entropie, Zimtohrli au débit de la production. Validation :
+sans le détecteur des aigus (`thf0`) +1,8 % (9 extraits en recul, aucun en progrès ; Garbage
++11 %, Joy Division +10 %) : le sens et les extraits du gain réel (−3,1 %), à 60 % de son ampleur.
+
+| politique (contre la production) | moyenne | médiane | mieux / moins bien de 1 % |
+|---|---|---|---|
+| hf en 512 | −0,09 % | −0,01 | 0 / 0 |
+| seuil 6 dB, en 256 | +0,23 % | +0,02 | 2 / 6 |
+| seuil 6 dB, en 512 | −0,10 % | 0,00 | 4 / 3 |
+| toutes les trames courtes en 512 | +0,23 % | −0,04 | 3 / 2 (Lebanon Hanover +18,7 %, Kompromat −6,3 %) |
+| **mixte** : 256 sur l'attaque et l'unité avant, 512 ailleurs | **−0,51 %** | | 7 / 0 (pire +0,3 %) |
+| mixte, et seuil 6 dB | −0,48 % | | 9 / 3 |
+
+Oracle par extrait entre la production et toutes les politiques uniformes : −0,99 %. Le 512
+uniforme ne gagne rien en moyenne : il aide les attaques douces (Kompromat, Zombie Zombie) et
+ruine les franches (Lebanon Hanover). Le découpage mixte prend le meilleur des deux sans
+régression, mais pour un gain modeste (−0,5 % dans le jouet, peut-être −1 % en réel) au prix du
+plus gros changement de format envisagé (34 découpages, fenêtres asymétriques, grilles et
+regroupement par taille de bloc). Reste à mesurer : le mixage par bande à la CELT.
+
+**Mixage par bande à la CELT, dans le même jouet** (politiques `tf*` de `eval/b512_toy.py`,
+`b512_toy_test.csv`) : trames courtes de 8 × 256 dont chaque bande recombine ses blocs par un
+Hadamard orthonormé par groupes de 2^k (k 0 à 3), quantifié et rempli de bruit par groupe ; k
+choisi par bande au minimum de la norme L1 (critère de `tf_analysis` de CELT, sans biais).
+Zimtohrli au débit de la production, IC bootstrap 95 % :
+
+| politique | moyenne [IC] | médiane | mieux / moins bien de 1 % | pire |
+|---|---|---|---|---|
+| mixte dans le temps (rappel) | −0,51 % [−0,78 ; −0,27] | −0,36 | 4 / 0 | +0,3 |
+| **TF par bande, toutes bandes** | **−0,51 %** [−0,78 ; −0,29] | −0,25 | 6 / 0 | +0,2 (Garbage) |
+| TF sous 2,8 kHz seulement | −0,38 % [−0,61 ; −0,20] | −0,19 | 5 / 0 | +0,4 |
+| profil fixe (k 3 sous 2,8 kHz) | +0,42 % | 0,00 | 2 / 6 | +6,5 (Lebanon Hanover) |
+| TF, et seuil 6 dB | −0,57 % [−1,12 ; −0,04] | −0,33 | 8 / 2 | +3,2 (Belenos) |
+
+Niveau moyen choisi : 1,6 sous 2,8 kHz, 1,05 au-dessus (les aigus recombinent souvent 2 blocs).
+Le choix adaptatif est indispensable (le profil fixe perd). TF et mixte gagnent autant, mais pas
+sur les mêmes extraits (Joy Division : TF −1,6 %, mixte +0,3 % ; Salut c'est cool : mixte −1,6 %,
+TF 0). Signalisation non comptée dans le débit du jouet : 2 bits par bande et par trame courte,
+environ 0,1 kb/s. Côté format, TF est bien plus léger que le mixte : ni fenêtre ni grille de
+bandes nouvelles, un Hadamard d'au plus 8 points par bande au décodeur.
+
+## v5 : TF par bande dans MULE (sonde `tf`, 22/11/2026)
+
+Sonde de format (`MULE_PROBE_TF`, 64) : dans une trame courte, 2 bits bruts par bande après les
+drapeaux stéréo, le niveau k ; les 8 fenêtres de la bande codées comme leur Hadamard orthonormé
+par ensembles de 2^k (le décodeur l'inverse en Q15 après le M/S inverse). Encodeur (`tf_frame`) :
+k au minimum de L1 des deux canaux (CELT), masques des fenêtres abaissés au plus bas des fenêtres
+mélangées (`tf_mask` 1 : leur moyenne), transformée, puissances recalculées ; le reste de la
+chaîne inchangé. Variantes `tf`, `tflo` (sous 2,8 kHz), `tfm`, `tfb*` (biais L1, `tf_bias`).
+
+**Test (30 extraits, `tf_test.csv` contre `prod5_test.csv`, débit égal)** : tous les juges contre.
+
+| 128 kb/s | Zimtohrli | ODG | ODG avancé | NMR |
+|---|---|---|---|---|
+| tf | +0,78 % [+0,35 ; +1,30] | −0,002 | −0,003 | +0,04 dB |
+| tflo | +0,44 % [+0,14 ; +0,75] | −0,002 | −0,003 | +0,02 dB |
+
+À q égal, tf : Zimtohrli −0,38 %, débit +0,33 %. Criblage sur les 10 extraits les plus touchés
+(Zimtohrli au débit de la production) : tf +2,4 %, masque moyen +2,2 %, biais L1 0,1 à 0,2 +1,8 à
++2,0 % : aucun réglage ne rattrape. Diagnostic (Eminem, Salut c'est cool, Lebanon Hanover, q −6) :
+- avec le masque minimum, +235 à +325 bits par trame courte, presque tout dans les coefficients
+  (magnitudes +44 à +80 % : quantification plus fine) ; informations annexes +30 (dont 44 bits TF) ;
+- avec le masque moyen, allocations et magnitudes comme la production, mais les coefficients
+  coûtent encore +50 à +83 bits par trame courte (contextes et tables initiales appris sur des
+  fenêtres, pas sur des lignes de Hadamard), et la qualité à allocation égale est moins bonne
+  (Salut c'est cool +4,5 % de Zimtohrli à q égal) : le bruit des zéros (dès 2,8 kHz) et le bruit
+  de remplissage posés sur les lignes transformées s'étalent dans le temps à l'inverse.
+
+Le jouet (−0,5 %) supposait un codage entropique idéal par niveau TF et ne mettait pas de bruit
+dans les zéros des bandes codées : dans MULE, ces deux points coûtent plus que le gain attendu.
+Le rendre utile demanderait des contextes propres aux lignes transformées (tables initiales
+réapprises), un codage entropique des niveaux, et de revoir le bruit des zéros dans ces bandes,
+pour un gain plafonné vers −0,5 à −1 %. Sonde laissée désactivée.
+
+## Diagnostic des pires extraits Zimtohrli (`eval/zimt_diag.py`, 22/11/2026)
+
+Zombie Zombie, Kompromat, Garbage, Mravinsky, MULE à 128 kb/s contre Opus 128 (témoin). Outil :
+Zimtohrli par fenêtres de 2 s, et sa similarité recalculée cellule par cellule sur son propre
+spectrogramme (NSIM de `zimtohrli.cc`, 8 pas × 5 canaux, sans recalage temporel), découpée en
+intensité (niveau local) et structure (corrélation locale), par région ; contexte de la trace.
+
+- **Toute la perte est de la structure** (texture) ; l'intensité ne coûte rien. Sous 2,8 kHz,
+  MULE perd moins qu'Opus partout (0,1 à 0,6 contre 0,2 à 0,9, unités de 1e-4).
+- La perte de MULE se concentre en **bandes aiguës entières sur des centaines de ms** (pires
+  fenêtres, MULE contre Opus) : Zombie Zombie 2,8-6 kHz 4,89 contre 0,46 (fenêtre 7,21 contre
+  2,69) ; Kompromat 10-15 kHz 3,49 contre 0,97 ; Garbage 10-21 kHz ; Mravinsky 2,8-6 kHz 1,56
+  contre 0,54.
+- Deux mécanismes, d'après la trace : (1) **bandes remplies de bruit** au contenu structuré, que le
+  modèle juge masquées de 10 à 20 dB (Zombie Zombie : bandes 13-14, 3,4-4,8 kHz, sous une bande 12
+  forte, de 0,46 à 1,4 s ; 39 % de sa perte aiguë) ; par cellule, 3 à 4 fois la perte d'une bande
+  codée (celles masquées de plus de 20 dB coûtent peu) ; (2) **bandes codées clairsemées**
+  (a 4 à 6, puissance au niveau du masque à ±3 dB) entre 8 et 17 kHz (Kompromat bandes 18-19,
+  Garbage 19). Sur les 4 extraits, au-dessus de 2,8 kHz : bruit 13 % des cellules et 20 % de la
+  perte, a < 6 9 % et 19 %, le reste 78 % et 61 %.
+
+Leviers d'encodeur essayés (sondes `hi_db`, décalage de masque au-dessus de `mid_hi`, et
+`nf_gate`, bruit seulement sous la cible moins g dB, codage grossier entre), au débit exact de la
+production par extrait (bisection de q), 10 extraits (les 4 pires et 6 variés) :
+`hi_db` +2 / +4 / +6 dB : Zimtohrli +5,1 / +15 / +27 % ; `nf_gate` 3 / 6 / 10 dB : +2,3 / +3,2 /
++5,1 %. Même sur les pires extraits, rien ou presque (Kompromat `hi2` −0,3 %, Zombie Zombie −0,9 %).
+L'allocation du réglage M6 est déjà optimale pour Zimtohrli dans ces directions : la perte tient à
+la représentation des bandes pauvres (bruit aléatoire stationnaire, spectre clairsemé), pas à la
+répartition des bits. (Un premier criblage à q −5 / −7 interpolé était faux : hors de la plage de
+débit, l'interpolation saturait ; d'où la bisection.)
+
+## v5 : le repliement décidé trame par trame, porté sur la production (sonde `fold`, 22/11/2026)
+
+La sonde v4 `MULE_FOLD` (commit 533a53c) portée : drapeau `MULE_PROBE_FOLD` (128), en-tête de 24
+octets (octet 22 : première bande, octet 23 : mélange, bit 4 : décision par canal et trame, 1 bit
+brut après le niveau du bruit des zéros). Le repliement remplace le bruit (en pente ou plat) des
+bandes à 0 bit à partir de `fold_start` (12).
+
+Criblage (12 extraits, Zimtohrli au débit exact de la production par bisection de q) :
+- critère v4 (planéité de la bande source, mélange 2, seuil 5 dB) : −0,34 % ; Garbage −16 %,
+  Eminem −2,6 % ; Spector ne gagne plus (−12 % en v4 : le détecteur des aigus a pris ce gain) ;
+- plus de bruit dans le mélange (4, 6) : moins de pertes, mais le gain fond plus vite (Garbage −7,
+  −2 %) ; seuil 8 dB : pire ;
+- critère d'enveloppe (`fold_crit` 1 et 2 : enveloppes source et cible corrélées sur les 8 blocs
+  courts) : ne replie jamais où ça paie (Garbage 0 %) : le gain de Garbage vient de la texture
+  spectrale recopiée, pas de l'enveloppe ;
+- **source et cible bruitées** (`fold_crit` 3 : la bande elle-même plus plate que −`fold_tgt_db`) :
+  −0,94 % (cible −3 dB), −0,82 % (−2 dB) ; les reculs des extraits tonals passent sous 1 %.
+- Attention : le criblage a un bruit de ±2 à 3 % par extrait. Mravinsky +2,7 % avec toutes les
+  variantes, mais Zimtohrli identique à q égal (3,8576) : les 0,08 kb/s du bit de décision
+  déplacent la bisection, et Zimtohrli varie par paliers avec q sur cet extrait.
+
+**Test (30 extraits, `fold_test.csv` contre `prod5_test.csv`, débit égal, IC 95 %)** :
+
+| | Zimtohrli @128 | @160 | ODG @128 / @160 | ODG avancé | NMR |
+|---|---|---|---|---|---|
+| `ft5g3` (source −5 dB, cible −3 dB) | **−0,89 %** [−2,02 ; −0,06] | **−1,81 %** [−3,83 ; −0,23] | −0,0003 / +0,0005 | +0,0007 / +0,0006 | +0,009 dB |
+| `ft5g2` (cible −2 dB) | −0,69 % [−1,59 ; −0,06] | −1,42 % [−2,96 ; −0,31] | −0,0003 / +0,0004 | +0,0005 / +0,0005 | +0,009 dB |
+
+`ft5g3` à 128 kb/s : 14 extraits en progrès ; Garbage −14,0 %, Korpiklaani −4,9 %, Joy Division
+−3,5 %, Eminem −3,4 % ; pires Mravinsky +2,0 %, Brahms +1,6 % (peut-être les paliers ci-dessus),
+Kompromat +0,6 % ; pire ODG −0,002. Le pire extrait Zimtohrli passe de 4,63 à 4,34, l'écart type
+de 0,82 à 0,77. PEAQ neutre ; la NMR (+0,009 dB) reflète le bit de décision (0,09 kb/s, brut).
+
+## v5 : codage entropique, état des lieux (22/11/2026)
+
+Simulateur du coût des flux sous d'autres règles d'adaptation (C, hors dépôt), sur les opérations
+de la production à q −6, 30 extraits de test ; il reproduit le coût réel au bit près.
+- **Répartition du débit** (125,5 kb/s) : coefficients 56,2 %, bits bruts 32,1 %, énergies 5,1 %,
+  allocations 3,9 %, échappements 1,8 %, stéréo 0,6 %. Les bits bruts sont à 94 % des signes de
+  coefficients (30 % du débit : incompressibles ; le masquage de signe de HEVC est incompatible
+  avec la TCQ), 5 % les suffixes d'échappement, 2 % le niveau du bruit des zéros.
+- **Adaptation des modèles** : la règle actuelle (AV1, 2^-6 ou 2^-7 en régime établi) est à
+  l'optimum. Un taux de plus ou de moins : +0,24 / +0,35 % ; deux vitesses mélangées (rapide et
+  lente, poids égaux ou 1/4) : +0,003 à +0,50 %. Rien à gagner.
+- Avec les études M1 à M8 de la v3 (contextes, prédiction des énergies, paquets clés : tout sous
+  0,3 %), le codage entropique est proche de ce que l'architecture permet.
+- **Bit de décision du repliement** : 0,97 bit avec un modèle adaptatif, même avec la décision de
+  la trame précédente pour contexte (elle change souvent) ; 92 % des trames-canaux ont au moins
+  une bande à 0 bit dès la bande 12, donc ne l'envoyer qu'utile ne gagnerait que 8 % de 0,09 kb/s.
+  Il reste codé brut.
+
+**Validation `dev` (66 extraits, `fold_dev.csv` contre la production de `thf_dev.csv`, au débit de
+la production sur chaque extrait)** : `ft5g3` Zimtohrli **+0,32 %** [−0,37 ; +1,10], médiane
+−0,01 ; 23 extraits à moins de −0,5 %, 16 au-dessus de +0,5 % ; ODG −0,002, ODG avancé −0,002,
+NMR +0,014 dB. Gains : guitare −5,2 %, castagnettes −4,6 %, Daft Punk −3,3 %, Rabbitt −2,9 % ;
+**régressions fortes sur le tonal** : Liszt (piano) +12,5 %, glockenspiel +10,1 %, orchestre
++9,7 %, Satie +7,5 %, diapason et gong +6,0 %, piano +5,3 %. Le critère (source et cible plates)
+ne protège pas le piano ni les percussions accordées : entre les partiels, les bandes aiguës
+paraissent plates, et le repliement y recopie des raies. Le gain de `test` (−0,89 %) ne se
+confirme pas : **non adoptable en l'état**. Kit d'écoute préparé (`data/listen/fold/`, 6
+extraits de `test`), sans les régressions de `dev`.
+
+**Garde-fou tonal (22/11/2026).** Mesure corrigée de la part de trames repliées (canal 0 : le bit
+qui suit le premier champ brut de 3 bits de la trame ; l'ancienne mesure confondait ce bit avec un
+signe après un suffixe d'échappement de 3 bits) : `ft5g3` repliait 93 à 97 % des trames de Liszt,
+de l'orchestre et de Satie, et seulement 12 % de celles de Garbage.
+- Crête des raies sources (coefficients originaux, `fold_crit` 4) : sépare mal (8 dB : Liszt 39 %,
+  Garbage 29 %, ancienne mesure).
+- Densité des niveaux décodés : sans objet avec la TCQ (pas de zéro dans les états impairs).
+- Crête des niveaux décodés des raies sources (`fold_crit` 5) : plus de repliement sur le tonal,
+  mais presque plus sur Garbage (2 à 4 %).
+- **Trames courtes seulement** (`fold_crit` 6) : le tonal ne replie plus (0 à 2 %), les percussifs
+  6 à 18 %. Protocole standard (q −6, −9, au débit de la production), 12 extraits (gagnants de
+  `test` et de `dev`, témoins tonals) : critère source et cible −4,0 %, **sans critère −4,3 %**
+  (Garbage −19,8 %, castagnettes −5,5 %, guitare −5,4 %, Korpiklaani −4,6 %, Joy Division −4,3 %,
+  Eminem −3,4 %, Daft Punk −3,2 % ; Liszt +0,2 %, glockenspiel 0,0 %) ; ODG +0,001, ODG avancé
+  +0,004. Le gain du repliement était dans les trames courtes (attaques, cymbales) ; dans les
+  trames longues, il ne faisait que nuire au tonal.
+- Le critère ne servant plus, mode **`fsnb`** : bit 5 de l'octet 23, toutes les trames courtes
+  replient leurs bandes à 0 bit dès la bande 12, sans bit par trame (débit identique à la
+  production). Validation `test` (4 points) puis `dev` (q −6, −9) lancée.
+
+**`fsnb` validé sur les deux jeux (22/11/2026)** — repliement de toutes les bandes à 0 bit dès la
+bande 12 dans les trames courtes, sans bit par trame, mélange 2 :
+
+| | Zimtohrli | ODG | ODG avancé | NMR |
+|---|---|---|---|---|
+| `test` @128 (30) | **−1,11 %** [−2,25 ; −0,34], 19 mieux | +0,0004 | +0,0018 | −0,0002 dB |
+| `test` @160 | **−2,00 %** [−3,97 ; −0,70], 21 mieux | +0,0009 | +0,0015 | −0,0002 dB |
+| `dev` (66, au débit de la production) | **−0,79 %** [−1,13 ; −0,49], 29 mieux / 1 moins bien | −0,000 | +0,001 | −0,001 dB |
+
+`test` : Garbage −14,9 %, Eminem −3,5 %, Korpiklaani −3,3 %, Joy Division −2,9 % ; pire +0,2 %
+(Zombie Zombie) ; pire ODG −0,001 ; le pire extrait Zimtohrli passe de 4,63 à 4,31. `dev` :
+castagnettes −5,7 %, guitare −5,6 %, Daft Punk −3,4 %, Wolfmother −3,2 % ; seule régression
+Abba +2,5 % (à q −6 : Zimtohrli +3 %, ODG −0,002, ODG avancé −0,010). Tous les juges dans le même
+sens, débit identique. Kit d'écoute `data/listen/foldshort/` (Abba, Garbage, castagnettes,
+guitare, Eminem, Korpiklaani).
+
+**Décision de l'auteur (22/11/2026)** : le repliement dans les trames courtes (`fsnb`) est retenu
+pour la v5 (après les spectrogrammes de Garbage : passage 13,5-15 s, Zimtohrli 4,95 → 3,39).
+
+## v5 : pré-écho dans les trames courtes (diagnostic, Garbage, 22/11/2026)
+
+Zoom sur une attaque de cymbale (14,299 s, 128 kb/s) : au-dessus de 10 kHz, v4 et v5 restituent
+de l'énergie dès 14,290 s, environ 11 dB au-dessus de l'original pendant 9 ms. L'attaque est bien
+dans une trame courte (616, troisième bloc), mais ses **8 blocs forment un seul groupe** (les deux
+canaux) : énergies communes, donc bruit de la bande 21 réparti sur les 8 blocs, pas de
+quantification fixé par l'attaque (la TCQ n'a pas de zéro dans les états impairs : des niveaux
+±1 dans les blocs calmes), bruit des zéros au niveau du groupe. Avec `group_db` 12 (production),
+70 % des trames courtes de Garbage n'ont qu'un groupe ; à 9 dB, 34 % (la trame 616 coupée à
+l'attaque : 0-2 | 2-8) ; à 6 dB, 14 %. Le seuil date de l'époque où PEAQ décidait.
+
+**Correctifs du pré-écho (sondes d'encodeur, par-dessus la v5 `fsnb`)** : le détecteur donne
+désormais, pour chaque trame, la première fenêtre courte qui atteint son attaque (`att`).
+`group_att` 1 : coupure de groupe forcée avant cette fenêtre ; 2 : cette coupure seule, au lieu de
+la règle de niveau ; 3 : cette coupure seulement si la règle de niveau laisse la trame entière ;
+`group_att_db` : coupure seulement si l'attaque monte d'autant dans une région (ne sépare pas :
+les attaques de Garbage montent de moins de 15 dB dans ces grandes régions). Protocole standard
+(q −6, −9, au débit de la v5), 12 extraits (percussifs de `test` et `dev`, témoins tonals) :
+
+| | Garbage | Kompromat | Lebanon H. | Eminem | castagnettes | moyenne | ODG | kb/s à q égal |
+|---|---|---|---|---|---|---|---|---|
+| `group_att` 1 | −14,8 % | +2,4 % | +3,6 % | +1,6 % | +3,2 % | −0,40 % | −0,003 | +1,25 |
+| `group_db` 9 | −12,6 % | +6,7 % | +3,9 % | +2,5 % | +1,1 % | −0,29 % | −0,006 | +1,61 |
+| `group_att` 1 + `group_db` 9 | −14,8 % | +8,5 % | +6,8 % | +6,2 % | −0,3 % | +0,79 % | −0,011 | +2,61 |
+| `group_db` 8 | −12,4 % | +11,6 % | +6,9 % | +4,1 % | +0,8 % | +0,29 % | −0,010 | +2,38 |
+| `group_att` 2 | −14,7 % | −1,7 % | **+82 %** | +1,1 % | **+78 %** | +13,7 % | −0,041 | −0,12 |
+| **`group_att` 3** | **−15,3 %** | +1,1 % | −0,1 % | −0,7 % | −0,2 % | **−1,72 %** | −0,001 | +0,52 |
+
+Les groupes en plus coûtent leurs énergies et allocations : couper partout se paie ailleurs ;
+remplacer la règle de niveau ruine les trames à plusieurs attaques. `group_att` 3 coupe là où le
+pré-écho naît (trames entières : Garbage 70 % → 23 %). Validation `test` et `dev` lancée
+(contre `fsnb_test.csv`, `fsnb_dev.csv`).
+
+**Validation de `group_att` 3 par-dessus la v5 (contre `fsnb`)** :
+
+| | Zimtohrli | ODG | ODG avancé | NMR |
+|---|---|---|---|---|
+| `test` @128 (30) | −0,31 % [−1,03 ; +0,15], 11 mieux | −0,0001 | +0,0001 | +0,020 dB |
+| `test` @160 | −0,85 % [−2,31 ; +0,01] | −0,0002 | −0,0007 | +0,020 dB |
+| `dev` (66, au débit de la v5) | +0,01 % [−0,24 ; +0,31], 9 mieux / 5 moins bien | +0,001 | 0,000 | +0,013 dB |
+
+`test` : Garbage −9,3 %, puis rien au-delà de −1 % ; pire Kompromat +1,6 %. `dev` : Abba −4,0 %
+(la seule régression du repliement, compensée), Lorde −2,2 % ; diapason et gong +6,6 %, voix
+d'homme +2,3 %, Heilung +2,0 %. En moyenne neutre : le gain se concentre sur Garbage (le pire
+extrait), au prix de quelques reculs. Débit +0,3 kb/s à q égal (comparaison à débit égal).
+
+## v5 : le détecteur d'attaques prend la hauteur de la voix pour des attaques (22/11/2026)
+
+En cherchant pourquoi `group_att` 3 faisait reculer la voix d'homme : 23 % de ses trames sont
+courtes (17 % pour la voix de femme), contre 3 à 17 % pour la musique. (Le diapason et gong,
+SQAM 05, son pur : 8,5 kb/s, ODG −3,91 à tous les débits, comme Opus à 113 kb/s, −3,8 : PEAQ juge
+mal les sons purs ; son recul de 6,6 % venait des 0,08 kb/s de la coupure, 1 % de son débit.)
+- La règle lente du détecteur (20 dB au-dessus des blocs 7 à 10 plus tôt, sonde `tr_slow_db`)
+  n'y est presque pour rien (voix d'homme 23,1 → 21,1 % sans elle).
+- C'est la règle rapide : un bloc de 128 à 8,5 dB au-dessus d'une mémoire qui **décroît de 3 dB
+  par bloc** (environ 1 000 dB/s). Une voix voisée filtrée au-dessus de 3 kHz est une suite
+  d'impulsions glottiques (toutes les 8 ms à 120 Hz) : entre deux, la mémoire chute assez pour
+  que la suivante déclenche. Sonde `tr_decay_db` : à 1 dB par bloc, voix d'homme 23 → 12 %,
+  Kompromat 11,6 → 4,5 %, Heilung 11,6 → 5,4 %, voix de femme 17 → 15 % ; Garbage, castagnettes,
+  Lebanon Hanover, glockenspiel, clavecin inchangés (les vraies attaques montent bien plus).
+- Protocole standard par-dessus la v5, 12 extraits : `tr_decay_db` 1 : Zimtohrli −1,27 %
+  (Kompromat −5,6 %, Heilung −4,1 %, voix d'homme −3,2 %, de femme −2,3 % ; Eminem +0,5 %,
+  Spector +0,35 % ; attaques franches 0,0 %), ODG +0,008, ODG avancé +0,005, NMR −0,046 dB ;
+  1,5 dB : −1,10 % ; 2 dB : −0,54 %. Débit −0,33 kb/s à q égal. Validation `test` et `dev` lancée.
+
+**Validation de `tr_decay_db` 1 par-dessus la v5 (contre `fsnb`)** :
+
+| | Zimtohrli | ODG | ODG avancé | NMR |
+|---|---|---|---|---|
+| `test` @128 (30) | −0,10 % [−0,67 ; +0,26] | +0,0003 | +0,0011 | −0,007 dB |
+| `test` @160 | −0,16 % [−0,72 ; +0,22] | +0,0007 | +0,0004 | −0,008 dB |
+| `dev` (66, au débit de la v5) | −0,20 % [−0,49 ; +0,05], 9 mieux / 4 moins bien | +0,001 | +0,001 | −0,011 dB |
+
+`test` : Kompromat −7,0 %, puis rien au-delà de −0,6 % ; pire And One +1,8 % ; pire ODG −0,002.
+`dev` : Aphex Twin −6,6 %, Heilung −4,1 %, voix d'homme −3,2 %, voix de femme −2,3 %, Björk −1,7 % ;
+Rabbitt +2,6 %, Daft Punk (Digital Love) +1,7 %, Bat for Lashes +1,4 %. Tous les juges dans le même
+sens (PEAQ de base et avancé un peu mieux, NMR un peu mieux), mais aucun intervalle n'exclut zéro :
+un correctif ciblé (les extraits voisés ou pulsés que le détecteur coupait à tort), pas un gain
+d'ensemble. Encodeur seul.
+
+**Décision de l'auteur (22/11/2026)** : la mémoire du détecteur à 1 dB par bloc devient la
+production (`tr_decay_db` 1 dans `core/enc.c` et `py/mule/params.py`), « un prérequis pour
+reprendre l'optimisation de l'encodeur sur de bonnes bases ». Toutes les variantes antérieures de
+`eval/refcodecs.py` (et les points `m6*`) gardent 3 dB. Nouvelle base de la v5 : `v5d` (repliement
+dans les trames courtes et détecteur corrigé). Suite du plan, réglée sur la moitié impaire de
+`dev` (33 extraits, q −6, −9, `v5d_tune_devodd.csv`) : `tr_db` 7 et 10, `tr_hf_db` 7 et 10,
+`group_att` 3, contre `v5d` ; puis validation du meilleur sur `test` et `dev`.
+
+**Réglage du détecteur corrigé, moitié impaire de `dev`** (33 extraits, q −6 et −9, au débit de
+`v5d`, Zimtohrli moyen [IC 95 %], extraits à plus de 0,5 % mieux / moins bien) :
+- `tr_db` 7 : +0,15 % (2 / 4, piano +3,2 %) ; `tr_db` 10 : +0,13 % (0 / 2) : on garde 8,5 dB ;
+- `tr_hf_db` 10 : +0,87 % [+0,31 ; +1,58] (0 / 9, Slayer +8,3 %) ; 7 : −0,47 % [−1,22 ; +0,04]
+  (6 / 2, Slayer −10,2 %, guitare −4,1 % ; Aphex +1,8 %) ; **6 : −0,97 % [−2,05 ; −0,17]** (11 / 4,
+  Slayer −14,8 %, guitare −7,1 %, Wu-Tang −3,3 % ; Heilung +1,5 %, Björk +1,2 %) : avec l'ancien
+  détecteur, baisser ce seuil faisait reculer Aphex et la voix de femme (les fausses attaques) ;
+- `group_att` 3 : −0,14 % [−0,33 ; +0,05] (voix d'homme +1,8 %) ; avec `tr_hf_db` 7 : −0,68 %
+  [−1,54 ; −0,10].
+PEAQ neutre partout (±0,002). Dernier pas lancé : `tr_hf_db` 5, et 6 avec `group_att` 3.
+Dernier pas : `tr_hf_db` 5 : −0,90 % [−2,45 ; +0,34] mais 10 / 6 (Heilung +6,2 %, voix d'homme
++3,1 %, Aphex +2,9 % ; Slayer −18,5 %) ; 6 avec `group_att` 3 : −1,04 % [−2,32 ; −0,12], 9 / 2
+(Heilung +2,1 %, Aphex +1,9 %), NMR +0,034 dB, +0,42 kb/s à q égal. **`tr_hf_db` 6 retenu** pour la
+v5. Validation finale lancée, contre la production v4 actuelle (`mule`, détecteur corrigé) :
+`v5dhf6` et `v5dhf6ga3` sur `test` (4 points, `v5final_test.csv`) et `dev` (`v5final_dev.csv`).
+
+## Étude : PVQ en treillis pour CELT (`eval/pvq_trellis.py`, 22/11/2026)
+
+Question de l'auteur, pour Opus (pas pour MULE) : unir les pyramides PVQ à K et K+1 impulsions
+(directions intercalées sur la sphère, le « demi-pas »), les couper chacune en deux par une règle
+de parité (4 sous-ensembles) et les choisir par le treillis de la TCQ de MULE, l'état passant d'un
+vecteur (bande) au suivant. Simulation : vecteurs de Laplace normalisés, recherche exhaustive,
+Viterbi sur des suites de 20 vecteurs, 300 suites ; gain de SNR de forme à débit égal contre la PVQ
+seule (interpolée en débit).
+
+| N | règle | 4 états, K 2→7 | 8 états, K 2→7 | témoin sans partition |
+|---|---|---|---|---|
+| 4 | parité des positions impaires | +0,12 à +0,25 dB | +0,16 à +0,28 dB | −0,5 à −0,65 dB |
+| 4 | mixte | +0,08 à +0,25 dB | +0,16 à +0,30 dB | |
+| 8 | parité des positions impaires | +0,07 à +0,16 dB | +0,11 à +0,18 dB | −0,15 à −0,27 dB |
+| 8 | première coordonnée | −0,33 à −0,04 dB | −0,23 à −0,01 dB | |
+
+- **Le treillis marche** : contre son propre dictionnaire (le témoin, union des deux pyramides
+  sans contrainte), il gagne 0,7 à 0,9 dB en N = 4 et environ 0,4 dB en N = 8.
+- **Mais l'union des pyramides K et K+1 est un mauvais dictionnaire** : à débit égal, 0,5 dB (N 4)
+  à 0,2 dB (N 8) sous la pyramide seule. Il mange la majeure partie du gain : net +0,15 à +0,3 dB.
+- Rien à une impulsion (K 1→2) ; le gain croît avec K et décroît avec N (la dimension donne déjà
+  une part du gain). En N = 8, +0,18 dB vaut environ 0,2 bit par vecteur, 1,5 % du débit de forme.
+- Piste si l'on insiste : un vrai second réseau décalé (classe de D_n ou réseau dual) projeté sur
+  la sphère, au lieu de la pyramide K+1, pour ne pas perdre ces 0,2 à 0,5 dB.
+
+**Codage entropique, les trois petits postes (22/11/2026)** :
+- **Niveau du bruit des zéros** (3 bits bruts par canal et par trame, 0,7 % du débit) : 1,38 bit
+  avec un modèle adaptatif à 8 symboles (1 contexte) ; avec le niveau de la trame précédente pour
+  contexte, 1,44 bit (rien de plus). Économie environ 0,14 kb/s, **−0,11 % du débit**.
+- **Suffixes d'échappement** (1,67 % du débit, bruts) : modélisés bit par bit (ordre, position),
+  0,991 de leur taille : −0,015 %. Incompressibles.
+- **Trames courtes, contexte de la même raie dans la fenêtre précédente** (traces de l'encodeur v5,
+  q −7, tables apprises sur `train`, mesuré sur `dev`, 66 extraits) : avec les contextes des trames
+  longues +0,02 % du débit ; avec 96 contextes propres aux trames courtes −0,05 % (57 extraits sur
+  66), pour environ 3 Kio de tables en plus au décodeur. Les trames courtes ne portent que 6,9 %
+  des coefficients.
+Seul le niveau du bruit des zéros vaut un changement de format (un modèle de 8 symboles, sans
+mémoire notable) : à intégrer au gel de la v5.
+
+**Décision de l'auteur (22/11/2026) : le niveau du bruit des zéros codé avec un modèle entre dans
+la v5.** Sonde `nf_model` : nouveau flux `MULE_S_NFLEV` (8 symboles, 1 contexte, départ uniforme,
+ajouté à la fin des flux : les tables initiales ne changent pas ; `MULE_NMODELS` 134 → 135), bit 6
+de l'octet 23 de l'en-tête de repliement. Côté encodeur, l'opération est réécrite une fois le
+niveau mesuré, comme avant ; les modèles suivis pour les choix débit-distorsion ne la lisent pas.
+Vérifié à q −6 (`v5dhf6` contre `v5dhf6nfm`) : audio décodé identique au bit près, débit −0,12 %
+(Garbage), −0,15 % (voix d'homme), −0,24 % (Liszt). Compilé et testé dans `build_nfm`
+(`MULE_BUILD`) pendant que la validation finale tournait sur `build`.
+
+## v5 : validation finale contre la v4 de production (22/11/2026)
+
+Production v4 actuelle (`mule` : détecteur corrigé, `tr_hf_db` 8,5) contre la v5 (`v5dhf6nfm` :
+repliement dans les trames courtes, détecteur corrigé, `tr_hf_db` 6, niveau du bruit des zéros
+modélisé ; débit du modèle appliqué extrait par extrait et q par q, son identique :
+`v5final_test_nfm.csv`, `v5final_dev_nfm.csv`, rapport moyen 0,9988 sur `test`, 0,9986 sur `dev`),
+et la même avec `group_att` 3 :
+
+| | Zimtohrli | ODG | ODG avancé | NMR |
+|---|---|---|---|---|
+| **v5**, `test` @128 | **−2,03 %** [−3,48 ; −0,82], 25 / 30 mieux | +0,001 | +0,004 | −0,014 dB |
+| **v5**, `test` @160 | **−2,82 %** [−5,05 ; −1,06], 25 / 27 | −0,000 | +0,002 | −0,021 dB |
+| **v5**, `dev` (66) | **−1,88 %** [−2,61 ; −1,27], 42 mieux / 4 moins bien | +0,003 | +0,003 | −0,018 dB |
+| v5 + `group_att` 3, `test` @128 | −2,25 % [−4,31 ; −0,69], 24 / 30 | +0,001 | +0,003 | +0,013 dB |
+| v5 + `group_att` 3, `test` @160 | −3,52 % [−6,82 ; −1,05] | −0,002 | +0,001 | +0,012 dB |
+| v5 + `group_att` 3, `dev` | −1,80 % [−2,68 ; −1,15], 41 / 6 | +0,002 | +0,002 | +0,009 dB |
+
+v5, `test` : Garbage −15,3 %, Joy Division −13,7 %, Steel Panther −4,9 %, And One −4,5 % ; pires
+Kompromat +2,9 %, Zombie Zombie +2,4 %, Belenos +1,7 % (ODG −0,028). `dev` : Slayer −16,6 %,
+guitare −12,4 %, castagnettes −6,0 %, Wu-Tang −5,0 % ; pires Abba +2,6 %, Heilung +1,0 % ; pire
+ODG voix de femme −0,022. La coupure à l'attaque : −0,28 % de plus à 128 kb/s sur `test` (IC
+traversant zéro), +0,08 % sur `dev` ; Garbage −23,5 % au lieu de −15,3 %, Kompromat +4,9 % ; NMR
+moins bonne. Non retenue (proposition).
+
+Pré-écho de l'attaque de Garbage (14,299 s, au-dessus de 10 kHz, 9 ms avant le coup, 128 kb/s) :
+original −42,1 dB ; v4 −30,9 dB (+11,2 dB) ; v5 −35,5 dB (+6,6 dB) ; v5 + coupure −36,3 dB
+(+5,8 dB). La v5 en retire déjà près de la moitié sans la coupure, qui n'ajoute que 0,8 dB ici.
+
+**Décision de l'auteur (22/11/2026)** : la coupure à l'attaque (`group_att` 3) est écartée.
+
+## v5 : Belenos et la voix de femme (22/11/2026)
+
+Les deux reculs PEAQ de la v5 viennent de `tr_hf_db` 6, pas du repliement (au débit de la
+production : `hf6` seul, format v4, Belenos Zimtohrli +3,2 %, ODG −0,056 ; voix de femme −0,35 %,
+ODG −0,020 ; `v5d` à 8,5 dB : Belenos inchangé, voix de femme −0,6 %, ODG −0,002).
+- **Belenos** : une seule trame (4,2 s) passe en blocs courts à 6 dB. À q égal, q −9 : ODG +0,008
+  → −0,069, Zimtohrli +6,9 %. Une trame courte (raies de 172 Hz) au milieu d'un bourdon de
+  cornemuse brouille ses harmoniques. Planéité de ses bandes 12-21 : −12,5 dB. Parmi les 2 122
+  trames que le détecteur des aigus ajoute sur `test` et `dev`, 67 sont sous −6 dB (orgue de Bach
+  24, Abba 8, Zombie Zombie 7, Salut c'est cool 5...), 14 sous −10 dB.
+- **Veto tonal** (sonde `tr_hf_ton`) : une trame que seul le détecteur des aigus fait passer en
+  blocs courts reste longue si ses bandes 12-21 (FFT 2048 du canal milieu) sont plus plates que
+  −`tr_hf_ton` dB. Contre la v5, au débit de la v5 (q −6, −9), Zimtohrli / ODG :
+
+| | 6 dB | 8 dB | **10 dB** | 12 dB |
+|---|---|---|---|---|
+| Belenos | −3,1 % / +0,056 | −3,1 % / +0,056 | **−3,1 % / +0,056** | −3,1 % / +0,056 |
+| orgue de Bach | +19,9 % / +0,042 | +10,0 % / +0,032 | **−0,9 % / +0,016** | 0,0 % / +0,003 |
+| clavecin | +7,1 % / +0,016 | −0,7 % / +0,008 | **−0,7 % / +0,008** | −0,7 % / +0,008 |
+| Salut c'est cool | −1,3 % / +0,006 | −0,9 % / +0,006 | **−0,9 % / +0,006** | −0,8 % / +0,005 |
+| Abba / Zombie Zombie | −1,4 / −2,0 % | −0,4 / 0,0 % | 0,0 / 0,0 % | 0,0 / 0,0 % |
+
+  À 6 et 8 dB, les juges divergent sur l'orgue (ses attaques de notes veulent des blocs courts
+  selon Zimtohrli). **À 10 dB, tout s'améliore selon les deux.** Recensement (le choix des blocs
+  ne dépend pas de q) : à 10 dB, seuls l'orgue de Bach (5 trames), Salut c'est cool (4), Belenos
+  (1) et le clavecin (1) changent sur `test` et `dev` ; les autres extraits sont identiques au bit
+  près. Validé sans nouvelle campagne. **`tr_hf_ton` 10 entre dans la v5.**
+- **Voix de femme** : ses trames ajoutées sont bruitées (planéité −3,7 dB, des attaques de
+  fricatives) ; Zimtohrli s'améliore (−0,35 %), PEAQ recule de 0,020 à 0,022, à la limite de la
+  règle. Désaccord de juges : à trancher à l'écoute si l'auteur le souhaite.
+
+## Format v5 figé (22/11/2026)
+
+`MULE_VERSION` 5 : la v4, plus le repliement des bandes sans bits des trames courtes à partir de la
+bande 12 (`fold_band`, mélange `MULE_FOLD_MIX` 2, sans signalisation) et le niveau du bruit des
+zéros codé avec le modèle `MULE_S_NFLEV` (8 symboles, départ uniforme ; `MULE_NMODELS` 135).
+L'encodeur écrit la v5 avec `tr_hf_db` 6, `tr_hf_ton` 10, `tr_decay_db` 1. Le décodeur lit v2 à
+v5 ; vecteurs v4 figés dans `tests/vectors/v4`, vecteurs v5 écrits (70 tests verts). Le format
+figé redonne exactement la sonde mesurée (`v5ton10`) : 5 extraits à q −6 et −9, débit et
+échantillons identiques. Sondes retirées : `vtx`, `env`, `tf` (et ses réglages), `hi_db`,
+`nf_gate`, les critères et réglages de `fold`, `nf_model`, `group_att`, `tr_slow_db`, avec leurs
+variantes d'évaluation ; les variantes restantes gardent le détecteur tel que mesuré (`PRE_V5`)
+mais écrivent la v5.
+
+Passe qualité (revues réutilisation, simplification, efficacité, profondeur) : `fold_band` sans
+tableau local (−2,8 Kio de pile, sortie identique) ; `MULE_BAND_MAX` ; la passe à 3 kHz du
+détecteur calculée une fois, le veto tonal déplacé dans `enc_psy.c` (`hf_tonal_veto`), la
+planéité factorisée (`flatness_db`, partagée avec `frame_analysis`) ; le modèle suivi de `nflev`
+mis à jour ; `PRE_V5` unique dans `eval/refcodecs.py` ; outils : classes de `b512_study` figées,
+fenêtres en cache, rééchantillonnage VHQ de `zimt_diag`, corrélations par blocs et une seule fois
+par pyramide dans `pvq_trellis`. Encodeur et décodeur vérifiés identiques au bit près après la
+passe. Décodeur : 49 424 octets d'état (+52), code Cortex-M3 17 743 octets.
+
+Production v5 sur `test` (`prod6_test.csv`), à débit moyen égal : ODG −0,145 / +0,006 (128 /
+160 kb/s), ODG avancé −0,332 / −0,134, Zimtohrli 2,77e-4 (médiane 2,71) et 1,43 (médiane 1,36) ;
+Garbage 3,10, pire Zombie Zombie 4,76. README (ligne v5, figures `enc-fig6-v5*`, `enc-fig7-zimt-v5*`),
+`docs/V5.md`, `spec/FORMAT.md`, `docs/PORT.md`, `docs/TODO.md` à jour.

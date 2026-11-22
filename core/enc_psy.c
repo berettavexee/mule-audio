@@ -5,13 +5,14 @@
 /* ---------------------------------------------------------------- transient detector */
 
 /* The block type of each of the T frames (0 long, 1 short): energies of 128-sample blocks of the
- * signal high-passed at 3 kHz; an attack is a block ratio_db (tr_db, 8.5 dB) above a decaying
- * memory (3 dB per block) or 20 dB above the blocks 7 to 10 earlier, above a -70 dB floor; the frames whose short
- * windows hold it become short. -1 if out of memory. */
-int block_types(const double *x, int64_t L, int T, uint8_t *types, double ratio_db)
+ * signal high-passed at fc; an attack is a block ratio_db above a memory decaying by decay_db per
+ * block, or 20 dB above the blocks 7 to 10 earlier, above a -70 dB floor; the frames whose short
+ * windows hold it become short. add: the frames already short stay short (a second pass). The
+ * production's passes and values: mule_enc.h (tr_db, tr_hf_*, tr_decay_db). -1 if out of memory. */
+int block_types(const double *x, int64_t L, int T, uint8_t *types, double ratio_db, double fc, int add,
+                double decay_db)
 {
-    const double fs = 44100.0, fc = 3000.0, decay_db = 3.0, floor_db = -70.0,
-                 slow_db = 20.0;
+    const double fs = 44100.0, floor_db = -70.0, slow_db = 20.0;
     const int lag0 = 7, lag1 = 10, SUB = 128;
     /* 2nd-order Butterworth high-pass (bilinear, prewarped: scipy's butter) */
     double K = tan(M_PI * fc / fs), Q = 1 / sqrt(2.0);
@@ -38,7 +39,7 @@ int block_types(const double *x, int64_t L, int T, uint8_t *types, double ratio_
         e[j] /= SUB;
     double flo = pow(10, floor_db / 10), d = pow(10, -decay_db / 10);
     double mem[2] = {0, 0};
-    for (int t = 0; t < T; t++)
+    for (int t = 0; t < T && !add; t++)
         types[t] = 0;
     for (int64_t j = 0; j < nsub; j++) {
         double score = -1e300, emax = 0;
@@ -70,6 +71,31 @@ int block_types(const double *x, int64_t L, int T, uint8_t *types, double ratio_
     }
     free(e);
     return 0;
+}
+
+/* The tonal veto of the highs pass (tr_hf_ton): a frame it made short (short in types, long in
+ * first, the 3 kHz pass's decisions) goes back to long if the bands 12-21 (2.8-17 kHz) of its mid
+ * channel's long window are flatter than -ton_db dB on average (FFT powers): a short frame on a
+ * drone blurs its harmonics (N-LOG.md, Belenos). */
+void hf_tonal_veto(const double *pcm, int64_t L, int T, uint8_t *types, const uint8_t *first,
+                   double ton_db, const mdct_t *ml)
+{
+    const int b0 = MULE_NF_START, b1 = 21;
+    double seg[MULE_N_LONG], pw[F];
+    for (int t = 0; t < T; t++) {
+        if (!types[t] || first[t])
+            continue;
+        for (int i = 0; i < MULE_N_LONG; i++) {         /* the mid of [F (t-1), F (t+1)) */
+            int64_t j = (int64_t)F * (t - 1) + i;
+            seg[i] = j >= 0 && j < L ? 0.5 * (pcm_sample(pcm[2 * j]) + pcm_sample(pcm[2 * j + 1])) : 0.0;
+        }
+        fft_power(ml, seg, pw);
+        double fl = 0;
+        for (int b = b0; b <= b1; b++)
+            fl += flatness_db(pw + EDGES[b] * 8, (EDGES[b + 1] - EDGES[b]) * 8) / (b1 + 1 - b0);
+        if (fl < -ton_db)
+            types[t] = 0;
+    }
 }
 
 /* ---------------------------------------------------------------- psychoacoustics */

@@ -1,4 +1,4 @@
-# MULE : format du flux, version 4
+# MULE : format du flux, version 5
 
 Ce document est **normatif** pour le décodeur. Les implémentations de référence sont le décodeur `core/dec.c`, en entiers seulement, et l'encodeur `core/enc.c`. **La sortie du décodeur de référence est normative au bit près** : c'est elle que joue le lecteur, et un autre décodeur conforme doit donner les mêmes échantillons sur 16 bits. Tout ce qui n'est pas décrit ici, comme la psychoacoustique, l'allocation, la stéréo ou la commutation de blocs, relève des **choix de l'encodeur** : le décodeur se contente de lire.
 
@@ -23,7 +23,7 @@ La **granule** d'une page est le nombre d'échantillons par canal que le décode
 | Octets | Champ | Valeur |
 |---|---|---|
 | 0–7 | signature | `MULEHead` |
-| 8 | version | 4 (la v3 plus le bruit dans les zéros des bandes codées et le bruit en pente, §5, §5.3 ; historique au §7). Le décodeur de référence lit aussi la v3 (même en-tête, sans les ajouts de la v4) et la v2 (en-tête de 20 octets, sans les octets 20 et 21) |
+| 8 | version | 5 (la v4 plus le repliement des bandes sans bits des trames courtes et le niveau du bruit des zéros codé par un modèle, §3, §5, §5.3 ; historique au §7). Le décodeur de référence lit aussi la v4 et la v3 (même en-tête, sans les ajouts des versions suivantes) et la v2 (en-tête de 20 octets, sans les octets 20 et 21) |
 | 9 | canaux | 2 |
 | 10–11 | pre_skip | 1024 |
 | 12–15 | fréquence | 44100 (le format n'est réglé que pour 44,1 kHz) |
@@ -80,7 +80,7 @@ Chaque symbole garde donc une fréquence d'au moins 4.
 - pour chaque `i` de 1 à n−1 : si `i > s`, `cdf[i] += (32768 − cdf[i]) >> rate` ; sinon `cdf[i] −= cdf[i] >> rate` ;
 - `count = min(count + 1, 32)`.
 
-**Initialisation** au paquet clé : les CDF entraînées de `core/init_cdf.h` avec `count = 16` (avec `MULE_COEF_A8`, celles des flux `coef` et `cesc` viennent de `core/init_cdf_a8.h`), ou la CDF uniforme `cdf[i] = 32768·i / n` avec `count = 0` pour un flux sans table.
+**Initialisation** au paquet clé : les CDF entraînées de `core/init_cdf.h` avec `count = 16` (avec `MULE_COEF_A8`, celles des flux `coef` et `cesc` viennent de `core/init_cdf_a8.h`), ou la CDF uniforme `cdf[i] = 32768·i / n` avec `count = 0` pour un flux sans table (`nflev`).
 
 | Flux | Symboles | Contextes |
 |---|---|---|
@@ -93,6 +93,7 @@ Chaque symbole garde donc une fréquence d'au moins 4.
 | cesc | 16 | 16 |
 | coef | 8 (16 sans `MULE_COEF_A8`, et en v2) | 96 |
 | eaesc | 16 | 1 |
+| nflev (v5) | 8 | 1 |
 
 `classe(b) = 0` si b < 8, `1` si b < 16, `2` sinon.
 
@@ -119,7 +120,8 @@ ai              = M(alpha, 0)                 α = {0, 16, 26, 31}[ai]
 pour b < 22 :
   ms[b]         = M(stereo, classe(b))        1 : la bande est codée en M/S
 pour c = 0, 1 :                               canal codé (L/M, R/S)
-  si v4 : nf = R(3)                           niveau du bruit des zéros (§5.3), 0 : aucun
+  si v5 : nf = M(nflev, 0)                    niveau du bruit des zéros (§5.3), 0 : aucun
+  sinon, si v4 : nf = R(3)
   queues = (0, 0)                             |y| des deux coefficients précédents, sur toute la trame
   pour chaque groupe g (1 en trame longue) :
     énergies, allocation, coefficients        §5.1 à §5.3
@@ -177,6 +179,14 @@ Pour chaque bande b avec `Q[b] > −100` :
 - sinon `s = ((Q[r] − Q[l]) << 14) div (c_r − c_l)` (log2 par coefficient en Q16, division entière tronquée vers 0), bornée à `±(2^16 div max(n_b div 2, 1))`, soit ±6 dB aux bords de la bande ;
 - pour `i < n_b` : `lcg` comme ci-dessus, `w_i = 2^((s·(8·E[b] + i − c_b) + (s >> 1)) / 2^16)` en Q16, `z_i = (((lcg >> 16) − 32768) · w_i) >> 18` ; puis `X_i = z_i · rms_b · sqrt(n_b / Σz²)` comme le bruit plat (tous nuls si `Σz² = 0`).
 - `2^x` en Q16 est celui de `core/dec.c` (`exp2_q16`) : `x = i + f` (`i = x >> 16`, `f = x & 0xFFFF`), `p = 65536 + (f·(45426 + (f·(15743 + (f·4367 >> 16)) >> 16)) >> 16)`, puis `p << i` ou `p >> −i`.
+
+**v5, repliement** (trame courte, `b ≥ 12`, à la place du bruit plat) : chaque coefficient reprend la valeur déjà décodée `w = E[b+1] − E[b]` coefficients plus bas dans la même fenêtre (avant la stéréo inverse), comme le repliement d'Opus, mélangée au bruit puis mise à l'énergie de la bande. En entiers, comme `fold_band` de `core/dec.c` (`isqrt` : racine entière par défaut ; `/` : division entière tronquée vers 0) :
+- pour `i < n_b` (indice `x_i` du coefficient, ordre de parcours) : `s_i = X[x_i − w] >> 8` ; `lcg` comme pour le bruit, `z_i = (lcg >> 16) − 32768` ;
+- `Rs = isqrt(Σs²)`, `Rz = isqrt(Σz²)`, `r = isqrt(n_b · 2^32)` ; `cf = 237`, `cn = 98` si `Rs > 0`, sinon `cf = 0`, `cn = 256` (cos et sin de 2/8 × 90°, `MULE_FOLD_MIX` = 2, en Q8) ;
+- `a_i = Rs > 0 ? s_i·r / Rs : 0`, `z'_i = Rz > 0 ? z_i·r / Rz : 0`, `t_i = (cf·a_i + cn·z'_i) >> 8` ; `R = isqrt(Σt²)` ;
+- si `R = 0`, tous les `X_i` sont nuls ; sinon `g = A·r / R` avec `A = 2^(Q[b]/4)` en Q32 (`fx_scale64(256, Q[b])`, comme pour le bruit plat), et `X_i = (t_i · g) >> 24`.
+
+L'encodeur décide seul quand une trame est courte : le repliement suit ce choix, sans signalisation.
 
 **Sinon** : quantification **TCQ**, treillis de `N` états (`N = 2^octet20`, 64 pour l'encodeur ; 8 en v2). Pas `Δ = 2^((9 − a[b])/4)`, `ac = min(a[b] div 3, 15)`.
 
@@ -269,4 +279,5 @@ Historique (aucun fichier v0 ou v1 conservé ; le décodeur refuse les versions 
 - **v1** : 96 contextes, compression identique au bit près. Quantification **scalaire** `X = y·Δ·rms_b` (|y| codé, signe si |y| > 0), table de CDF 1 ;
 - **v2** (P4, 17/11/2026) : quantification **TCQ** (§5.3), table de CDF 2 entraînée sur 200 extraits indépendants. Gain mesuré sur le jeu de test, à débit égal, par rapport à v1 avec le même encodeur : ODG +0,06 à 128 kb/s et +0,04 à 160, sans régression (`docs/VARIANTS-BC.md`). En écoute ABX, transparent à 160 kb/s sur les 6 extraits critiques (`eval/results/G2-ABX.md`).
 - **v4** (21/11/2026, dans `main` depuis le 22/11/2026) : même en-tête que la v3, octet 8 à 4 ; par canal et par trame, 3 bits bruts avant les énergies (niveau du bruit des zéros) ; bruit dans les zéros des bandes codées à partir de la bande 12 ; bruit en pente dans les bandes de bruit des trames longues à partir de la bande 12, borné à ±6 dB. L'encodeur ajoute la garde tonale (choix d'encodeur). Sur le jeu de test (30 extraits), au même débit contre la v3 : ODG +0,022 vers 121 kb/s et +0,019 vers 151, ViSQOL +0,025 et +0,013, Zimtohrli −3,2 % et −1,9 %, ODG avancé −0,009 et −0,005 ; gain presque nul vers 180 kb/s (`eval/results/N-LOG.md`, `docs/V4.md`).
+- **v5** (22/11/2026) : même en-tête que la v4, octet 8 à 5 ; le niveau du bruit des zéros codé avec un modèle adaptatif (flux `nflev`, 8 symboles, départ uniforme ; 1,4 bit au lieu de 3, −0,12 % du débit) ; dans les trames courtes, les bandes sans bits à partir de la bande 12 remplies par repliement au lieu de bruit. Avec l'encodeur de la v5 (détecteur d'attaques corrigé, détecteur des aigus à 6 dB avec veto tonal), sur le jeu de test, au même débit contre la production v4 : Zimtohrli −2,0 % à 128 kb/s et −2,8 % à 160, PEAQ de base et avancé un peu mieux ; sur `dev`, −1,9 % (`eval/results/N-LOG.md`, `docs/V5.md`).
 - **v3** (19/11/2026) : en-tête de 22 octets (octets 20 et 21) ; treillis de 64 états dont l'état se poursuit d'une bande à l'autre (Viterbi conjoint sur le groupe dans l'encodeur) ; coefficients sur 8 symboles, échappement à 7, avec leurs propres CDF initiales (`core/init_cdf_a8.h`, liées au drapeau, l'octet 19 restant à 2). Sur le jeu de test, à débit égal contre la v2 : ODG +0,036 à 128 kb/s et +0,015 à 160, ODG avancé +0,041 et +0,017, une régression (`eval/results/B-LOG.md`). Décodeur : −8 % d'instructions sur Cortex-M3 (`eval/results/C-LOG.md`).

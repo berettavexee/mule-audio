@@ -62,6 +62,11 @@ void mule_enc_defaults(mule_enc_params *p)
     p->tr_db = 8.5;             /* 10 before 20/11/2026 (eval/results/N-LOG.md) */
     p->group_mode = 1;          /* adaptive grouping per frequency region (N-LOG.md) */
     p->short_db = 0.0;
+    p->tr_hf = 1;               /* highs transient detector, 22/11/2026 (eval/results/N-LOG.md) */
+    p->tr_hf_fc = 8000.0;
+    p->tr_hf_db = 6.0;          /* 8.5 before the v5 (N-LOG.md, the corrected detector) */
+    p->tr_hf_ton = 10.0;        /* tonal veto (v5: Belenos) */
+    p->tr_decay_db = 1.0;       /* 3 before 22/11/2026 (the voice's glottal pulses) */
 }
 
 /* ---------------------------------------------------------------- measurement trace */
@@ -241,15 +246,9 @@ static void frame_analysis(const mule_enc_params *pr, const psy_t *py, double X[
                     col[i % w] += pr->fft_tonal ? PW[c][idx] : v * v;
                 }
                 f->P[c][g][b] = sum / n;
-                double ar = 0, lg = 0;
-                for (int i = 0; i < w; i++) {
-                    double v = col[i] / nw;
-                    ar += v;
-                    lg += log(v + 1e-30);
-                }
-                ar /= w;
-                double geo = exp(lg / w);
-                f->FL[c][g][b] = 10 * log10((geo + 1e-30) / (ar + 1e-30));
+                for (int i = 0; i < w; i++)
+                    col[i] /= nw;
+                f->FL[c][g][b] = flatness_db(col, w);
             }
             for (int i = 0; i < n; i++) {
                 int idx = coef_index(gr, b, i);
@@ -640,8 +639,8 @@ static void encode_frame(const mule_enc_params *pr, const psy_t *psy_l, const ps
         int a[NB] = {0};
         int *q = NULL;
         double nf_acc[2] = {0, 0};
-        int64_t nf_pos = o->n;                  /* v4: the zeros' noise level, before the energies */
-        raw(o, 3, 0);                           /* (its value once measured, below) */
+        int64_t nf_pos = o->n;                  /* the zeros' noise level, before the energies (its */
+        ops_add(o, mule_stream_off[MULE_S_NFLEV], 0);   /* value once measured, below) */
         for (int g = 0; g < f->ng; g++) {
             q = f->Q[c][g];
             alloc_from_masks(pr, f, s, c, g, q, a);
@@ -677,8 +676,12 @@ static void encode_frame(const mule_enc_params *pr, const psy_t *psy_l, const ps
                 }
             code_coefficients(pr, f, s, o, c, g, q, a, inter_ok, &tail1, &tail2, ycur, nf_acc);
         }
-        if (nf_pos < o->n)                      /* v4: the level, now measured */
-            o->v[nf_pos] = (uint32_t)nf_level(pr, nf_acc);
+        if (nf_pos < o->n) {                    /* the level, now measured (the tracked model too: */
+            int v = nf_level(pr, nf_acc);       /* NFLEV's one context sees only these symbols) */
+            o->v[nf_pos] = (uint32_t)v;
+            if (o->mr)
+                mule_model_update(&o->mr->m[mule_stream_off[MULE_S_NFLEV]], v);
+        }
         if (type == 0) {                        /* the inter-frame context of the next frame */
             memcpy(s->ylong[c], ycur, sizeof ycur);
             memcpy(s->qlong[c], q, sizeof(int) * NB);
@@ -709,7 +712,7 @@ static int params_ok(const mule_enc_params *pr)
 static int encode_ops(const double *pcm, int64_t L, const mule_enc_params *pr, int T, ops_t *out,
                       int64_t *fstart)
 {
-    uint8_t *types = malloc((size_t)T);
+    uint8_t *types = malloc((size_t)T), *first = malloc((size_t)T);
     mdct_t ml = {0}, msh = {0};
     ops_t o = {0};
     o.esc = pr->coef_a8 ? 7 : 15;
@@ -717,9 +720,16 @@ static int encode_ops(const double *pcm, int64_t L, const mule_enc_params *pr, i
     double (*X)[F] = malloc(sizeof(double) * 2 * F);
     double (*PW)[F] = malloc(sizeof(double) * 2 * F);
     int rc = -1;
-    if (!types || !s || !X || !PW || block_types(pcm, L, T, types, pr->tr_db) || mdct_init(&ml, MULE_N_LONG) ||
-        mdct_init(&msh, MULE_N_SHORT))
+    if (!types || !first || !s || !X || !PW || block_types(pcm, L, T, first, pr->tr_db, TR_FC, 0, pr->tr_decay_db) ||
+        mdct_init(&ml, MULE_N_LONG) || mdct_init(&msh, MULE_N_SHORT))
         goto done;
+    memcpy(types, first, (size_t)T);
+    if (pr->tr_hf) {                            /* the highs pass, its frames added */
+        if (block_types(pcm, L, T, types, pr->tr_hf_db, pr->tr_hf_fc, 1, pr->tr_decay_db))
+            goto done;
+        if (pr->tr_hf_ton > 0)
+            hf_tonal_veto(pcm, L, T, types, first, pr->tr_hf_ton, &ml);
+    }
     psy_t pl, ps;
     psy_init(&pl, 1024);
     psy_init(&ps, 128);
@@ -810,6 +820,7 @@ done:
     mdct_free(&ml);
     mdct_free(&msh);
     free(types);
+    free(first);
     if (rc) {                                   /* nothing half made is handed back */
         free(o.m);
         free(o.v);

@@ -1,0 +1,16 @@
+{
+ "clicks_q+0.mule": "563f311c45f63702ad953e56849f2b75b25302ce2c139dcaff9e09825b96e3ce",
+ "clicks_q-12.mule": "3313ee0b3209ed144ec6f5fb9c91f586d6816172711ebb6db16ca044f93fd5d2",
+ "clipping_q+0.mule": "ae9f93734917d2ac10f3da1e7d11aa402df61eb5dfe026dab5e68f71f2d77c16",
+ "clipping_q-12.mule": "880549b01b0fff125d88a67db9c5ef4f396e73970b311358c1ad59721305ecea",
+ "noise_q+0.mule": "3695c0dff17eb868e71ffd72e7d1db5cfcc66f2a5a0bdb6a1f9a1fcc7960a4e6",
+ "noise_q-12.mule": "ad96f835d291a959ed5dee17521727073df9b72d8487e2ea698de68a5d7f9fc3",
+ "short_q+0.mule": "8b1f31dd4a5f6894e503d1f02a623586bfea7d6b0565338255d09237d13d402b",
+ "short_q-12.mule": "93233f79a8a96d2ed0ff67e2cbffb2c70920113eedac4d97be8a8ac2b937ab5c",
+ "silence_q+0.mule": "cc4e7de50a480c9b19c2937ffbc388d99ae2285f7163dbd0804fba3d59318d0f",
+ "silence_q-12.mule": "cc4e7de50a480c9b19c2937ffbc388d99ae2285f7163dbd0804fba3d59318d0f",
+ "sine_lr_q+0.mule": "f4cba7859a32c69dfb14198d342071baa6dfbb73b36f64ff78c9fee15ff79696",
+ "sine_lr_q-12.mule": "448f1b76c2b74239277059ca90e36a61dd7959256a12abcdd2bd8ea7b55441cb",
+ "sweep_mono_q+0.mule": "dd02f996d6fe80ce5e42093b86ed5235edf8968cca4e241c891a7e2e7ce34c36",
+ "sweep_mono_q-12.mule": "2a0bd64d9c0e55839eb5fbb7df462331bf7cfd727175bb660e5106e9c76c7caa"
+}

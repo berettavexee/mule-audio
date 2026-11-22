@@ -54,6 +54,19 @@ static inline int floor_div(int a, int b)
     return a >= 0 ? a / b : -((-a + b - 1) / b);
 }
 
+/* Spectral flatness of v[0..n) in dB: geometric over arithmetic mean (0: flat, < 0: tonal). */
+static inline double flatness_db(const double *v, int n)
+{
+    double ar = 0, lg = 0;
+    for (int i = 0; i < n; i++) {
+        ar += v[i];
+        lg += log(v[i] + 1e-30);
+    }
+    ar /= n;
+    double geo = exp(lg / n);
+    return 10 * log10((geo + 1e-30) / (ar + 1e-30));
+}
+
 /* A band's class for the contexts: 0 below band 8, 1 below band 16, 2 above. */
 static inline int band_class(int b)
 {
@@ -177,7 +190,11 @@ typedef struct {
     int width[NB], m;
 } psy_t;
 
-int block_types(const double *x, int64_t L, int T, uint8_t *types, double ratio_db);
+#define TR_FC 3000.0    /* the transient detector's first pass: high-passed at 3 kHz */
+int block_types(const double *x, int64_t L, int T, uint8_t *types, double ratio_db, double fc, int add,
+                double decay_db);
+void hf_tonal_veto(const double *pcm, int64_t L, int T, uint8_t *types, const uint8_t *first,
+                   double ton_db, const mdct_t *ml);
 void psy_init(psy_t *p, int m);
 void psy_fine(const psy_t *p, const mule_enc_params *pr, const double *X, const double *flat,
               double *mask);

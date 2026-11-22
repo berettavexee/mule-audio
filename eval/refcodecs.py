@@ -240,6 +240,16 @@ class Mule:
         # format v4 (21/11/2026): the probes of branch v4 (folding, rotation, TNS on the noise,
         # low-pass, split bands, subpartitions, line tracking, Viterbi weights, ...) were removed
         # when the format was frozen; their results are in eval/results/N-LOG.md
+        # a second transient detector in the highs (fc kHz, threshold dB), as first measured (memory
+        # decay 3 dB, no tonal veto): thf8d85 was the production from 22/11/2026 until the v5, thf0
+        # the production before it
+        **{f"thf{fc}d{db:g}".replace(".", ""): {"tr_hf": 1, "tr_hf_fc": fc * 1000.0, "tr_hf_db": db}
+           for fc in (6, 8, 10) for db in (6.0, 8.5, 11.0)},
+        "thf0": {"tr_hf": 0},
+        "thf8d7": {"tr_hf": 1, "tr_hf_fc": 8000.0, "tr_hf_db": 7.0},
+        "thf7d85": {"tr_hf": 1, "tr_hf_fc": 7000.0, "tr_hf_db": 8.5},
+        "thf8d85eg0": {"tr_hf": 1, "tr_hf_fc": 8000.0, "tr_hf_db": 8.5, "eg": 0},
+        "thf8d85eg7": {"tr_hf": 1, "tr_hf_fc": 8000.0, "tr_hf_db": 8.5, "eg_db": 7.0},
         "tg0": {"tg": 0},
         "midhi22": {"mid_hi": 22},
         "gr1": {"group_mode": 1, "group_db": 6.0}, "gr1d8": {"group_mode": 1, "group_db": 8.0},
@@ -263,6 +273,18 @@ class Mule:
     for _k in ("eg0", "eg0nfb0", "eg4", "eg6", "eg9", "eg6b12", "eg6b19", "eg5", "eg6a2", "eg6b14",
                "nfm3", "nfm9", "nfb1", "eg5nfb1"):
         VARIANTS[_k] = {**PSY21, **VARIANTS[_k]}
+    # the transient detector of every variant above, as measured: the highs pass off (production
+    # since 22/11/2026, thf* set it), the memory decaying by 3 dB per block (1 since 22/11/2026: 3 dB
+    # took a voice's glottal pulses for attacks), the highs threshold 8.5 dB without tonal veto (6 dB
+    # and 10 dB since the v5). Format v5 (22/11/2026): the probes of branch v5 (vertex-centred
+    # noise, borrowed envelope, per-band TF, folding criteria, the attack's group cut, hi_db,
+    # nf_gate, ...) were removed when the format was frozen, their results are in
+    # eval/results/N-LOG.md; the variants now write format v5 (folding in short frames, the noise
+    # level modelled) and no longer reproduce their v4 measurements exactly
+    PRE_V5 = {"tr_hf": 0, "tr_decay_db": 3.0, "tr_hf_db": 8.5, "tr_hf_ton": 0.0}
+    for _k in VARIANTS:
+        if _k:
+            VARIANTS[_k] = {**PRE_V5, **VARIANTS[_k]}
     del _k
 
     def __init__(self, variant, q):
@@ -271,8 +293,8 @@ class Mule:
             import json
             tag = variant[2:]                   # "m6v3" -> m6_best_v3.json (m6_tune.py --tag v3)
             path = os.path.join(self.ROOT, "eval", "results", f"m6_best_{tag}.json" if tag else "m6_best.json")
-            self.VARIANTS[variant] = {k: (int(v) if k.startswith("tcq_") and k != "tcq_rdl" else v)
-                                      for k, v in json.load(open(path)).items()}
+            self.VARIANTS[variant] = {**self.PRE_V5, **{k: (int(v) if k.startswith("tcq_") and k != "tcq_rdl" else v)
+                                                    for k, v in json.load(open(path)).items()}}
         self.params = params.Params(q_db=q, **self.VARIANTS[variant])
         self.name = f"mule{'-' + variant if variant else ''}_{q:g}"
 

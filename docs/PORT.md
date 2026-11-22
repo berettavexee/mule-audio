@@ -65,6 +65,8 @@ Format v3 : le décodeur lit la v3 et la v2 ; 49 368 octets d'état. Il n'est pa
 
 Format v4 (dans `main` depuis le 22/11/2026, `docs/V4.md`) : le décodeur lit la v4, la v3 et la v2 ; 49 372 octets d'état ; code de `core/dec.c` 18 433 octets contre 16 989 en v3 (+1,4 Kio, aucune table ajoutée). Mesuré avec le même décodeur sur un flux v3 et un flux v4 du même extrait : +4,3 % d'instructions par trame sur abba à q −12, +6,6 % sur abba à q −7 (112 kb/s), +3,1 % sur Belenos à q −7 (160 kb/s) ; pire trame +2 à +3,6 %. Le surcoût vient du bruit des zéros (un tirage par coefficient nul) et du bruit en pente (une puissance de 2 par raie) : de l'ordre de 2 à 4 MHz sur le cœur B. Sortie exacte au bit près contre le PC.
 
+Format v5 (dans `main` depuis le 22/11/2026, `docs/V5.md`) : le décodeur lit v5, v4, v3 et v2 ; 49 424 octets d'état (+52 : un modèle `nflev` et un indicateur) ; code de `core/dec.c` pour Cortex-M3 17 743 octets (`make m3size`), aucune table ajoutée. Le repliement (`fold_band`) n'a aucun tableau local ; il fait deux divisions 64 bits par coefficient replié, seulement dans les bandes sans bits des trames courtes. Instructions par trame pas encore mesurées sous QEMU ; pas encore porté sur l'appareil.
+
 Optimisations, toutes sans effet sur la sortie (empreinte identique, tests verts) :
 - recherche de symbole par bornes successives, avec une multiplication par candidat ;
 - mise à jour des CDF en deux boucles sans branchement, partagée avec l'encodeur ;

@@ -6,8 +6,9 @@
 #include <stdint.h>
 #include "model.h"
 
-#define MULE_VERSION      4             /* 4: v3 plus noise in coded bands' zeros and sloped noise
-                                         * filling; 3: chained trellis of 8-64 states, 8-symbol
+#define MULE_VERSION      5             /* 5: v4 plus folding in short frames and the zeros' noise
+                                         * level coded with a model; 4: v3 plus noise in coded bands'
+                                         * zeros and sloped noise filling; 3: chained trellis of 8-64 states, 8-symbol
                                          * coefficients; 2: TCQ (3 and 2 decoded too); 1: scalar;
                                          * 0: 480 contexts */
 #define MULE_F            1024          /* frame hop */
@@ -16,6 +17,7 @@
 #define MULE_N_SUB        8
 #define MULE_SHORT_OFF    448
 #define MULE_NB           22            /* coded bands */
+#define MULE_BAND_MAX     176           /* the most coefficients of a band: 22 lines x 8 windows */
 /* the band edges in units of 8 long-frame lines (spec 5), the last one past the coded bands */
 #define MULE_EDGES_INIT {0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 20, 24, 28, 34, 40, 48, 60, 78, 100, 116, 128}
 #define MULE_QMIN         (-100)
@@ -27,7 +29,7 @@
 #define MULE_KEY_FRAMES   40
 #define MULE_PACKET_MAX   8192
 #define MULE_PRE_SKIP     1024
-#define MULE_HEAD_LEN     22            /* v3, v4; v2: 20 */
+#define MULE_HEAD_LEN     22            /* v3 to v5; v2: 20 */
 #define MULE_HEAD_LEN_V2  20
 #define MULE_LCG_SEED     0x2545F491u
 
@@ -36,13 +38,18 @@
  * (2 s + br) mod n and uses the subset j = (s & 1) + 2 (br ^ parity(s & mask)) (k mod 4 = j).
  * v2's trellis (JPEG 2000 part 2) is n = 8, mask 0x6. */
 #define MULE_TCQ_MAXS     64
-/* v3 and v4 header: byte 20 log2(states) (3..6), byte 21 flags; the encoder sets both flags */
+/* v3 to v5 header: byte 20 log2(states) (3..6), byte 21 flags; the encoder sets both flags */
 #define MULE_TCQ_CHAIN    1             /* flag: the trellis state runs on across the bands */
 #define MULE_COEF_A8      2             /* flag: coefficient alphabet of 8 symbols (escape 7) */
 /* v4 (spec 5.3): from band MULE_NF_START up, the zero coefficients of a coded band carry noise at a
  * level sent per channel and frame (3 raw bits before the channel's energies), and in long frames
  * a noise-filled band follows the slope of its neighbours' levels, +-6 dB at its ends at most */
 #define MULE_NF_START     12            /* 2.8 kHz */
+/* v5 (spec 5.3): the zeros' noise level is coded with the model MULE_S_NFLEV (3 raw bits in v4);
+ * in a short frame, a zero-bit band from MULE_NF_START up is folded: each line takes the decoded
+ * line one band width below in the same window, that shape and the noise mixed with the weights
+ * cos and sin of MULE_FOLD_MIX / 8 * 90 degrees, at the band's energy */
+#define MULE_FOLD_MIX     2
 static inline int mule_tcq_mask(int n)
 {
     return n == 64 ? 0x33 : (n == 32 ? 0x17 : (n == 16 ? 0xD : 0x6));
@@ -74,13 +81,15 @@ static inline int mule_tcq_step(int s, int64_t k)       /* v2's 8-state trellis 
 /* models: streams in this order, each nctx contexts of nsyms symbols (same order in Python) */
 enum {
     MULE_S_BTYPE, MULE_S_ALPHA, MULE_S_STEREO, MULE_S_ENERGY, MULE_S_ALLOC, MULE_S_AMODE,
-    MULE_S_CESC, MULE_S_COEF, MULE_S_EAESC, MULE_S_COUNT
+    MULE_S_CESC, MULE_S_COEF, MULE_S_EAESC,
+    MULE_S_NFLEV,                               /* v5: the zeros' noise level (uniform start) */
+    MULE_S_COUNT
 };
 extern const int mule_stream_nsyms[MULE_S_COUNT];
 extern const int mule_stream_nctx[MULE_S_COUNT];
 extern const int mule_stream_off[MULE_S_COUNT];  /* first model of each stream */
 extern const int mule_init_cdf_id;               /* MULEHead byte 19 of the built-in tables */
-#define MULE_NMODELS (1 + 1 + 3 + 9 + 6 + 1 + 16 + 96 + 1)
+#define MULE_NMODELS (1 + 1 + 3 + 9 + 6 + 1 + 16 + 96 + 1 + 1)
 
 /* models state shared by the encoder and the decoder */
 typedef struct {

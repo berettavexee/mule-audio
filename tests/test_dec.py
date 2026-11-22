@@ -11,7 +11,8 @@ import pytest
 from mule import native, oggfile, params as E
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-VECTORS = os.path.join(HERE, "vectors")       # format v4 (the encoder's output)
+VECTORS = os.path.join(HERE, "vectors")       # format v5 (the encoder's output)
+VECTORS_V4 = os.path.join(VECTORS, "v4")       # format v4, frozen: the decoder still reads it
 VECTORS_V3 = os.path.join(VECTORS, "v3")       # format v3, frozen: the decoder still reads it
 VECTORS_V2 = os.path.join(VECTORS, "v2")       # format v2, frozen: the decoder still reads it
 FS = 44100
@@ -44,7 +45,7 @@ def decode(data):
 
 
 def make_vectors():
-    """Writes tests/vectors (run by hand only when the format changes; tests/vectors/v3 and v2 stay
+    """Writes tests/vectors (run by hand only when the format changes; tests/vectors/v4, v3 and v2 stay
     as they are): each signal encoded at two qualities, and the SHA-256 of its decoded int16
     output."""
     os.makedirs(VECTORS, exist_ok=True)
@@ -60,7 +61,7 @@ def make_vectors():
 
 def _vectors():
     out = []
-    for d in (VECTORS, VECTORS_V3, VECTORS_V2):
+    for d in (VECTORS, VECTORS_V4, VECTORS_V3, VECTORS_V2):
         path = os.path.join(d, "sha256.json")
         if os.path.exists(path):
             out += [(os.path.relpath(os.path.join(d, k), VECTORS), v) for k, v in sorted(json.load(open(path)).items())]
@@ -69,7 +70,7 @@ def _vectors():
 
 @pytest.mark.parametrize("name,digest", _vectors())
 def test_vectors_decode_exactly(name, digest):
-    """The decoder's output on the frozen vectors (v4, and v3's and v2's) is unchanged, sample for
+    """The decoder's output on the frozen vectors (v5, and v4's, v3's and v2's) is unchanged, sample for
     sample"""
     y, _ = decode(open(os.path.join(VECTORS, name), "rb").read())
     assert hashlib.sha256(y.tobytes()).hexdigest() == digest
@@ -96,12 +97,12 @@ def test_seek_matches_continuous():
 
 def test_rejects_unknown_header():
     """Another version, another table of initial CDFs, a trellis size or a flag it does not know,
-    or a v4 header cut to v2's length, is refused"""
+    or a v5 header cut to v2's length, is refused"""
     data, _ = native.c_encode(signals()["sine_lr"], E.Params(q_db=-9))
     h = bytearray(oggfile.packets(data)[0][0])
-    assert h[8] == 4 and len(h) == 22 and h[20] == 6 and h[21] == 3
+    assert h[8] == 5 and len(h) == 22 and h[20] == 6 and h[21] == 3
     native.Decoder(bytes(h))
-    for pos, val in ((8, 5), (8, 1), (19, h[19] ^ 1), (20, 2), (20, 7), (21, 4), (21, 128)):
+    for pos, val in ((8, 6), (8, 1), (19, h[19] ^ 1), (20, 2), (20, 7), (21, 4), (21, 128)):
         bad = bytearray(h)
         bad[pos] = val
         with pytest.raises(ValueError):

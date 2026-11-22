@@ -227,6 +227,11 @@ def c_params(params):
     p.eg_band = params.eg_band
     p.eg_db = params.eg_db
     p.eg_a = params.eg_a
+    p.tr_hf = params.tr_hf
+    p.tr_hf_fc = params.tr_hf_fc
+    p.tr_hf_db = params.tr_hf_db
+    p.tr_decay_db = params.tr_decay_db
+    p.tr_hf_ton = params.tr_hf_ton
     p.nf_off_db = params.nf_off_db
     p.spread_mode = params.spread_mode
     p.sp_dz = params.sp_dz

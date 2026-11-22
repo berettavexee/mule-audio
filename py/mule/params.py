@@ -51,6 +51,11 @@ class Params:
     eg_band: int = 16
     eg_db: float = 5.0          # its energy's peak over its mean across the 8 short blocks (dB)
     eg_a: int = 1
+    tr_hf: int = 1              # second transient detector pass, high-passed at tr_hf_fc (production 22/11/2026)
+    tr_hf_fc: float = 8000.0
+    tr_hf_db: float = 6.0       # 8.5 before the v5
+    tr_hf_ton: float = 10.0     # tonal veto of the highs pass's frames (dB, 0 off; v5)
+    tr_decay_db: float = 1.0    # the detector's memory decay per block of 128 (22/11/2026; 3 before)
     nf_top: int = 22            # from this band up, uncoded bands silent instead of noise (22: none)
     group_mode: int = 1         # adaptive grouping: 0 window energy, 1 also per frequency region
     tr_db: float = 8.5          # transient detector threshold (dB; 10 before 20/11/2026)
@@ -61,7 +66,7 @@ class Params:
 # the model streams in the decoder's order: (name, symbols, contexts) (core/models.c)
 STREAMS = [("btype", 2, 1), ("alpha", 4, 1), ("stereo", 2, 3), ("energy", 16, 9),
            ("alloc", 16, 6), ("amode", 2, 1), ("cesc", 16, 16), ("coef", 16, 96),
-           ("eaesc", 16, 1)]
+           ("eaesc", 16, 1), ("nflev", 8, 1)]
 OFF = {}                        # first model of each stream
 _o = 0
 for _n, _s, _c in STREAMS:
