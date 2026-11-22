@@ -2278,3 +2278,159 @@ Diagnostic (scratchpad `zimt_diag.py`, à ~128 kb/s, MULE v4 q −6, Opus 128, A
 - Pistes (encodeur seul, format v4 inchangé) : réévaluer `code16` sur 30 extraits avec Zimtohrli
   comme critère principal ; une « garde d'enveloppe » qui code une bande des aigus au lieu de la
   remplir quand son énergie varie fortement dans la trame.
+
+## Pistes 1 et 2 pour Garbage, Zimtohrli comme juge prioritaire (`hf_test.csv`, 30 extraits)
+
+Demande de l'auteur : évaluer les deux pistes avec Zimtohrli comme juge prioritaire ; resserrer le
+nuage de points serait un bon ajout avant de fusionner la v4.
+
+- **Piste 1, `code14`/`code16`/`code18`** (toute bande sans bits codée à l'allocation 1 à partir
+  de la bande 14, 16 ou 18).
+- **Piste 2, garde d'enveloppe `eg`** (nouveau, encodeur seul, format v4 inchangé) : dans une trame
+  longue, une bande sans bits à partir de la bande 16 est codée à l'allocation 1 si son énergie sur
+  les 8 blocs courts de la fenêtre (FFT de Hann aux places des blocs courts) culmine `eg_db` au-dessus
+  de sa moyenne (en M/S, l'un ou l'autre canal). Seuils 4, 6, 9 dB.
+
+Contre la v4 (`sl6v4_test.csv`, le son de la v4 figée), à débit moyen égal ; débit inchangé
+(±0,2 kb/s à q égal) :
+
+| variante | Zimtohrli 128 / 150 | Garbage | rég. Zimtohrli | ODG | ViSQOL (rég.) |
+|---|---|---|---|---|---|
+| code14 | +4,5 % / +6,9 % | −17 / −21 % | 17 / 18 | −0,013 / −0,015 | −0,078 / −0,069 (24) |
+| code16 | +4,1 % / +6,4 % | −17 / −21 % | 16 / 18 | −0,012 / −0,013 | −0,077 / −0,069 (24) |
+| code18 | +4,2 % / +6,4 % | −17 / −21 % | 18 / 18 | −0,012 / −0,013 | −0,078 / −0,069 (24-25) |
+| **eg4** | **−1,6 % [−3,1 ; −0,5] / −1,8 % [−3,6 ; −0,5]** | −15 / −17 % | 0 / 0 | −0,002 / −0,000 | −0,005 / −0,004 (7 / 3) |
+| **eg6** | **−1,4 % [−2,4 ; −0,5] / −1,7 % [−2,8 ; −0,7]** | −10 / −14 % | 0 / 0 | +0,000 / +0,001 | −0,001 / −0,001 (0) |
+| eg9 | −0,05 % / −0,06 % | −1 / −2 % | 0 | 0,000 | 0,000 |
+
+Répartition des distances Zimtohrli (×1e-4) :
+
+| | médiane 128 | p90 128 | écart type 128 | pire 128 | médiane 150 | p90 150 | écart type 150 | pire 150 |
+|---|---|---|---|---|---|---|---|---|
+| v4 | 3,53 | 4,73 | 0,92 | 6,39 (Garbage) | 2,11 | 2,74 | 0,74 | 4,94 (Garbage) |
+| eg4 | 3,48 | **4,47** | **0,79** | **5,46** (Garbage) | **2,05** | 2,73 | **0,61** | **4,10** (Garbage) |
+| eg6 | **3,46** | 4,56 | 0,83 | 5,76 (Garbage) | 2,07 | **2,69** | 0,65 | 4,26 (Garbage) |
+| code16 | 3,59 | 4,94 | 0,86 | 5,50 (Zombie Zombie) | 2,14 | 3,00 | 0,67 | 4,14 (Zombie Zombie) |
+| Opus | 3,38 | 4,16 | 0,69 | 4,44 (Steel Panther) | 2,50 | 3,23 | 0,55 | 3,36 (Kompromat) |
+
+- **Coder toutes les bandes des aigus est rejeté** : Garbage gagne beaucoup, mais Zimtohrli
+  régresse sur la moitié des extraits (+4 à +7 % en moyenne) et ViSQOL plus encore (24 régressions).
+  Coder à l'allocation 1 un bruit régulier est pire que le remplir.
+- **La garde d'enveloppe resserre le nuage sans régression Zimtohrli** : écart type 0,92 → 0,79
+  (eg4) ou 0,83 (eg6) à 128 kb/s, pire extrait 6,39 → 5,46 ou 5,76, p90 4,73 → 4,47 ou 4,56 ;
+  moyenne −1,4 à −1,8 % (intervalles de confiance sous zéro). eg4 resserre le plus mais fait
+  régresser ViSQOL sur 7 extraits à 128 kb/s (−0,012 à −0,020 : Beethoven 59, Spector, Garbage,
+  Kompromat, Dance with the Dead, Astroqueen, Classical) ; eg6 n'a qu'une régression ViSQOL à q −6
+  (Beethoven 59, −0,012), aucune à débit égal, et PEAQ neutre.
+- eg6 remplit la règle d'adoption des réglages fins (encodeur seul, juges d'accord ou neutres, pas
+  de régression) ; eg4 serait à trancher à l'écoute.
+
+**Décision de l'auteur (21/11/2026) : la garde d'enveloppe à 6 dB entre dans la production**,
+active par défaut (`eg` 1, `eg_band` 16, `eg_db` 6, `eg_a` 1). Encodeur seul, format v4 inchangé.
+La production produit exactement le flux mesuré sous le nom `eg6` ; `eg0` donne la v4 d'avant
+(`sl6v4_test.csv`). Le kit ABX, les figures et le tableau du README datent d'avant la garde.
+
+Figures `enc-fig5-zimt` (et `-160`, `-en`) refaites avec la production (garde d'enveloppe :
+`mule-eg6`, q −6 et −9 dans `hf_test.csv`, q −12 mesuré dans `eg6q12_test.csv`). Zimtohrli ×1e-4 :
+
+| | médiane 128 | p90 128 | écart type 128 | pire 128 | médiane 160 | p90 160 | écart type 160 | pire 160 |
+|---|---|---|---|---|---|---|---|---|
+| MULE v4 (garde) | 3,46 | 4,56 | 0,83 | 5,76 (Garbage) | **1,76** | **2,26** | 0,60 | 3,90 (Garbage) |
+| v4 sans garde | 3,53 | 4,73 | 0,92 | 6,39 (Garbage) | 1,80 | 2,33 | 0,70 | 4,61 (Garbage) |
+| MULE v3 | 3,49 | 5,35 | 1,10 | 6,59 (Garbage) | 1,77 | 2,77 | 0,80 | 4,54 (Garbage) |
+| Opus | **3,38** | **4,16** | 0,69 | 4,44 (Steel Panther) | 2,26 | 2,87 | 0,49 | 3,02 (Belenos) |
+| Apple | 4,12 | 4,96 | 0,70 | 5,20 (Dance with the Dead) | 2,29 | 2,60 | 0,36 | 2,79 (Takemitsu) |
+
+De la v3 à la v4 avec la garde, l'écart type passe de 1,10 à 0,83 (128 kb/s) et de 0,80 à 0,60
+(160 kb/s) ; le pire extrait, Garbage, de 6,59 à 5,76 et de 4,54 à 3,90.
+
+## Pistes 3 et 4 : affiner la garde d'enveloppe et le niveau du bruit (`tune2_test.csv`, 30 extraits)
+
+Contre la production (garde d'enveloppe à 6 dB : `mule-eg6`, `hf_test.csv` et `eg6q12_test.csv`),
+à débit moyen égal, Zimtohrli en premier :
+
+| variante | Zimtohrli 128 / 150 | rég. Zimtohrli | écart type 128 / 150 | pire 128 / 150 | ODG | ViSQOL (rég.) |
+|---|---|---|---|---|---|---|
+| production (eg6) | | | 0,830 / 0,645 | 5,76 / 4,26 | | |
+| eg5 (seuil 5 dB) | −0,29 % [−0,65 ; +0,01] / −0,39 % [−0,72 ; −0,08] | 0 / 0 | 0,802 / 0,636 | 5,52 / 4,19 | −0,000 / −0,001 | −0,001 (0) |
+| eg6a2 (allocation 2) | +0,02 / −0,02 % | 0 | 0,831 / 0,643 | 5,76 / 4,26 | 0 | 0 |
+| eg6b14 (dès la bande 14) | +0,06 / −0,09 % | 0 | 0,824 / 0,642 | 5,76 / 4,26 | 0 | 0 |
+| eg6b19 (dès la bande 19) | +0,10 / −0,01 % | 0 | 0,830 / 0,643 | 5,76 / 4,26 | 0 | 0 |
+| nfm3 (zéros à −3 dB) | +2,0 / +2,5 % | 9 / 9 | 0,852 / 0,685 | 6,09 / 4,64 | −0,002 / −0,005 | +0,006 (0) |
+| nfm9 (zéros à −9 dB) | +0,1 / −0,4 % | 3 / 2 | 0,850 / 0,640 | 5,57 / 4,03 | −0,005 | −0,006 (8 / 3) |
+| nfb1 (bandes de bruit −1,5 dB) | −0,85 % [−1,28 ; −0,45] / −0,77 % [−1,34 ; −0,22] | 0 / 0 | 0,798 / 0,617 | 5,54 / 4,17 | +0,001 | −0,013 (10 / 10) |
+
+- L'allocation 2 et la bande de départ de la garde ne changent rien : seul le seuil compte.
+- Le seuil à 5 dB resserre encore un peu (écart type 0,83 → 0,80, pire 5,76 → 5,52) sans
+  régression, mais le gain moyen est minuscule (intervalle qui touche zéro à 128 kb/s).
+- Le bruit des zéros reste bien à −6 dB : −3 dB est nettement pire, −9 dB mitigé.
+- Abaisser les bandes de bruit d'un pas (`nf_bias` 1) aide Zimtohrli (−0,8 %, aucune régression,
+  écart type 0,83 → 0,80) mais ViSQOL régresse sur 10 extraits (−0,013 en moyenne) : juges en
+  désaccord, à l'écoute. C'est le désaccord déjà noté dans E2-LOG.md quand `nf_bias` avait été
+  essayé en v2.
+
+**Décisions de l'auteur (21/11/2026)** : la garde d'enveloppe passe à **5 dB** et l'énergie des
+bandes de bruit est abaissée d'un pas (**`nf_bias` 1**, 1,5 dB), toutes deux dans la production.
+Encodeur seul. Variante `eg5nfb1` = la production ; les variantes d'avant fixent ce qu'elles avaient
+mesuré (`eg6`, `eg5`, `nfb1`, ... avec `nf_bias` explicite ; `eg0` = la v4 figée sans garde ni
+abaissement). La combinaison n'a pas encore été mesurée en tant que telle : elle le sera comme
+point de départ de la campagne ci-dessous et dans sa validation.
+
+## Campagne de réglage avec Zimtohrli (piste 1, `eval/m6_tune.py --objective zimt`)
+
+Demande de l'auteur : une campagne complète avec Zimtohrli comme juge sur le jeu `dev`. Outil de la
+v3 (M6, CMA-ES) avec un objectif Zimtohrli : distance moyenne à 128 kb/s, interpolée à débit égal
+entre deux points mesurés (~120 et ~136 kb/s), sur la moitié paire de `dev` ; PEAQ enregistré. Sept
+réglages autour de la production : `tcap_db` 15-35 (25), `mid_db` 0-8 (4), `low_db` 5-15 (10),
+`fft_noise_db` 2-6 (4), `rd_lambda` 1-3 (2), `tcq_rdl` 0,25-1 (0,5), `pre_db` 5-15 (10). 12
+générations de 8. Validation ensuite sur l'autre moitié de `dev` et sur `test` (`--tag z1` :
+`m6_search_z1.csv`, `m6_best_z1.json`, variante `mule-m6z1`).
+
+**Recherche (21/11, 18 h 31 - 22 h 20)** : production 2,696e-4 (ODG −0,225, adv −0,278) ; meilleur
+point dès la génération 6, inchangé ensuite : 2,327e-4 (**−13,7 %**, ODG −0,239, adv −0,265).
+`tcap_db` 15,3, `mid_db` 6,1, **`low_db` 15 (borne haute)**, `fft_noise_db` 3,4, `rd_lambda` 2,42,
+`tcq_rdl` 0,48, `pre_db` 9,7. `tcap_db` (protection des crêtes tonales) descend vers sa borne basse.
+
+**Validation à débit égal** (q −4, −6, −9, −12 ; `m6z1_test.csv`, `m6z1q4_test.csv`,
+`m6z1_devodd.csv`, `m6z1q4_devodd.csv` ; IC bootstrap 95 %) :
+
+| | Zimtohrli | ODG | ODG adv | ViSQOL |
+|---|---|---|---|---|
+| test @128 | **−13,3 %** [−15,7 ; −10,9], 29/29 | −0,019 [−0,027 ; −0,011] | +0,010 | −0,007 (3/29 mieux) |
+| test @160 | **−13,4 %**, 27/27 | −0,016 (ns) | 0,000 | −0,006 (1/27) |
+| dev impair @128 | **−12,4 %**, 25/26 | −0,017 | +0,011 | −0,011 (0/26) |
+| dev impair @160 | **−13,2 %**, 21/21 | −0,023 | +0,003 | −0,007 (1/21) |
+
+Le gain Zimtohrli se tient hors recherche (pas de surapprentissage) et resserre le haut de la
+distribution (test @128 : p90 4,60 → 4,17, pire 5,99 → 5,79 e-4). Mais PEAQ de base et ViSQOL
+reculent faiblement et de façon cohérente : juges en désaccord, règle d'adoption non remplie →
+écoute. Pires extraits ODG : Monster Magnet (−0,076), Red Fang, Judas Priest ; plus grands gains
+Zimtohrli : Zombie Zombie (−32 %), Carpenter Brut, Heilung, Lebanon Hanover.
+
+**Écoute (22/11, nuit ; kit `data/listen/m6z1/`, `eval/abx_pair.py`, 128 kb/s ±0,1 par extrait,
+squishyball 16 essais, production contre `m6z1`)** : Monster Magnet 7/16, Red Fang 6/16, Zombie
+Zombie 9/16, Heilung 8/16, Belenos 8/16, clavecin 6/16 ; **44/96 au total (46 %)**, aucun extrait
+au seuil de 12/16. L'auteur ne distingue pas les deux réglages, ni là où PEAQ pénalise `m6z1`, ni
+là où Zimtohrli le favorise, ni sur les aigus tonaux.
+
+Oubli rattrapé : NMR interne et modèle 2f, mesurés mais pas lus dans la comparaison ci-dessus.
+NMR neutre partout (−0,04 à +0,03 dB, intervalles sur zéro). 2f −3,6 / −3,0 (test, 128 / 160
+kb/s) et −2,6 / −3,7 (dev impair), significatif sauf test @160 : même sens que PEAQ de base, dont
+il reprend deux MOV (pas un juge indépendant).
+
+**Décision de l'auteur (22/11/2026)** : le réglage `m6z1` devient la production (valeurs arrondies :
+`tcap_db` 15,3, `mid_db` 6,1, `low_db` 15, `fft_noise_db` 3,4, `rd_lambda` 2,42, `tcq_rdl` 0,48,
+`pre_db` 9,7). Les variantes du 21/11 (`eg*`, `nfm*`, `nfb1`, `eg5nfb1`) gardent les anciennes
+valeurs (`PSY21` dans `eval/refcodecs.py`). Production mesurée sur `test` : `prod4_test.csv`.
+
+**Production mesurée sur `test` (`prod4_test.csv`, q −4, −6, −9, −12)**, à débit moyen égal
+(interpolation de `figs_enc.odg_at`) : ODG −0,151 / −0,001 (128 / 160 kb/s), ODG avancé −0,338 /
+−0,136, Zimtohrli 2,95e-4 à 128 kb/s (médiane 2,94, écart type 0,78, pire Garbage 4,88), 1,38 à
+160. Contre la v3 : 3,74 (Garbage 6,59) ; Opus 3,32 (médiane 3,38) ; Apple 4,11.
+
+**ViSQOL n'est plus un juge (décision de l'auteur, 22/11/2026)** : son modèle SVR (mode audio) sature
+près de la transparence et ses petits reculs n'ont jamais été entendus en ABX. Toujours calculé.
+Juges : Zimtohrli d'abord, puis PEAQ de base et avancé (2f en dérive) et la NMR interne ; en cas
+de désaccord, l'écoute. Dans le tableau du README, la colonne ViSQOL @128 devient Zimtohrli @128 :
+Vorbis et FDK-AAC remesurés pour l'occasion (`ref3_test.csv`, `ref3b_test.csv` : Zimtohrli était
+arrondi à 1e-4 dans `ref_test` et `aac_test`), FDK 5,08, Vorbis 5,12.

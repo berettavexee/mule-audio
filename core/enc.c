@@ -23,24 +23,24 @@ void mule_enc_defaults(mule_enc_params *p)
     p->stereo = 0;              /* auto */
     p->ath_db = 0.0;
     p->tonal_all = 0;
-    p->low_db = 10.0;
-    p->mid_db = 4.0;
+    p->low_db = 15.0;            /* this and the six below: Zimtohrli tuning (N-LOG.md, 22/11/2026) */
+    p->mid_db = 6.1;
     p->mid_hi = 17;
     p->ton_scale = 20.0;
-    p->tcap_db = 25.0;
+    p->tcap_db = 15.3;
     p->alloc_auto = 1;
     p->alloc_hyst = 1;
     p->fft_tonal = 1;
-    p->fft_noise_db = 4.0;
-    p->rd_lambda = 2.0;
+    p->fft_noise_db = 3.4;
+    p->rd_lambda = 2.42;
     p->tcq_lam = 0.3;
     p->tcq_rd = 1;              /* axes 1 and 3 (eval/results/E-LOG.md) */
-    p->tcq_rdl = 0.5;
+    p->tcq_rdl = 0.48;
     p->fine_p = 8.0;
     p->fine_w = 1;
     p->fine_nb = 12;
-    p->pre_db = 10.0;           /* axis 2 (eval/results/E2-LOG.md) */
-    p->nf_bias = 0;
+    p->pre_db = 9.7;            /* axis 2 (eval/results/E2-LOG.md) */
+    p->nf_bias = 1;             /* noise-filled bands 1.5 dB lower (N-LOG.md, Zimtohrli, 21/11/2026) */
     p->tcq_states = 64;         /* format v3 (eval/results/B-LOG.md, C-LOG.md) */
     p->tcq_chain = 1;
     p->coef_a8 = 1;
@@ -50,6 +50,10 @@ void mule_enc_defaults(mule_enc_params *p)
     p->tg_a = 1;
     p->tg_band = 0;
     p->nf_top = NB;
+    p->eg = 1;                  /* envelope guard (N-LOG.md, Garbage, 21/11/2026) */
+    p->eg_band = 16;
+    p->eg_db = 5.0;             /* 6 at first; 5 adopted with nf_bias 1 (N-LOG.md, Zimtohrli) */
+    p->eg_a = 1;
     p->nf_off_db = -6.0;        /* v4: the zeros' noise 6 dB under the measured level (N-LOG.md) */
     p->spread_mode = 3;         /* Schroeder, then Terhardt beyond 2 Bark (N-LOG.md, 20/11/2026) */
     p->sp_dz = 2.0;
@@ -414,6 +418,27 @@ static int lone_line(const mule_enc_params *pr, double peak, double sum, int n)
  * allocation tg_a if that line reaches the mask target minus tg_db (the line coded instead of spread
  * as flat noise over the band); tg 2: the band is sent silent. (The FFT flatness of the masks
  * misses a line that comes and goes: the crest is taken on the coded coefficients.) */
+/* Envelope guard (eg): each long frame's band energy modulation per channel, in dB: the strongest
+ * of the 8 short blocks of the window (Hann FFT powers, the short windows' places) over their mean;
+ * set by encode_ops before encode_frame. */
+static double eg_mod[2][NB];
+
+/* eg (N-LOG.md, Garbage): a noise-filled band's energy is restituted stationary over the window,
+ * while cymbals move within it; in a long frame, a band from eg_band up left at allocation 0 gets
+ * eg_a when its energy peaks eg_db above its mean over the short blocks (in M/S: either channel). */
+static void envelope_guard(const mule_enc_params *pr, const frame_t *f, int c, const int *q, int *a)
+{
+    if (!pr->eg || f->type != 0)
+        return;
+    for (int b = pr->eg_band; b < NB; b++) {
+        if (a[b] != 0 || q[b] <= MULE_QMIN)
+            continue;
+        double m = f->ms[b] ? fmax(eg_mod[0][b], eg_mod[1][b]) : eg_mod[c][b];
+        if (m >= pr->eg_db)
+            a[b] = pr->eg_a;
+    }
+}
+
 static void tonal_guard(const mule_enc_params *pr, const frame_t *f, int c, int g, int *q, int *a)
 {
     const group *gr = &f->grp[g];
@@ -622,6 +647,7 @@ static void encode_frame(const mule_enc_params *pr, const psy_t *psy_l, const ps
             alloc_from_masks(pr, f, s, c, g, q, a);
             if (pr->tg)
                 tonal_guard(pr, f, c, g, q, a);
+            envelope_guard(pr, f, c, q, a);     /* (no-op without eg) */
             for (int b = pr->nf_top; b < NB; b++)   /* nf_top: uncoded high bands silent, not */
                 if (a[b] == 0)                      /* noise (Apple above 16 kHz, N-LOG.md) */
                     q[b] = MULE_QMIN;
@@ -673,7 +699,8 @@ static int params_ok(const mule_enc_params *pr)
            (ns == 8 || ns == 16 || ns == 32 || ns == 64) &&
            (nr == 0 || nr == 8 || nr == 16 || nr == 32 || nr == 64) &&
            pr->tg_band >= 0 && pr->tg_band <= NB && pr->nf_top >= 0 && pr->nf_top <= NB &&
-           pr->tg_a >= 1 && pr->tg_a <= MULE_AMAX;
+           pr->tg_a >= 1 && pr->tg_a <= MULE_AMAX && pr->eg_band >= 0 && pr->eg_band <= NB &&
+           pr->eg_a >= 1 && pr->eg_a <= MULE_AMAX;
 }
 
 /* Analysis and frame coding of the whole signal: its operations (out) and each frame's first
@@ -738,6 +765,23 @@ static int encode_ops(const double *pcm, int64_t L, const mule_enc_params *pr, i
                 else
                     for (int k = 0; k < MULE_N_SUB; k++)
                         fft_power(&msh, seg + MULE_SHORT_OFF + 128 * k, PW[c] + 128 * k);
+            }
+            if (!type && pr->eg) {              /* envelope guard: band energies per short block */
+                double E[MULE_N_SUB][NB] = {{0}}, pw[128];
+                for (int k = 0; k < MULE_N_SUB; k++) {
+                    fft_power(&msh, seg + MULE_SHORT_OFF + 128 * k, pw);
+                    for (int b = 0; b < NB; b++)
+                        for (int l = EDGES[b]; l < EDGES[b + 1]; l++)
+                            E[k][b] += pw[l];
+                }
+                for (int b = 0; b < NB; b++) {
+                    double mx = 0, mean = 0;
+                    for (int k = 0; k < MULE_N_SUB; k++) {
+                        mean += E[k][b] / MULE_N_SUB;
+                        mx = E[k][b] > mx ? E[k][b] : mx;
+                    }
+                    eg_mod[c][b] = mean > 0 ? 10 * log10(mx / mean) : 0.0;
+                }
             }
             if (!type) {
                 int v = (t > 0 && types[t - 1]) | (t + 1 < T && types[t + 1] ? 2 : 0);

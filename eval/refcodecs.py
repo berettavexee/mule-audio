@@ -221,6 +221,22 @@ class Mule:
         # noise-filled, through the tonal guard with its two criteria disabled
         "code12": {"tg": 1, "tg_ton": -100.0, "tg_db": 100.0, "tg_band": 12},
         "code16": {"tg": 1, "tg_ton": -100.0, "tg_db": 100.0, "tg_band": 16},
+        "code14": {"tg": 1, "tg_ton": -100.0, "tg_db": 100.0, "tg_band": 14},
+        "code18": {"tg": 1, "tg_ton": -100.0, "tg_db": 100.0, "tg_band": 18},
+        # envelope guard (N-LOG.md, Garbage): modulated noise-filled bands coded instead
+        # eg 5 dB and nf_bias 1 (eg5nfb1) production on 21/11/2026; before them eg6 (guard at 6 dB,
+        # nf_bias 0), and eg0nfb0 the frozen v4 without either (sl6v4_test.csv). All of these keep
+        # the psychoacoustic settings of before the Zimtohrli tuning (PSY21, merged in below)
+        "eg0": {"eg": 0, "nf_bias": 0}, "eg0nfb0": {"eg": 0, "nf_bias": 0},
+        "eg4": {"eg": 1, "eg_db": 4.0, "nf_bias": 0}, "eg6": {"eg": 1, "eg_db": 6.0, "nf_bias": 0},
+        "eg9": {"eg": 1, "eg_db": 9.0, "nf_bias": 0},
+        "eg6b12": {"eg": 1, "eg_db": 6.0, "eg_band": 12, "nf_bias": 0},
+        "eg6b19": {"eg": 1, "eg_db": 6.0, "eg_band": 19, "nf_bias": 0},
+        # refinements over the production (eg6), Zimtohrli first (N-LOG.md)
+        "eg5": {"eg_db": 5.0, "nf_bias": 0}, "eg6a2": {"eg_db": 6.0, "eg_a": 2, "nf_bias": 0},
+        "eg6b14": {"eg_db": 6.0, "eg_band": 14, "nf_bias": 0},
+        "nfm3": {"eg_db": 6.0, "nf_off_db": -3.0, "nf_bias": 0}, "nfm9": {"eg_db": 6.0, "nf_off_db": -9.0, "nf_bias": 0},
+        "nfb1": {"eg_db": 6.0, "nf_bias": 1}, "eg5nfb1": {},
         # format v4 (21/11/2026): the probes of branch v4 (folding, rotation, TNS on the noise,
         # low-pass, split bands, subpartitions, line tracking, Viterbi weights, ...) were removed
         # when the format was frozen; their results are in eval/results/N-LOG.md
@@ -239,6 +255,15 @@ class Mule:
         "sh3": {"short_db": -3.0}, "sh6": {"short_db": -6.0}, "sh9": {"short_db": -9.0},
         "tg1a2": {"tg": 1, "tg_a": 2}, "tg1a3": {"tg": 1, "tg_a": 3}, "tg1a4": {"tg": 1, "tg_a": 4},
     }
+    # the psychoacoustic settings of the production before the Zimtohrli tuning of 22/11/2026
+    # (m6_best_z1.json, rounded, is the production since; N-LOG.md): pinned in the variants
+    # measured on 21/11/2026 so that they keep sounding as measured
+    PSY21 = {"tcap_db": 25.0, "mid_db": 4.0, "low_db": 10.0, "fft_noise_db": 4.0, "rd_lambda": 2.0,
+             "tcq_rdl": 0.5, "pre_db": 10.0}
+    for _k in ("eg0", "eg0nfb0", "eg4", "eg6", "eg9", "eg6b12", "eg6b19", "eg5", "eg6a2", "eg6b14",
+               "nfm3", "nfm9", "nfb1", "eg5nfb1"):
+        VARIANTS[_k] = {**PSY21, **VARIANTS[_k]}
+    del _k
 
     def __init__(self, variant, q):
         from mule import params

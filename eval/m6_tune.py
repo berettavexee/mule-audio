@@ -13,6 +13,10 @@ Encoder only: the format does not change.
   python eval/m6_tune.py search [--gens 12] [--pop 8]   # eval/results/m6_search.csv, m6_best.json
   python eval/m6_tune.py best                           # the best point found so far
 
+--objective zimt (21/11/2026, N-LOG.md): the objective is Zimtohrli's mean distance at 128 kb/s
+(lower is better; the mean weighs the hard items, which is what the campaign aims at), PEAQ only
+recorded; the tuned settings are then SPACE_Z (two more: low_db, pre_db). Use with --tag.
+
 The tuned settings (tcq_rdl replaces the notes' tcq_lam, which tcq_rd = 1 leaves unused):
 """
 import argparse
@@ -48,6 +52,16 @@ SPACE = {
     "rd_lambda": (1.0, 3.0, 2.0),
     "tcq_rdl": (0.25, 1.0, 0.5),
 }
+SPACE_Z = {                     # --objective zimt: the production of v4 (21/11/2026) at the centre
+    "tcap_db": (15.0, 35.0, 25.0),
+    "mid_db": (0.0, 8.0, 4.0),
+    "low_db": (5.0, 15.0, 10.0),
+    "fft_noise_db": (2.0, 6.0, 4.0),
+    "rd_lambda": (1.0, 3.0, 2.0),
+    "tcq_rdl": (0.25, 1.0, 0.5),
+    "pre_db": (5.0, 15.0, 10.0),
+}
+OBJECTIVE = "peaq"
 __doc__ += "".join(f"  {k}: {lo:g} to {hi:g} (production {p:g})\n" for k, (lo, hi, p) in SPACE.items())
 KEYS = list(SPACE)
 
@@ -81,7 +95,8 @@ def job(args):
         import soundfile as sf
         kbps = nbytes * 8 / sf.info(wav).duration / 1000
         res = metrics.evaluate(wav, dec)
-    return {"item": name, "q": q, "kbps": kbps, **{k: res.get(k, np.nan) for k in ("odg", "odg_adv", "mms2f", "nmr_db")}}
+    return {"item": name, "q": q, "kbps": kbps,
+            **{k: res.get(k, np.nan) for k in ("odg", "odg_adv", "mms2f", "nmr_db", "zimt")}}
 
 
 def rate_job(args):
@@ -145,11 +160,14 @@ def evaluate_population(xs, ex, items):
     out = []
     for i in range(len(xs)):
         r = [row for (j, _), row in zip(tasks, rows, strict=True) if j == i]
-        s = {m: at_rate(r, m) for m in ("odg", "odg_adv", "mms2f", "nmr_db")}
+        s = {m: at_rate(r, m) for m in ("odg", "odg_adv", "mms2f", "nmr_db", "zimt")}
         lo, hi = (float(np.mean([row["kbps"] for row in r if row["q"] == qs[(i, t)]])) for t in TARGETS)
         s.update(q_lo=qs[(i, TARGETS[0])], q_hi=qs[(i, TARGETS[1])], rate_lo=lo, rate_hi=hi,
                  bracketed=bool(min(lo, hi) <= RATE <= max(lo, hi)))
-        s["objective"] = (s["odg"] + s["odg_adv"]) / 2 if s["bracketed"] else -9.0
+        if OBJECTIVE == "zimt":                 # higher is better for CMA's minus sign: -distance x 1e4
+            s["objective"] = -s["zimt"] * 1e4 if s["bracketed"] else -99.0
+        else:
+            s["objective"] = (s["odg"] + s["odg_adv"]) / 2 if s["bracketed"] else -9.0
         out.append(s)
     return out
 
@@ -172,7 +190,7 @@ def cmd_search(a):
         base = evaluate_population([x0], ex, items)[0]
         rows.append({"gen": 0, "cand": 0, **to_settings(x0), **base})
         best = rows[-1]
-        log(f"production: objective {base['objective']:+.4f} (odg {base['odg']:+.4f}, "
+        log(f"production: objective {base['objective']:+.4f} (zimt {base['zimt'] * 1e4:.3f}e-4, odg {base['odg']:+.4f}, "
             f"odg_adv {base['odg_adv']:+.4f}, 2f {base['mms2f']:.2f}; q {base['q_lo']:.2f} -> "
             f"{base['rate_lo']:.1f}, q {base['q_hi']:.2f} -> {base['rate_hi']:.1f} kb/s)")
         pd.DataFrame(rows).to_csv(SEARCH_CSV, index=False)
@@ -198,7 +216,8 @@ def cmd_search(a):
 def cmd_best(a):
     df = pd.read_csv(SEARCH_CSV)
     base = df[df.gen == 0].iloc[0]
-    print(df.sort_values("objective", ascending=False).head(10)[["gen", *KEYS, "objective", "odg", "odg_adv", "mms2f", "nmr_db"]]
+    cols = ["gen", *KEYS, "objective", "odg", "odg_adv", "mms2f", "nmr_db"] + (["zimt"] if "zimt" in df else [])
+    print(df.sort_values("objective", ascending=False).head(10)[cols]
           .to_string(index=False))
     print(f"production objective {base.objective:+.4f}")
 
@@ -211,7 +230,10 @@ def main():
     ap.add_argument("--sigma", type=float, default=0.25)
     ap.add_argument("--base", default="", help="fixed integer settings, e.g. tcq_chain=1,tcq_states=64")
     ap.add_argument("--tag", default="", help="suffix of the result files")
+    ap.add_argument("--objective", choices=["peaq", "zimt"], default="peaq")
     a = ap.parse_args()
+    if a.objective == "zimt":
+        globals().update(OBJECTIVE="zimt", SPACE=SPACE_Z, KEYS=list(SPACE_Z))
     for kv in filter(None, a.base.split(",")):
         k, v = kv.split("=")
         BASE[k] = int(v)

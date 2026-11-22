@@ -29,7 +29,10 @@
 ## v4 (branche `v4`, format figé le 21/11/2026, `docs/V4.md`)
 
 - **Écoute ABX à 128 kb/s** : kit `data/listen/v4/` (MULE v4 contre l'original, contre AAC Apple),
-  résultats dans `eval/results/V4-ABX.md`.
+  résultats dans `eval/results/V4-ABX.md`. À régénérer avant l'écoute (`eval/abx_v4.py`) : la garde
+  d'enveloppe est entrée dans la production après l'écriture du kit.
+- **Réglage Zimtohrli** (22/11/2026) : `low_db` est à la borne haute de l'espace de recherche (15) ;
+  une recherche courte à bornes élargies pourrait aller plus loin.
 - **Portage** du décodeur v4 dans la branche Mule du firmware, puis mesure sur l'appareil (QEMU :
   +3 à +7 % d'instructions par trame, +1,4 Kio de code, `docs/PORT.md` §8).
 - **Inclinaison transmise de la bande 21** (idée non essayée) : envoyer l'inclinaison de la bande 21

@@ -55,6 +55,14 @@ def _results(*names):
     return df
 
 
+def _v4(df):
+    """The current v4 production (prod4_test.csv, mule_<q>, 22/11/2026: the Zimtohrli tuning, the
+    envelope guard at 5 dB, nf_bias 1) added to df as family "mule-v4" (df's "mule" is v3's)."""
+    p = pd.read_csv(os.path.join(RESULTS, "prod4_test.csv"))
+    p["fam"] = "mule-v4"
+    return pd.concat([df, p])
+
+
 def _strip(rows, rate, name, figsize=(9, 5.2), lang="fr", zimt=False):
     """One row of dots per (values: item -> ODG, label, colour, marker): the median, the 10-90 %
     range, the hardest and the easiest item named. lang "en": English captions (the README).
@@ -153,12 +161,12 @@ def enc_fig2b_avant_apres_160():
 
 
 def enc_fig3_v4(rate=128, lang="fr"):
-    """Format v4 (noise in coded bands' zeros, tonal guard, sloped noise filling; measured as
-    sl6v4_test.csv, the same sound as the frozen format) against MULE v3's production, Opus and
-    Apple's AAC (docs/V4.md, 21/11/2026)."""
-    df = _results("prod2_test.csv", "sl6v4_test.csv", "ref_test.csv", "aapl_test.csv")
+    """Format v4's production (_v4: noise in coded bands' zeros, sloped noise filling, the tonal and
+    envelope guards, the Zimtohrli tuning) against MULE v3's production, Opus and Apple's AAC
+    (docs/V4.md). Before 22/11/2026: the frozen format's encoder, sl6v4_test.csv."""
+    df = _v4(_results("prod2_test.csv", "ref_test.csv", "aapl_test.csv"))
     rows = [(odg_at(df, "opus", rate), "Opus", ORANGE, "D"),
-            (odg_at(df, "mule-sl6v4", rate), "MULE v4", GREEN, "o"),
+            (odg_at(df, "mule-v4", rate), "MULE v4", GREEN, "o"),
             (odg_at(df, "mule", rate), "MULE v3", BLUE, "o"),
             (odg_at(df, "aapl", rate), "AAC (Apple)", APPLE, "v")]
     _strip(rows, rate, "enc-fig3-v4" + ("" if rate == 128 else f"-{rate}") + ("-en" if lang == "en" else ""),
@@ -172,12 +180,12 @@ def enc_fig3b_v4_160():
 
 def enc_fig5_zimt(rate=128, lang="fr"):
     """The distribution figure of format v4 (enc_fig3_v4) with Zimtohrli instead of PEAQ: each
-    test item's distance at a mean rate, Opus, MULE v4, MULE v3 and Apple's AAC. Opus and Apple
-    from ref2_test.csv and aapl2_test.csv: ref_test and aapl_test hold Zimtohrli rounded to 1e-4
-    (written before run_eval's %.6g)."""
-    df = _results("prod2_test.csv", "sl6v4_test.csv", "ref2_test.csv", "aapl2_test.csv")
+    test item's distance at a mean rate, Opus, MULE v4 (the production, _v4), MULE v3 and Apple's
+    AAC. Opus and Apple from ref2_test.csv and aapl2_test.csv: ref_test and aapl_test
+    hold Zimtohrli rounded to 1e-4 (written before run_eval's %.6g)."""
+    df = _v4(_results("prod2_test.csv", "ref2_test.csv", "aapl2_test.csv"))
     rows = [(odg_at(df, "opus", rate, "zimt"), "Opus", ORANGE, "D"),
-            (odg_at(df, "mule-sl6v4", rate, "zimt"), "MULE v4", GREEN, "o"),
+            (odg_at(df, "mule-v4", rate, "zimt"), "MULE v4", GREEN, "o"),
             (odg_at(df, "mule", rate, "zimt"), "MULE v3", BLUE, "o"),
             (odg_at(df, "aapl", rate, "zimt"), "AAC (Apple)", APPLE, "v")]
     _strip(rows, rate, "enc-fig5-zimt" + ("" if rate == 128 else f"-{rate}") + ("-en" if lang == "en" else ""),
