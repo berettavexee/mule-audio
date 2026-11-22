@@ -59,12 +59,12 @@ model of the ear and predict what a listener would hear; neither is a listening 
   annoying": they are all good, and the gaps between them are a few tenths at most. A score just
   above 0 (+0.01) is the model's noise around "imperceptible". The advanced version of PEAQ uses a
   finer ear model and is usually stricter.
-- **Zimtohrli** (Google) is a distance between the decoded file and the original as its ear model
-  hears them: **0** means identical, smaller is better. The values are tiny, so the table gives them
-  in units of 10⁻⁴. It has no verbal scale; its authors' conversion to a mean opinion score
-  (1 = bad, 5 = excellent) puts every codec of the table between 4.87 and 4.93, all close to
-  transparent. It is best read in relative terms: MULE v5's distance is 17 % below Opus's and about
-  45 % below Vorbis's and FDK-AAC's.
+- **Zimtohrli** (Google) measures how far the decoded file is from the original, as its ear model
+  hears them: **0** means identical, smaller is better. The table shows this **distance** (in units
+  of 10⁻⁴, the values being tiny), not the grade from 1 to 5 that Zimtohrli can also give, the
+  scale usual on audio forums: at these bitrates every codec of the table would get between 4.87
+  and 4.93 out of 5, all close to transparent and too close together to tell apart. The distance
+  separates them: MULE v5's is 17 % below Opus's and about 45 % below Vorbis's and FDK-AAC's.
 - **In practice**, at 128 kb/s these codecs are all close to transparent for most listeners and
   most music; the differences show on difficult passages (cymbals, bagpipes, harpsichord) and to
   trained ears.
