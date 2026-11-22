@@ -80,6 +80,14 @@ typedef struct {
     int eg_a;           /* (1) */
     double tg_ton;      /* a lone line: the band's strongest coefficient this many dB above the
                          * strongest of a noise of the same lines, 2 ln n times the mean (5) */
+    int tr_hf;          /* a second transient detector pass on the signal high-passed at tr_hf_fc,
+                         * threshold tr_hf_db, its attacks added (1 since 22/11/2026, 0 before) */
+    double tr_hf_fc;    /* (8000 Hz) */
+    double tr_hf_db;    /* (6 dB since the v5; 8.5 before) */
+    double tr_hf_ton;   /* tonal veto: a frame only the highs pass made short stays long if its bands
+                         * 12-21 (2.8-17 kHz, FFT of the mid) are flatter than -tr_hf_ton dB (10; 0: off) */
+    double tr_decay_db; /* the detector's memory decay per block of 128 (1 dB since 22/11/2026, 3 before:
+                         * a voice's glottal pulses were taken for attacks, N-LOG.md) */
 } mule_enc_params;
 
 void mule_enc_defaults(mule_enc_params *p);

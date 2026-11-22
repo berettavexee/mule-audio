@@ -43,16 +43,19 @@
   réglages du modèle psychoacoustique. Le clignotement des raies de la bande 20 venait surtout
   d'artefacts d'enregistrement (Beethoven 59 : 15 625 Hz, Takemitsu).
 
-## v5 (idées de format, non essayées)
+## v5 (figée le 22/11/2026, `docs/V5.md`)
 
-- **Bruit en pente centré sur les sommets** (22/11/2026). La pente v4 (`noise_band_sloped`,
-  spec §5.3) est centrée sur les cellules : chaque bande remplie de bruit prend la pente de la
-  droite qui passe par les centres de ses deux voisines (en log2), limitée à ±6 dB aux bords, puis
-  est renormalisée à sa propre énergie ; rien n'assure la continuité aux frontières (petites
-  marches entre bandes voisines). Variante : une valeur à chaque frontière (moyenne en dB des deux
-  bandes adjacentes), interpolation linéaire entre les deux frontières de la bande, puis la même
-  renormalisation : profil continu, énergie de chaque bande conservée. Change la sortie du
-  décodeur (nouvelle version de format, nouveaux vecteurs). À rapprocher de l'« affinage de la
-  pente » noté au gel de la v4.
-- **Interpolation dans le temps** du bruit des bandes sans bits : aujourd'hui chaque trame tire son
-  bruit indépendamment (le défaut de Garbage, enveloppe fausse d'une trame à l'autre).
+- Retenus : repliement dans les trames courtes, niveau du bruit des zéros codé par un modèle ;
+  dans l'encodeur, le détecteur d'attaques corrigé (mémoire à 1 dB par bloc), le détecteur des
+  aigus à 6 dB, son veto tonal.
+- Essayés et écartés (sondes retirées au gel, résultats dans `eval/results/N-LOG.md`) : bruit en
+  pente centré sur les sommets, bruit qui suit l'enveloppe des bandes codées, bande source choisie,
+  blocs de 512 et découpages mixtes (`docs/V5-512.md`), TF par bande, `hi_db`, `nf_gate`,
+  critères de repliement par trame, coupure des groupes à l'attaque.
+- À faire : mesurer le décodeur v5 sous QEMU (instructions par trame) ; le porter sur l'appareil
+  après la v4.
+- Ouvert : le pré-écho qui reste dans les trames courtes (environ 6 dB d'excès sur l'attaque de
+  Garbage étudiée, avec ou sans coupure de groupe) relève des fenêtres, pas du regroupement ; la
+  voix de femme (PEAQ −0,022, Zimtohrli mieux) peut être écoutée.
+- Étude pour Opus : PVQ en treillis (`eval/pvq_trellis.py`) : +0,15 à +0,3 dB avec la pyramide
+  K+1 pour demi-pas ; un vrai réseau décalé pourrait récupérer 0,2 à 0,5 dB de plus.

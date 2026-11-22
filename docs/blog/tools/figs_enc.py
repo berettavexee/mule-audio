@@ -56,10 +56,20 @@ def _results(*names):
 
 
 def _v4(df):
-    """The current v4 production (prod4_test.csv, mule_<q>, 22/11/2026: the Zimtohrli tuning, the
+    """The current v4 production (prod5_test.csv, mule_<q>, 22/11/2026: the Zimtohrli tuning, the highs
+    transient detector (tr_hf; prod4_test.csv was the production before it), the
     envelope guard at 5 dB, nf_bias 1) added to df as family "mule-v4" (df's "mule" is v3's)."""
-    p = pd.read_csv(os.path.join(RESULTS, "prod4_test.csv"))
+    p = pd.read_csv(os.path.join(RESULTS, "prod5_test.csv"))
     p["fam"] = "mule-v4"
+    return pd.concat([df, p])
+
+
+def _v5(df):
+    """The v5 production (prod6_test.csv, mule_<q>, 22/11/2026: folding in short frames, the zeros'
+    noise level modelled, the corrected transient detector with its highs pass at 6 dB and its
+    tonal veto) added to df as family "mule-v5"."""
+    p = pd.read_csv(os.path.join(RESULTS, "prod6_test.csv"))
+    p["fam"] = "mule-v5"
     return pd.concat([df, p])
 
 
@@ -207,6 +217,45 @@ def enc_fig3c_v4_en():
     enc_fig3_v4(128, "en")
 
 
+def enc_fig6_v5(rate=128, lang="fr", zimt=False):
+    """Format v5's production (_v5) against v4's (_v4), Opus and Apple's AAC, each test item at a
+    mean rate (docs/V5.md): PEAQ's basic ODG, or (zimt) Zimtohrli. Opus and Apple from ref2_test.csv
+    and aapl2_test.csv (Zimtohrli at full precision)."""
+    df = _v5(_v4(_results("prod2_test.csv", "ref2_test.csv", "aapl2_test.csv")))
+    col = "zimt" if zimt else "odg"
+    rows = [(odg_at(df, "opus", rate, col), "Opus", ORANGE, "D"),
+            (odg_at(df, "mule-v5", rate, col), "MULE v5", GREEN, "o"),
+            (odg_at(df, "mule-v4", rate, col), "MULE v4", BLUE, "o"),
+            (odg_at(df, "aapl", rate, col), "AAC (Apple)", APPLE, "v")]
+    _strip(rows, rate, ("enc-fig7-zimt-v5" if zimt else "enc-fig6-v5") + ("" if rate == 128 else f"-{rate}")
+           + ("-en" if lang == "en" else ""), figsize=(9, 4.4), lang=lang, zimt=zimt)
+
+
+def enc_fig6b_v5_160():
+    """The same at 160 kb/s."""
+    enc_fig6_v5(160)
+
+
+def enc_fig6c_v5_en():
+    """The same at 128 kb/s, in English (the README)."""
+    enc_fig6_v5(128, "en")
+
+
+def enc_fig7_zimt_v5():
+    """enc_fig6_v5 with Zimtohrli."""
+    enc_fig6_v5(128, zimt=True)
+
+
+def enc_fig7b_zimt_v5_160():
+    """The same at 160 kb/s."""
+    enc_fig6_v5(160, zimt=True)
+
+
+def enc_fig7c_zimt_v5_en():
+    """The same at 128 kb/s, in English (the README)."""
+    enc_fig6_v5(128, "en", zimt=True)
+
+
 def enc_fig4_spectro_en(item="harpsichord", seconds=6.0):
     """Where each codec puts its bits: spectrograms of an EBU SQAM excerpt (free of rights), the
     original, MULE v4, Opus and Apple's AAC (qaac --cvbr 128), the three at Apple's rate on this
@@ -259,7 +308,8 @@ def enc_fig4_spectro_en(item="harpsichord", seconds=6.0):
 
 ALL = [enc_fig1_distributions, enc_fig1b_distributions_160, enc_fig2_avant_apres, enc_fig2b_avant_apres_160,
        enc_fig3_v4, enc_fig3b_v4_160, enc_fig3c_v4_en, enc_fig4_spectro_en, enc_fig5_zimt,
-       enc_fig5b_zimt_160, enc_fig5c_zimt_en]
+       enc_fig5b_zimt_160, enc_fig5c_zimt_en, enc_fig6_v5, enc_fig6b_v5_160, enc_fig6c_v5_en,
+       enc_fig7_zimt_v5, enc_fig7b_zimt_v5_160, enc_fig7c_zimt_v5_en]
 
 if __name__ == "__main__":
     style()
