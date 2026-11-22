@@ -3055,3 +3055,13 @@ Production v5 sur `test` (`prod6_test.csv`), à débit moyen égal : ODG −0,14
 160 kb/s), ODG avancé −0,332 / −0,134, Zimtohrli 2,77e-4 (médiane 2,71) et 1,43 (médiane 1,36) ;
 Garbage 3,10, pire Zombie Zombie 4,76. README (ligne v5, figures `enc-fig6-v5*`, `enc-fig7-zimt-v5*`),
 `docs/V5.md`, `spec/FORMAT.md`, `docs/PORT.md`, `docs/TODO.md` à jour.
+
+## Décodeur v5 sous QEMU (22/11/2026)
+
+`bench/qemu` (Cortex-M3, `mps2-an385`, `-icount shift=0`), le même décodeur v5 sur un flux v4
+(encodé par l'arbre de `bc0ebad`, copie de travail temporaire) et un flux v5 du même extrait,
+10 s ; empreintes FNV-1a identiques à celles du PC dans les 8 cas. Instructions par trame (pire) :
+abba q −12 880 401 (988 360) → 888 503 (961 720), +0,9 % ; abba q −7 850 265 (956 520) →
+861 719 (929 560), +1,3 % ; Belenos q −7 950 450 (989 840) → 950 994 (990 160), +0,1 % ;
+castagnettes q −7 821 892 (932 640) → 832 886 (952 280), +1,3 %. État sur la cible 49 412 octets.
+`docs/PORT.md`, `docs/V5.md`, `docs/TODO.md` à jour.

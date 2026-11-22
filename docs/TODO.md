@@ -52,8 +52,8 @@
   pente centré sur les sommets, bruit qui suit l'enveloppe des bandes codées, bande source choisie,
   blocs de 512 et découpages mixtes (`docs/V5-512.md`), TF par bande, `hi_db`, `nf_gate`,
   critères de repliement par trame, coupure des groupes à l'attaque.
-- À faire : mesurer le décodeur v5 sous QEMU (instructions par trame) ; le porter sur l'appareil
-  après la v4.
+- À faire : porter le décodeur v5 sur l'appareil après la v4 (sous QEMU : +0,1 à +1,3 %
+  d'instructions par trame contre la v4, `docs/PORT.md`).
 - Ouvert : le pré-écho qui reste dans les trames courtes (environ 6 dB d'excès sur l'attaque de
   Garbage étudiée, avec ou sans coupure de groupe) relève des fenêtres, pas du regroupement ; la
   voix de femme (PEAQ −0,022, Zimtohrli mieux) peut être écoutée.

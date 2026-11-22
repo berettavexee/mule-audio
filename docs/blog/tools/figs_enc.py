@@ -256,10 +256,12 @@ def enc_fig7c_zimt_v5_en():
     enc_fig6_v5(128, "en", zimt=True)
 
 
-def enc_fig4_spectro_en(item="harpsichord", seconds=6.0):
+def enc_fig4_spectro_en(item="harpsichord", seconds=6.0, mule="MULE v4", name="enc-fig4-spectro-en", lang="en"):
     """Where each codec puts its bits: spectrograms of an EBU SQAM excerpt (free of rights), the
-    original, MULE v4, Opus and Apple's AAC (qaac --cvbr 128), the three at Apple's rate on this
-    excerpt (MULE's q and Opus' nominal rate found by bisection). English (the README)."""
+    original, MULE (the production encoder: its label mule), Opus and Apple's AAC (qaac --cvbr 128),
+    the three at Apple's rate on this excerpt (MULE's q and Opus' nominal rate found by bisection).
+    English (the README) or French (lang "fr"). The figure enc-fig4 was made with format v4: since
+    the v5 encoder, regenerating it would label v5's sound "MULE v4" (enc_fig8_spectro_v5 instead)."""
     import tempfile
     import refcodecs
     from scipy.signal import stft
@@ -277,7 +279,7 @@ def enc_fig4_spectro_en(item="harpsichord", seconds=6.0):
         mid = (lo + hi) // 2
         lo, hi = (mid, hi) if opus_rate(mid) <= target else (lo, mid)
     ok = min((lo, hi), key=lambda k: abs(opus_rate(k) - target))
-    cfgs = [("MULE v4", f"mule_{mule_q('mule_-7', w, target):g}"), ("Opus", f"opus_{ok}"),
+    cfgs = [(mule, f"mule_{mule_q('mule_-7', w, target):g}"), ("Opus", f"opus_{ok}"),
             ("AAC (Apple)", "aaplc_128")]
     panels = []
     for lab, c in cfgs:
@@ -297,19 +299,34 @@ def enc_fig4_spectro_en(item="harpsichord", seconds=6.0):
         ax.set_title(lab, fontsize=13)
         ax.set_ylim(0, 22.05)
     for ax in axs[1]:
-        ax.set_xlabel("time (s)")
+        ax.set_xlabel("time (s)" if lang == "en" else "temps (s)")
     for ax in axs[:, 0]:
-        ax.set_ylabel("frequency (kHz)")
-    fig.text(0.5, -0.02, f"EBU SQAM harpsichord, first {seconds:g} s; darker = louder, 90 dB from white to black;"
-             " the three codecs at the same rate", ha="center", color=MUTED, fontsize=11)
+        ax.set_ylabel("frequency (kHz)" if lang == "en" else "fréquence (kHz)")
+    cap = (f"EBU SQAM harpsichord, first {seconds:g} s; darker = louder, 90 dB from white to black;"
+           " the three codecs at the same rate") if lang == "en" else (
+           f"Clavecin EBU SQAM, {seconds:g} premières secondes ; plus sombre = plus fort, 90 dB du blanc au"
+           " noir ; les trois codecs au même débit")
+    fig.text(0.5, -0.02, cap, ha="center", color=MUTED, fontsize=11)
     fig.tight_layout()
-    save(fig, "enc-fig4-spectro-en")
+    save(fig, name)
 
 
+def enc_fig8_spectro_v5_en():
+    """enc_fig4's spectrograms with format v5's encoder (the production since 22/11/2026)."""
+    enc_fig4_spectro_en(mule="MULE v5", name="enc-fig8-spectro-v5-en")
+
+
+def enc_fig8b_spectro_v5_fr():
+    """The same, in French (the blog)."""
+    enc_fig4_spectro_en(mule="MULE v5", name="enc-fig8-spectro-v5", lang="fr")
+
+
+# (enc_fig4_spectro_en is left out: made with format v4, it would now encode v5; see enc_fig8)
 ALL = [enc_fig1_distributions, enc_fig1b_distributions_160, enc_fig2_avant_apres, enc_fig2b_avant_apres_160,
-       enc_fig3_v4, enc_fig3b_v4_160, enc_fig3c_v4_en, enc_fig4_spectro_en, enc_fig5_zimt,
+       enc_fig3_v4, enc_fig3b_v4_160, enc_fig3c_v4_en, enc_fig5_zimt,
        enc_fig5b_zimt_160, enc_fig5c_zimt_en, enc_fig6_v5, enc_fig6b_v5_160, enc_fig6c_v5_en,
-       enc_fig7_zimt_v5, enc_fig7b_zimt_v5_160, enc_fig7c_zimt_v5_en]
+       enc_fig7_zimt_v5, enc_fig7b_zimt_v5_160, enc_fig7c_zimt_v5_en, enc_fig8_spectro_v5_en,
+       enc_fig8b_spectro_v5_fr]
 
 if __name__ == "__main__":
     style()

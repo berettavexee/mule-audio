@@ -126,7 +126,7 @@ passage, and spends the bits on cleaner harmonics below. PEAQ, ViSQOL and Zimtoh
 the energy Apple removes; whether the ear does is what the ABX kit of v4 is for
 (`data/listen/v4/`, results in [`eval/results/V4-ABX.md`](eval/results/V4-ABX.md)).
 
-![Spectrograms of the EBU SQAM harpsichord: the original, MULE v4, Opus and Apple's AAC, all at 117 kb/s](docs/blog/fig/enc-fig4-spectro-en.svg)
+![Spectrograms of the EBU SQAM harpsichord: the original, MULE v5, Opus and Apple's AAC, all at 117 kb/s](docs/blog/fig/enc-fig8-spectro-v5-en.svg)
 
 ## What was learned
 

@@ -60,12 +60,22 @@ Extrait abba, 10 s, q −12 (150,6 kb/s, 432 trames) :
 | **optimisée** | **922 000** | 584 000 | 338 000 | 1 044 000 |
 | format v3 (19/11/2026, 152,8 kb/s) | 840 050 | — | — | 951 400 |
 | format v4 (21/11/2026, 155,5 kb/s) | 871 920 | — | — | 963 560 |
+| format v5 (22/11/2026, 156,7 kb/s) | 888 503 | — | — | 961 720 |
 
 Format v3 : le décodeur lit la v3 et la v2 ; 49 368 octets d'état. Il n'est pas encore porté sur l'appareil : les mesures des §9 et suivants sont celles de la v2.
 
 Format v4 (dans `main` depuis le 22/11/2026, `docs/V4.md`) : le décodeur lit la v4, la v3 et la v2 ; 49 372 octets d'état ; code de `core/dec.c` 18 433 octets contre 16 989 en v3 (+1,4 Kio, aucune table ajoutée). Mesuré avec le même décodeur sur un flux v3 et un flux v4 du même extrait : +4,3 % d'instructions par trame sur abba à q −12, +6,6 % sur abba à q −7 (112 kb/s), +3,1 % sur Belenos à q −7 (160 kb/s) ; pire trame +2 à +3,6 %. Le surcoût vient du bruit des zéros (un tirage par coefficient nul) et du bruit en pente (une puissance de 2 par raie) : de l'ordre de 2 à 4 MHz sur le cœur B. Sortie exacte au bit près contre le PC.
 
-Format v5 (dans `main` depuis le 22/11/2026, `docs/V5.md`) : le décodeur lit v5, v4, v3 et v2 ; 49 424 octets d'état (+52 : un modèle `nflev` et un indicateur) ; code de `core/dec.c` pour Cortex-M3 17 743 octets (`make m3size`), aucune table ajoutée. Le repliement (`fold_band`) n'a aucun tableau local ; il fait deux divisions 64 bits par coefficient replié, seulement dans les bandes sans bits des trames courtes. Instructions par trame pas encore mesurées sous QEMU ; pas encore porté sur l'appareil.
+Format v5 (dans `main` depuis le 22/11/2026, `docs/V5.md`) : le décodeur lit v5, v4, v3 et v2 ; 49 424 octets d'état (+52 : un modèle `nflev` et un indicateur) ; code de `core/dec.c` pour Cortex-M3 17 743 octets (`make m3size`), aucune table ajoutée. Le repliement (`fold_band`) n'a aucun tableau local ; il fait deux divisions 64 bits par coefficient replié, seulement dans les bandes sans bits des trames courtes. Mesuré sous QEMU avec le même décodeur v5 sur un flux v4 (encodeur du 22/11/2026, `bc0ebad`) et un flux v5 du même extrait, 10 s, empreintes identiques à celles du PC :
+
+| Extrait | v4 : instructions par trame (pire trame) | v5 | écart |
+|---|---|---|---|
+| abba, q −12 (156,5 kb/s) | 880 401 (988 360) | 888 503 (961 720) | +0,9 % (−2,7 %) |
+| abba, q −7 (112,7 kb/s) | 850 265 (956 520) | 861 719 (929 560) | +1,3 % (−2,8 %) |
+| Belenos, q −7 (143,6 kb/s) | 950 450 (989 840) | 950 994 (990 160) | +0,1 % (0,0 %) |
+| castagnettes, q −7 (114,9 kb/s) | 821 892 (932 640) | 832 886 (952 280) | +1,3 % (+2,1 %) |
+
+Le surcoût (0 à 1,3 % par trame, de l'ordre de 0,5 MHz sur le cœur B) vient du repliement et du modèle du niveau de bruit, et pour partie des trames courtes plus nombreuses de l'encodeur v5 ; la pire trame bouge de −3 à +2 %. État : 49 412 octets sur la cible. Pas encore porté sur l'appareil.
 
 Optimisations, toutes sans effet sur la sortie (empreinte identique, tests verts) :
 - recherche de symbole par bornes successives, avec une multiplication par candidat ;
