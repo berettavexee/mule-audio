@@ -22,8 +22,7 @@ typedef int32_t coef_t;                 /* Q24 */
  * this frame reach beyond (448 + 7 * 128 + 256 = 1600) */
 #define ACC_LEN (MULE_SHORT_OFF + 128 * (MULE_N_SUB - 1) + MULE_N_SHORT)
 
-static const int EDGES[MULE_NB + 2] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 20, 24, 28,
-                                       34, 40, 48, 60, 78, 100, 116, 128};
+static const int EDGES[MULE_NB + 2] = MULE_EDGES_INIT;
 static const int ALPHAS[4] = {0, 16, 26, 31};
 static const int64_t POW4[4] = {256, 304, 362, 431};   /* 2^(i/4) in Q8: inter-frame rescaling */
 
@@ -32,6 +31,7 @@ struct mule_dec_state {
     uint32_t rate;
     int tcq_chain;                      /* v3: the trellis state runs on across the bands */
     int coef_t;                         /* the coefficient escape symbol: 15 (v2), 7 (v3 a8) */
+    int v4;                             /* v4: noise in coded bands' zeros, sloped noise filling */
     uint8_t tcq_next[MULE_TCQ_MAXS][4]; /* next state from (state, k mod 4) (v2: 8 states) */
     mule_models ms;                     /* the adaptive models (reset at each key packet) */
     int qprev[2][MULE_NB], aprev[2][MULE_NB];   /* last energies and allocations (prediction) */
@@ -232,6 +232,68 @@ static void noise_band(mule_dec *d, coef_t *X, const int *idx, int n, int q)
     int64_t gain = A * (int64_t)isqrt64((uint64_t)n << 32) / R; /* times sqrt(n) (Q16) / R */
     for (int i = 0; i < n; i++)                                 /* Q48 per unit of z -> Q24 */
         X[idx[i]] = (int32_t)(((int64_t)z[i] * gain) >> 24);
+}
+
+/* v4: 2^x in Q16 for x in Q16 (|x| <= 4), the fraction by a cubic (0.1 %). */
+static int64_t exp2_q16(int64_t x)
+{
+    int64_t i = x >> 16, f = x & 0xFFFF;        /* x = i + f, f in [0, 1) */
+    int64_t p = 65536 + ((f * (45426 + ((f * (15743 + ((f * 4367) >> 16))) >> 16))) >> 16);
+    return i >= 0 ? p << i : p >> -i;
+}
+
+/* v4 (spec 5.3): noise_band with a slope, for a long frame's noise-filled band b from
+ * MULE_NF_START up: line i weighted by
+ * 2^(s (p_i - c_b)), s the log2 slope per line through the levels of the neighbouring bands
+ * (both if heard, else the one heard with b itself), c_b the band's centre; then scaled to the
+ * band's energy as noise_band does. */
+static void noise_band_sloped(mule_dec *d, coef_t *X, const int *idx, int n, const int *q, int b)
+{
+    int l = b > 0 && q[b - 1] > MULE_QMIN ? b - 1 : b;
+    int r = b + 1 < MULE_NB && q[b + 1] > MULE_QMIN ? b + 1 : b;
+    int64_t s = 0;                              /* log2 per line, Q16 (q / 4) */
+    if (l < r) {
+        int cl = 4 * (EDGES[l] + EDGES[l + 1]), cr = 4 * (EDGES[r] + EDGES[r + 1]);
+        s = ((int64_t)(q[r] - q[l]) << 14) / (cr - cl);
+    }
+    if (!s) {
+        noise_band(d, X, idx, n, q[b]);
+        return;
+    }
+    int cb = 4 * (EDGES[b] + EDGES[b + 1]);
+    int64_t lim = ((int64_t)1 << 16) / (n / 2 > 0 ? n / 2 : 1);
+    s = s > lim ? lim : (s < -lim ? -lim : s);  /* +-1 log2 (6 dB) at the band's ends */
+    int32_t z[176];
+    int64_t e = 0;
+    for (int i = 0; i < n; i++) {
+        d->lcg = d->lcg * 1664525u + 1013904223u;
+        int64_t w = exp2_q16(s * (8 * EDGES[b] + i - cb) + (s >> 1));  /* line centre */
+        z[i] = (int32_t)((((int64_t)(d->lcg >> 16) - 32768) * w) >> 18);   /* |z| < 2^15 */
+        e += (int64_t)z[i] * z[i];
+    }
+    uint32_t R = isqrt64((uint64_t)e);
+    if (!R) {
+        for (int i = 0; i < n; i++)
+            X[idx[i]] = 0;
+        return;
+    }
+    int64_t A = fx_scale64(1 << 8, q[b]);
+    int64_t gain = A * (int64_t)isqrt64((uint64_t)n << 32) / R;
+    for (int i = 0; i < n; i++)
+        X[idx[i]] = (int32_t)(((int64_t)z[i] * gain) >> 24);
+}
+
+/* v4 (spec 5.3): the noise of a zero coefficient in a coded band, level nf (1..7):
+ * z (the LCG, uniform) scaled to an rms of NF_GAIN[nf] times the band's level unit D/2, the
+ * gains 0.5 * 2^(-(nf - 1)/2), -6 to -24 dB; NF_Q8: gain * sqrt(3) in Q8 per 2^15 of z. */
+static const int32_t NF_Q8[8] = {0, 222, 157, 111, 78, 55, 39, 28};
+
+static coef_t nf_value(mule_dec *d, int nf, const band_scale *bs)
+{
+    d->lcg = d->lcg * 1664525u + 1013904223u;
+    int32_t z = (int32_t)(d->lcg >> 16) - 32768;
+    band_scale b8 = {bs->mant, bs->sh + 8};     /* the level in Q8 */
+    return coef_value(((int64_t)z * NF_Q8[nf]) >> 15, &b8);
 }
 
 /* M/S to L/R in place: L = (M + S) / sqrt 2, R = (M - S) / sqrt 2 (spec 5.5). */
@@ -483,7 +545,7 @@ static int read_allocations(mule_dec *d, int c, int *a)
  * tail1, tail2: the two previous indices; tst: the trellis state at the band's start. The
  * trellis state at its end. */
 static int read_band(mule_dec *d, coef_t *X, uint16_t *ycur, const group *gr, int c, int b, int q,
-                     int a, int inter, int e, int64_t *tail1, int64_t *tail2, int tst)
+                     int a, int inter, int e, int64_t *tail1, int64_t *tail2, int tst, int nf)
 {
     int n = band_count(gr, b), type = gr->type;
     int ac = a / 3 < 15 ? a / 3 : 15;
@@ -515,7 +577,7 @@ static int read_band(mule_dec *d, coef_t *X, uint16_t *ycur, const group *gr, in
         if ((!even || mag) && raw(d, 1))
             k = -k;
         tst = d->tcq_next[tst][k & 3];
-        X[idx] = coef_value(k, &bs);
+        X[idx] = k == 0 && nf ? nf_value(d, nf, &bs) : coef_value(k, &bs);
         if (type == 0)
             ycur[idx] = (uint16_t)(mag < 65535 ? mag : 65535);
         t2 = t1;
@@ -553,6 +615,7 @@ static void decode_frame(mule_dec *d, int16_t *out)
         uint16_t *ycur = d->ycur;
         memset(ycur, 0, sizeof d->ycur);
         int q[MULE_NB] = {0}, a[MULE_NB] = {0};
+        int nf = d->v4 ? (int)raw(d, 3) : 0;    /* v4: the level of the zero coefficients' noise */
         for (int g = 0; g < ng; g++) {
             if (read_energies(d, c, g == 0 ? ALPHAS[ai] : 26, q) || read_allocations(d, c, a)) {
                 d->err = 1;                     /* not a valid stream (5.1, 5.2) */
@@ -566,13 +629,17 @@ static void decode_frame(mule_dec *d, int16_t *out)
                     int n = band_count(&grp[g], b), idx[176];
                     for (int i = 0; i < n; i++)
                         idx[i] = coef_index(&grp[g], b, i);
-                    noise_band(d, X, idx, n, q[b]);
+                    if (d->v4 && type == 0 && b >= MULE_NF_START)   /* v4: sloped */
+                        noise_band_sloped(d, X, idx, n, q, b);
+                    else
+                        noise_band(d, X, idx, n, q[b]);
                     continue;
                 }
                 int inter = inter_ok && d->along[c][b] > 0;
                 int e = inter ? d->qlong[c][b] - q[b] + a[b] - d->along[c][b] : 0;
                 tst_run = read_band(d, X, ycur, &grp[g], c, b, q[b], a[b], inter, e, &tail1, &tail2,
-                                    d->tcq_chain ? tst_run : 0);   /* v2: state 0 at each band */
+                                    d->tcq_chain ? tst_run : 0,    /* v2: state 0 at each band */
+                                    b >= MULE_NF_START ? nf : 0);
             }
         }
         if (type == 0) {                        /* the inter-frame context of the next frame */
@@ -617,7 +684,7 @@ mule_dec *mule_dec_init(void *mem, size_t size, const uint8_t *h, int len)
     if (size < sizeof(mule_dec) || len < MULE_HEAD_LEN_V2 || memcmp(h, "MULEHead", 8))
         return NULL;
     int n = 8, flags = 0;               /* v2: 8 states, restarted in each band, 16 symbols */
-    if (h[8] == MULE_VERSION) {         /* v3: the trellis's size, chaining, alphabet */
+    if (h[8] == 3 || h[8] == MULE_VERSION) {    /* v3, v4: the trellis's size, chaining, alphabet */
         if (len < MULE_HEAD_LEN || h[20] < 3 || h[20] > 6 || (h[21] & ~(MULE_TCQ_CHAIN | MULE_COEF_A8)))
             return NULL;
         n = 1 << h[20];
@@ -636,6 +703,7 @@ mule_dec *mule_dec_init(void *mem, size_t size, const uint8_t *h, int len)
             d->tcq_next[st][j] = (uint8_t)mule_tcq_step_n(st, j, n, mule_tcq_mask(n));
     d->tcq_chain = flags & MULE_TCQ_CHAIN;
     d->coef_t = flags & MULE_COEF_A8 ? 7 : 15;
+    d->v4 = h[8] == MULE_VERSION;
     reset_key(d);
     return d;
 }

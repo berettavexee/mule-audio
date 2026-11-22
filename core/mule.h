@@ -6,14 +6,18 @@
 #include <stdint.h>
 #include "model.h"
 
-#define MULE_VERSION      3             /* 3: chained trellis of 8-64 states, 8-symbol coefficients;
-                                         * 2: TCQ (decoded too); 1: scalar; 0: 480 contexts */
+#define MULE_VERSION      4             /* 4: v3 plus noise in coded bands' zeros and sloped noise
+                                         * filling; 3: chained trellis of 8-64 states, 8-symbol
+                                         * coefficients; 2: TCQ (3 and 2 decoded too); 1: scalar;
+                                         * 0: 480 contexts */
 #define MULE_F            1024          /* frame hop */
 #define MULE_N_LONG       2048
 #define MULE_N_SHORT      256
 #define MULE_N_SUB        8
 #define MULE_SHORT_OFF    448
 #define MULE_NB           22            /* coded bands */
+/* the band edges in units of 8 long-frame lines (spec 5), the last one past the coded bands */
+#define MULE_EDGES_INIT {0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 20, 24, 28, 34, 40, 48, 60, 78, 100, 116, 128}
 #define MULE_QMIN         (-100)
 #define MULE_QMAX         20
 #define MULE_Q_RESET      (-40)
@@ -23,7 +27,7 @@
 #define MULE_KEY_FRAMES   40
 #define MULE_PACKET_MAX   8192
 #define MULE_PRE_SKIP     1024
-#define MULE_HEAD_LEN     22            /* v3; v2: 20 */
+#define MULE_HEAD_LEN     22            /* v3, v4; v2: 20 */
 #define MULE_HEAD_LEN_V2  20
 #define MULE_LCG_SEED     0x2545F491u
 
@@ -32,9 +36,13 @@
  * (2 s + br) mod n and uses the subset j = (s & 1) + 2 (br ^ parity(s & mask)) (k mod 4 = j).
  * v2's trellis (JPEG 2000 part 2) is n = 8, mask 0x6. */
 #define MULE_TCQ_MAXS     64
-/* v3 header: byte 20 log2(states) (3..6), byte 21 flags; the encoder sets both flags */
-#define MULE_TCQ_CHAIN    1             /* v3 flag: the trellis state runs on across the bands */
-#define MULE_COEF_A8      2             /* v3 flag: coefficient alphabet of 8 symbols (escape 7) */
+/* v3 and v4 header: byte 20 log2(states) (3..6), byte 21 flags; the encoder sets both flags */
+#define MULE_TCQ_CHAIN    1             /* flag: the trellis state runs on across the bands */
+#define MULE_COEF_A8      2             /* flag: coefficient alphabet of 8 symbols (escape 7) */
+/* v4 (spec 5.3): from band MULE_NF_START up, the zero coefficients of a coded band carry noise at a
+ * level sent per channel and frame (3 raw bits before the channel's energies), and in long frames
+ * a noise-filled band follows the slope of its neighbours' levels, +-6 dB at its ends at most */
+#define MULE_NF_START     12            /* 2.8 kHz */
 static inline int mule_tcq_mask(int n)
 {
     return n == 64 ? 0x33 : (n == 32 ? 0x17 : (n == 16 ? 0xD : 0x6));

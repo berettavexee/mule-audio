@@ -263,6 +263,11 @@ void band_code(const band_in *in, int a, int64_t *tail1, int64_t *tail2, ops_t *
         }
         if (emit && in->type == 0)
             ycur[idx] = mag < 65535 ? (int)mag : 65535;   /* stored saturated (spec 5.3) */
+        if (emit && in->nf_acc && k == 0) {     /* v4: what the zeros leave out (their noise) */
+            double r = xn / (D / 2);
+            in->nf_acc[0] += r * r;
+            in->nf_acc[1] += 1;
+        }
         *tail2 = *tail1;
         *tail1 = mag;
     }

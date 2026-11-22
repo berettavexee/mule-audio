@@ -27,8 +27,7 @@
 
 /* Band edges in units of 8 long-frame lines (spec 5); a short window's band b spans
  * EDGES[b] .. EDGES[b + 1] of its 128 lines. */
-static const int EDGES[NB + 2] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 20, 24, 28,
-                                  34, 40, 48, 60, 78, 100, 116, 128};
+static const int EDGES[NB + 2] = MULE_EDGES_INIT;
 static const int64_t POW4[4] = {256, 304, 362, 431};   /* 2^(i/4) in Q8: inter-frame rescaling */
 
 /* ---------------------------------------------------------------- small helpers */
@@ -198,6 +197,7 @@ typedef struct {
     double tcq_lam;
     double mtq;                 /* tcq_rd: the band's noise target (mask * tq) */
     const mule_enc_params *pr;
+    double *nf_acc;             /* v4: sum of the zero coefficients' (x / (D/2))^2, count */
 } band_in;
 
 int tcq_viterbi_chain(const double *x, const double *w, const int *ac, int n, double c,

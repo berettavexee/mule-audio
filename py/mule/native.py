@@ -223,6 +223,11 @@ def c_params(params):
     p.tg_a = params.tg_a
     p.tg_band = params.tg_band
     p.nf_top = params.nf_top
+    p.eg = params.eg
+    p.eg_band = params.eg_band
+    p.eg_db = params.eg_db
+    p.eg_a = params.eg_a
+    p.nf_off_db = params.nf_off_db
     p.spread_mode = params.spread_mode
     p.sp_dz = params.sp_dz
     p.dyn_a = params.dyn_a

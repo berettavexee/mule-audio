@@ -9,4 +9,5 @@ third_party/
 build/
 build_dev/
 build_*/
+build-*/
 bench/qemu/packets.h

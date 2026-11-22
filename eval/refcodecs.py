@@ -104,14 +104,15 @@ class AACVBR(AAC):
 
 class AppleAAC:
     """Apple's AAC encoder (CoreAudioToolbox) through qaac under wine, AAC-LC in true VBR
-    (--tvbr N, 0..127), default bandwidth; decoded by ffmpeg. Needs third_party/qaac (git-ignored:
+    (aapl_q<N>: --tvbr N, 0..127) or constrained VBR (aaplc_<kb/s>: --cvbr, aiming at that rate
+    file by file), default bandwidth; decoded by ffmpeg. Needs third_party/qaac (git-ignored:
     Apple's libraries are never published). The rate counts the AAC packets only (no MP4)."""
 
     ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "third_party", "qaac")
 
-    def __init__(self, q):
-        self.q = q
-        self.name = f"aapl_q{q}"
+    def __init__(self, q, cvbr=False):
+        self.q, self.cvbr = q, cvbr
+        self.name = f"aaplc_{q}" if cvbr else f"aapl_q{q}"
 
     @staticmethod
     def _win(path):
@@ -121,7 +122,8 @@ class AppleAAC:
         enc = os.path.join(work, "enc.m4a")
         dec = os.path.join(work, "dec.wav")
         env = dict(os.environ, WINEPREFIX=os.path.join(self.ROOT, "wine"), WINEDEBUG="-all")
-        subprocess.run(["wine", os.path.join(self.ROOT, "bin", "qaac64.exe"), "-s", "--tvbr", str(self.q),
+        subprocess.run(["wine", os.path.join(self.ROOT, "bin", "qaac64.exe"), "-s",
+                        "--cvbr" if self.cvbr else "--tvbr", str(self.q),
                         "-o", self._win(enc), self._win(wav)], check=True, env=env,
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         _sh(["ffmpeg", "-nostdin", "-v", "error", "-y", "-i", enc, "-c:a", "pcm_s16le", dec])
@@ -136,7 +138,7 @@ class Mule:
     (build/mule-dec). Name mule[-variant]_<q_db>, e.g. mule_-9, mule-g8_-9 (VARIANTS below)."""
 
     ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    VARIANTS = {                # over params.Params; "" = production (format v3)
+    VARIANTS = {                # over params.Params; "" = production (format v4)
         "": {},
         "g8": {"groups": "8"},
         "g1": {"groups": "1"},
@@ -215,6 +217,31 @@ class Mule:
         # 8.5 since 20/11/2026; the measurements before used 10, see N-LOG.md). run_eval.py writes
         # the settings each configuration resolved to next to its CSV (<tag>.params.json)
         "gr0": {"group_mode": 0, "group_db": 6.0},
+        # check (N-LOG.md): every zero-bit band from 12 (16) up coded at allocation 1 instead of
+        # noise-filled, through the tonal guard with its two criteria disabled
+        "code12": {"tg": 1, "tg_ton": -100.0, "tg_db": 100.0, "tg_band": 12},
+        "code16": {"tg": 1, "tg_ton": -100.0, "tg_db": 100.0, "tg_band": 16},
+        "code14": {"tg": 1, "tg_ton": -100.0, "tg_db": 100.0, "tg_band": 14},
+        "code18": {"tg": 1, "tg_ton": -100.0, "tg_db": 100.0, "tg_band": 18},
+        # envelope guard (N-LOG.md, Garbage): modulated noise-filled bands coded instead
+        # eg 5 dB and nf_bias 1 (eg5nfb1) production on 21/11/2026; before them eg6 (guard at 6 dB,
+        # nf_bias 0), and eg0nfb0 the frozen v4 without either (sl6v4_test.csv). All of these keep
+        # the psychoacoustic settings of before the Zimtohrli tuning (PSY21, merged in below)
+        "eg0": {"eg": 0, "nf_bias": 0}, "eg0nfb0": {"eg": 0, "nf_bias": 0},
+        "eg4": {"eg": 1, "eg_db": 4.0, "nf_bias": 0}, "eg6": {"eg": 1, "eg_db": 6.0, "nf_bias": 0},
+        "eg9": {"eg": 1, "eg_db": 9.0, "nf_bias": 0},
+        "eg6b12": {"eg": 1, "eg_db": 6.0, "eg_band": 12, "nf_bias": 0},
+        "eg6b19": {"eg": 1, "eg_db": 6.0, "eg_band": 19, "nf_bias": 0},
+        # refinements over the production (eg6), Zimtohrli first (N-LOG.md)
+        "eg5": {"eg_db": 5.0, "nf_bias": 0}, "eg6a2": {"eg_db": 6.0, "eg_a": 2, "nf_bias": 0},
+        "eg6b14": {"eg_db": 6.0, "eg_band": 14, "nf_bias": 0},
+        "nfm3": {"eg_db": 6.0, "nf_off_db": -3.0, "nf_bias": 0}, "nfm9": {"eg_db": 6.0, "nf_off_db": -9.0, "nf_bias": 0},
+        "nfb1": {"eg_db": 6.0, "nf_bias": 1}, "eg5nfb1": {},
+        # format v4 (21/11/2026): the probes of branch v4 (folding, rotation, TNS on the noise,
+        # low-pass, split bands, subpartitions, line tracking, Viterbi weights, ...) were removed
+        # when the format was frozen; their results are in eval/results/N-LOG.md
+        "tg0": {"tg": 0},
+        "midhi22": {"mid_hi": 22},
         "gr1": {"group_mode": 1, "group_db": 6.0}, "gr1d8": {"group_mode": 1, "group_db": 8.0},
         "gr1d10": {"group_mode": 1, "group_db": 10.0}, "gr1d12": {"group_mode": 1, "group_db": 12.0}, "gd4": {"group_mode": 0, "group_db": 4.0}, "gd3": {"group_mode": 0, "group_db": 3.0},
         # production since 20/11/2026 = tr85; tr10 = the detector before
@@ -228,6 +255,15 @@ class Mule:
         "sh3": {"short_db": -3.0}, "sh6": {"short_db": -6.0}, "sh9": {"short_db": -9.0},
         "tg1a2": {"tg": 1, "tg_a": 2}, "tg1a3": {"tg": 1, "tg_a": 3}, "tg1a4": {"tg": 1, "tg_a": 4},
     }
+    # the psychoacoustic settings of the production before the Zimtohrli tuning of 22/11/2026
+    # (m6_best_z1.json, rounded, is the production since; N-LOG.md): pinned in the variants
+    # measured on 21/11/2026 so that they keep sounding as measured
+    PSY21 = {"tcap_db": 25.0, "mid_db": 4.0, "low_db": 10.0, "fft_noise_db": 4.0, "rd_lambda": 2.0,
+             "tcq_rdl": 0.5, "pre_db": 10.0}
+    for _k in ("eg0", "eg0nfb0", "eg4", "eg6", "eg9", "eg6b12", "eg6b19", "eg5", "eg6a2", "eg6b14",
+               "nfm3", "nfm9", "nfb1", "eg5nfb1"):
+        VARIANTS[_k] = {**PSY21, **VARIANTS[_k]}
+    del _k
 
     def __init__(self, variant, q):
         from mule import params
@@ -288,6 +324,8 @@ def get(name):
         return AACVBR(int(val))
     if kind == "aapl":
         return AppleAAC(int(val.lstrip("q")))
+    if kind == "aaplc":
+        return AppleAAC(int(val), cvbr=True)
     raise ValueError(f"unknown codec configuration {name!r}")
 
 

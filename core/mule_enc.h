@@ -16,32 +16,33 @@ typedef struct {
     int stereo;         /* 0 auto (per band, perceptual entropy), 1 L/R, 2 M/S */
     double ath_db;      /* threshold in quiet shift (0) */
     int tonal_all;      /* psy: every masker tonal (0) */
-    double low_db;      /* extra masking offset in bands 0-7 (10 dB) */
-    double mid_db;      /* extra masking offset in bands 8 .. mid_hi-1 (4 dB) */
+    double low_db;      /* extra masking offset in bands 0-7 (15 dB; 10 before 22/11/2026) */
+    double mid_db;      /* extra masking offset in bands 8 .. mid_hi-1 (6.1 dB; 4) */
     int mid_hi;         /* (17) */
     double ton_scale;   /* flatness (dB below noise's) of a fully tonal band (20) */
-    double tcap_db;     /* cap of the tonal masking offset 14.5 + z (25 dB; <= 0: none) */
+    double tcap_db;     /* cap of the tonal masking offset 14.5 + z (15.3 dB, 25 before 22/11/2026; <= 0: none) */
     int alloc_auto;     /* allocation reference: per group, band or frame (else band; 1) */
     int alloc_hyst;     /* keep the previous frame's a_b within +-alloc_hyst (1) */
     /* C encoder only (P4, axes 1 to 3: eval/results/P4-LOG.md, E-LOG.md, E2-LOG.md) */
     int fft_tonal;      /* tonality from the flatness of a Hann FFT power spectrum (1) */
-    double fft_noise_db; /* flatness of noise in that spectrum (4) */
+    double fft_noise_db; /* flatness of noise in that spectrum (3.4; 4) */
     double rd_lambda;   /* > 0: per band, choose a-1, a, a+1 by (noise/mask) + lambda * bits, the
-                         * bits from a copy of the adaptive models (exact costs; 2); 0 off */
+                         * bits from a copy of the adaptive models (exact costs; 2.42, 2 before 22/11/2026); 0 off */
     double tcq_lam;     /* TCQ Viterbi rate weight without tcq_rd ((D/2)^2 units; 0.3) */
     int tcq_rd;         /* 1: the Viterbi's rate from the tracked models (contexts from each
                          * survivor's tails, inter-frame context, escapes, sign), levels nearest
                          * and +-4; needs rd_lambda > 0 (1) */
-    double tcq_rdl;     /* with tcq_rd: rate weight relative to the allocation's (0.5) */
+    double tcq_rdl;     /* with tcq_rd: rate weight relative to the allocation's (0.48; 0.5) */
     double fine_p;      /* > 0: long frames' band targets from fine_w-line sub-band masks (Bark
                          * density spreading, the band's tonality), their power mean of exponent
                          * -fine_p (8); 0 off */
     int fine_w;         /* lines per sub-band (1) */
     int fine_nb;        /* fine masks below this band only (12; 0: all) */
     double pre_db;      /* > 0: pre-echo control (AAC's rpelev): a long frame's mask at most this
-                         * many dB above the previous long frame's (10); 0 off */
-    int nf_bias;        /* noise-filled bands' energy sent this many 1.5 dB steps lower (0; PEAQ
-                         * and ViSQOL disagree, E2-LOG.md: left to a listening test) */
+                         * many dB above the previous long frame's (9.7; 10); 0 off */
+    int nf_bias;        /* noise-filled bands' energy sent this many 1.5 dB steps lower (1 since
+                         * 21/11/2026: Zimtohrli better, ViSQOL worse, adopted by the author,
+                         * N-LOG.md; E2-LOG.md for the first trial) */
     int tcq_states;     /* trellis of 8, 16, 32 or 64 states (64; header byte 20) */
     int tcq_chain;      /* 1: the trellis state runs on across a group's bands, one Viterbi over
                          * them (needs tcq_rd and rd_lambda); 0: restarted at 0 in each band, for
@@ -50,9 +51,9 @@ typedef struct {
                          * at 15, for comparisons only (1; header flag MULE_COEF_A8) */
     int tcq_rd_states;  /* encoder speed: the trellis of the RD choice's per-band estimates
                          * (a-1, a, a+1), 8 to 64; 0: tcq_states (8) */
-    int tg;             /* zero-bit tonal bands (eval/results/N-LOG.md): 0 off (production),
-                         * 1 guard: the band gets allocation 1 if its strongest line is within
-                         * tg_db of the mask target; 2 muted: sent silent instead of noise (0) */
+    int tg;             /* zero-bit tonal bands (eval/results/N-LOG.md): 1 guard (production, v4):
+                         * the band gets allocation tg_a if its strongest line is within tg_db of
+                         * the mask target; 2 muted: sent silent instead of noise; 0 off (1) */
     double tg_db;       /* guard: the strongest line at least the target minus this (dB; 6) */
     int tg_a;           /* guard: the allocation given (1 .. MULE_AMAX, else refused; 1) */
     int tg_band;        /* guard: from this band up only (0) */
@@ -62,6 +63,7 @@ typedef struct {
     double sp_dz;       /* spread_mode 3: Schroeder's spreading up to this many Bark above (2) */
     double dyn_a;       /* > 0: masks lowered by dyn_a times a band's excess over the lower
                          * envelope of the band levels (Opus' dynalloc criterion; 0: off) */
+    double nf_off_db;   /* v4: the zero coefficients' noise level, the measured one plus this (dB; -6) */
     int nf_top;         /* from this band up, a band at allocation 0 is sent silent instead of
                          * noise-filled (MULE_NB: none) */
     int group_mode;     /* adaptive grouping: 0 the window's energy only, 1 also per frequency
@@ -69,6 +71,13 @@ typedef struct {
     double tr_db;       /* transient detector: energy rise over its decaying memory (8.5 dB;
                          * 10 before 20/11/2026, eval/results/N-LOG.md) */
     double short_db;    /* noise target offset in short frames (0 dB; < 0: more bits) */
+    int eg;             /* envelope guard (N-LOG.md, Garbage): in a long frame, a band left at
+                         * allocation 0 from eg_band up is coded at eg_a instead of noise-filled when
+                         * its energy over the 8 short blocks of the window peaks eg_db above its
+                         * mean (noise filling is stationary over the window; 1, production; 0: off) */
+    int eg_band;        /* (16) */
+    double eg_db;       /* (5) */
+    int eg_a;           /* (1) */
     double tg_ton;      /* a lone line: the band's strongest coefficient this many dB above the
                          * strongest of a noise of the same lines, 2 ln n times the mean (5) */
 } mule_enc_params;

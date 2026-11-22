@@ -931,3 +931,1506 @@ Distribution de l'ODG par extrait :
   contre +0,010). Zimtohrli −6 à −7 % sur la journée. Seul PEAQ avancé recule un peu
   (−0,004 à 128 kb/s), à cause de Lebanon Hanover (voir plus haut : l'écoute a tranché).
 - **README** : les chiffres arrondis ne changent pas (−0,16 ; 0,00 ; −0,36 / −0,14 ; 4,61).
+
+# Branche v4 : du bruit dans les coefficients nuls des bandes codées (20/11/2026)
+
+Prototype de format (drapeau d'en-tête `MULE_NF_CODED`). Par canal et par trame, 3 bits bruts
+donnent un niveau : 0 = aucun, sinon un rms de 0,5 × 2^(−(n−1)/2) unités de niveau D/2 (−6 à
+−24 dB). Le décodeur remplit de bruit (le même générateur congruentiel, en entiers) les
+coefficients au niveau 0 des bandes codées, à partir de la bande 12 (2,8 kHz). L'encodeur
+mesure le rms de ce que les zéros ont laissé (x / (D/2)), le décale de `nf_off_db` et écrit le
+niveau à la place réservée en tête du canal. Sans le drapeau, la sortie v3 est identique au bit
+près sur tout le corpus (576 encodages). Coût : 3 bits par canal et par trame, 0,26 kb/s.
+
+### Premier essai, 12 extraits (`v4nf_12.csv`), à 135 kb/s, contre la production v3 (`prod2_test.csv`)
+
+| variante | ODG | ODG avancé | ViSQOL | Zimtohrli |
+|---|---|---|---|---|
+| niveau mesuré (`nfc`) | −0,019 | −0,055 | +0,005 | +4,0 % |
+| −3 dB (`nfcm3`) | +0,006 | −0,024 | +0,006 | −0,2 % |
+| −6 dB (`nfcm6`) | +0,010 | −0,009 | +0,004 | −1,1 % |
+| niveau mesuré + garde tonale (`nfctg`) | −0,014 | −0,053 | +0,009 | +3,5 % |
+| **−3 dB + garde tonale (`nfcm3tg`)** | **+0,013** | −0,018 | **+0,026** | **−1,8 %** |
+
+- **Au niveau mesuré, le bruit est trop fort** : tous les juges reculent sauf ViSQOL. Plus il est
+  bas, mieux PEAQ de base et Zimtohrli le reçoivent.
+- **PEAQ avancé le pénalise partout**, sur chaque extrait, de moins en moins à mesure que le niveau
+  baisse (−0,055 ; −0,024 ; −0,009).
+- **Le bruit débloque la garde tonale** : Takemitsu passe à ViSQOL +0,154 et Zimtohrli −21,6 %,
+  Zombie Zombie à ODG +0,055 et Zimtohrli −11,7 %. Beethoven 59, qui perdait 11 % pour Zimtohrli
+  avec la garde seule, n'en perd plus que 3,2 %.
+- Suite : des niveaux plus bas (−9 et −12 dB) et la garde à −6 et −9 dB (`v4nf_12b.csv`).
+
+### Second essai : niveaux plus bas (`v4nf_12b.csv`), même base, 135 kb/s
+
+| variante | ODG | ODG avancé | ViSQOL | Zimtohrli | régressions (ODG < −0,02, ViSQOL < −0,01, Zimtohrli > +3 %) |
+|---|---|---|---|---|---|
+| −6 dB | +0,010 | −0,009 | +0,004 | −1,1 % | 1 (Takemitsu, ViSQOL −0,011) |
+| −9 dB | +0,008 | −0,004 | +0,002 | −0,8 % | 0 |
+| −12 dB | +0,006 | −0,001 | +0,000 | −0,3 % | 0 |
+| −3 dB + garde | +0,013 | −0,018 | +0,026 | −1,8 % | 9 |
+| **−6 dB + garde** | **+0,017** | −0,002 | **+0,021** | **−2,4 %** | 1 (Beethoven 59, Zimtohrli +4,2 %) |
+| **−9 dB + garde** | +0,015 | **+0,004** | +0,016 | −1,5 % | 1 (Beethoven 59, Zimtohrli +6,7 %) |
+
+- Seul, le bruit aide un peu (ODG +0,006 à +0,010), et PEAQ avancé ne l'accepte qu'autour de −12 dB.
+- **Avec la garde tonale, c'est nettement mieux** : les quatre juges sont positifs ou neutres à
+  −6 et −9 dB. ViSQOL gagne +0,016 à +0,021, et l'ODG +0,015 à +0,017, au-dessus du seuil d'un
+  changement de format. La seule régression restante est Beethoven 59 pour Zimtohrli.
+- Validation sur les 30 extraits : −6 et −9 dB avec la garde, q −6, −9 et −12 (`v4nf_test.csv`).
+
+### Validation sur `test`, 30 extraits (`v4nf_test.csv`), contre la production v3 (`prod2_test.csv`)
+
+Intervalles bootstrap à 95 %. Zimtohrli en écart relatif, plus petit = mieux.
+
+| | ODG @128 | @160 | ODG avancé @128 | @160 | ViSQOL @128 | @160 | Zimtohrli @128 | régressions |
+|---|---|---|---|---|---|---|---|---|
+| **−6 dB + garde** | **+0,018** [+0,012 ; +0,024] | **+0,013** [+0,006 ; +0,020] | −0,010 [−0,015 ; −0,004] | −0,005 | **+0,017** [+0,007 ; +0,030] | +0,008 | −1,3 % | ODG avancé : 5 extraits vers −0,02 à −0,03 ; Zimtohrli : Brahms +3,0 %, Beethoven 59 +4,5 % |
+| **−9 dB + garde** | **+0,013** [+0,009 ; +0,018] | +0,009 [+0,005 ; +0,013] | −0,002 [−0,006 ; +0,003] | −0,001 | +0,011 [+0,003 ; +0,027] | +0,005 | −1,0 % | Beethoven 59 : ViSQOL −0,010, Zimtohrli +6,4 % |
+
+Débit : +0,3 kb/s à q égal (les 3 bits par canal et par trame), compté dans la comparaison.
+
+**La distribution se resserre**, à 128 kb/s :
+
+| | médiane | p10 | p90 | écart type | pire |
+|---|---|---|---|---|---|
+| production v3 | −0,151 | −0,256 | −0,084 | 0,070 | −0,308 |
+| −6 dB + garde | **−0,133** | **−0,225** | −0,072 | **0,063** | **−0,278** |
+| −9 dB + garde | −0,141 | −0,228 | −0,081 | 0,062 | −0,272 |
+
+- **Premier changement de format au-dessus du seuil depuis la v3** : ODG +0,013 à +0,018 à 128 kb/s,
+  intervalle de confiance entièrement positif, avec ViSQOL dans le même sens. À 160 kb/s, MULE
+  passe devant Opus en moyenne (+0,013 contre +0,001).
+- **C'est le cœur de la distribution qui bouge**, pas seulement les extrêmes : médiane −0,151 →
+  −0,133, p10 −0,256 → −0,225.
+- **−6 dB** gagne plus mais PEAQ avancé recule (−0,010, intervalle négatif). **−9 dB** est neutre
+  pour PEAQ avancé, avec un peu moins de gain.
+- Reste Beethoven 59, que Zimtohrli trouve moins bon (+4,5 à +6,4 %), avec ViSQOL à −0,010 à
+  −9 dB. À écouter.
+- Coût au décodeur : aucune mémoire en plus ; un tirage du générateur par coefficient nul dans
+  les bandes codées au-dessus de 2,8 kHz.
+
+## Couper les aigus, à la raie près, fixe ou trame par trame (`lowpass_12.csv`)
+
+Idée de l'auteur : une coupure calée sur les raies, pas sur les bandes, à la manière d'Apple, pour
+concentrer les bits ou éviter du bruit inutile très haut. Encodeur seul, compatible v3 :
+
+- `lp_hz` : coupure fixe, les coefficients au-dessus mis à 0 avant le codage. Les puissances FFT
+  de la tonalité ne sont pas touchées ; la première version les coupait aussi, ce qui faisait
+  paraître la bande coupée très tonale (+17 % de débit sur Eminem à 16 kHz).
+- `lpd` : coupure trame par trame. Dans chaque fenêtre, au-dessus de 11 kHz, tout ce qui est au-delà
+  de la dernière raie qui dépasse son masque cible de `lpd_db` dB est mis à 0 dans les deux canaux.
+
+**Le débit libéré est presque nul** à q −7 : coupure fixe à 16 kHz −0,0 à −0,9 % ; coupure
+dynamique +0,0 à +0,2 % (les bandes qui deviennent muettes font des sauts de prédiction
+d'énergie). Au-dessus de la coupure, MULE ne codait que du bruit de remplissage, qui coûte
+quelques bits par bande. Apple, lui, coupait des bandes codées.
+
+12 extraits, 135 kb/s, contre la production :
+
+| | ODG | ODG avancé | ViSQOL | Zimtohrli | pire extrait |
+|---|---|---|---|---|---|
+| fixe 16 kHz | −0,068 | −0,016 | −0,172 | +19,4 % | Airbourne −0,20 d'ODG, +46 % |
+| fixe 18 kHz | +0,000 | +0,002 | −0,044 | +2,5 % | Takemitsu ViSQOL −0,21 |
+| dynamique, 0 dB | −0,036 | −0,005 | −0,106 | +17,8 % | Takemitsu +64 % |
+| dynamique, +6 dB | −0,045 | −0,011 | −0,121 | +21,9 % | Takemitsu +59 % |
+
+**Rejeté, nettement.** Comme les bandes hautes muettes : les quatre juges sanctionnent la
+disparition du bruit des aigus, et la coupure ne libère aucun bit à réemployer. La coupure à
+18 kHz est presque neutre pour PEAQ, mais ViSQOL et Zimtohrli la sanctionnent encore. La v4 ne
+portera pas de limite de remplissage pour couper ; si elle en porte une, ce sera pour façonner le
+bruit. Les options restent dans l'encodeur, désactivées.
+
+## v4, résolution temporelle des aigus : étape 0, le diagnostic (`eval/envelope_diag.py`)
+
+Pour chaque trame longue et chaque bande de MULE à partir de 2,8 kHz, l'enveloppe sur 8
+sous-blocs de 2,9 ms, original contre décodé : erreur de forme (rms de l'écart en dB, moyenne
+retirée) et aplatissement (écart type de l'enveloppe décodée sur celui de l'original). Cellules
+rangées selon la décision de l'encodeur de production (trace, premier canal codé). On ne garde que
+les cellules où l'enveloppe originale varie (≥ 1,5 dB) et où la bande compte (moins de 50 dB sous
+la plus forte). 10 extraits : pop calme, classique, rock dense, rap. MULE q −7, Opus 128, candidat
+v4 (bruit dans les zéros à −6 dB, avec la garde tonale).
+
+| classe de cellule | part | MULE | Opus | v4 candidat |
+|---|---|---|---|---|
+| bande remplie de bruit (a = 0) | 8,6 % | **2,62 dB, aplatie à 0,56** | 2,06 dB, 0,88 | 2,62 dB, 0,56 |
+| bande codée, moins de 50 % de zéros | 87,2 % | 0,61 dB, 0,98 | 0,69 dB, 0,99 | 0,63 dB, 0,97 |
+| bande codée, au moins 50 % de zéros | 4,2 % | 1,15 dB, 0,93 | 0,87 dB, 0,97 | 1,18 dB, 0,90 |
+
+Même tableau sur chacun des 10 extraits, sans exception notable.
+
+- **Le bruit de quantification n'est pas en cause.** Dans les bandes codées (87 % des cellules),
+  MULE suit l'enveloppe aussi bien qu'Opus, voire mieux (0,61 contre 0,69 dB). C'est pour ça que
+  la Haar et le TNS ont si peu rapporté : ils visaient un défaut qui n'existe presque pas. Les
+  étapes 1 et 2 du plan sont donc abandonnées.
+- **Le défaut est le bruit de remplissage.** Dans les bandes remplies de bruit, l'enveloppe de
+  MULE est aplatie de moitié (0,56), celle d'Opus beaucoup moins (0,88). Le bruit de MULE est
+  stationnaire sur toute la trame de 46 ms ; Opus remplit ses bandes par recopie d'une bande plus
+  grave (*folding*), qui garde la structure temporelle de la trame, sur des trames de 20 ms.
+- **Le bruit dans les zéros de la v4 aggrave un peu la troisième classe** (aplatissement 0,93 →
+  0,90), comme on le craignait : lui aussi est stationnaire.
+- Suite, étape 3 : donner une forme temporelle au bruit. Première variante, sans bit
+  supplémentaire : le folding d'Opus pour les bandes à 0 bit (et, en option, pour les zéros
+  des bandes codées).
+
+## v4, étape 3 : le folding des bandes à 0 bit (drapeau `MULE_FOLD`)
+
+Prototype paramétrique, pour la recherche de réglages. Avec le drapeau, l'en-tête passe à 24 octets :
+- l'octet 22 donne `fold_start`, la première bande concernée ;
+- l'octet 23 donne `fold_mix`, de 0 (copie pure) à 8 (bruit pur).
+
+Une bande à 0 bit, à partir de `fold_start`, est remplie à partir des w raies décodées juste en
+dessous de chacune de ses raies, dans la même fenêtre (le folding d'Opus). Cette forme et le bruit
+du générateur sont normalisés chacun, puis mélangés avec les poids cos et sin de `fold_mix`/8 × 90°.
+Le résultat est mis à l'énergie de la bande, comme le bruit actuel. Si les raies du dessous sont
+muettes, le bruit pur prend le relais. Tout est en entiers, sans mémoire en plus. L'encodeur
+n'écrit que l'en-tête. Sans le drapeau, la sortie v3 est identique (576 encodages). Le test des
+drapeaux inconnus passe à 16.
+
+Diagnostic d'enveloppe (Spector, Eminem ; bandes remplies, aplatissement médian) : bruit 0,54 ;
+copie pure 0,79 ; `fold_mix` 2 0,73 ; `fold_mix` 4 0,62 ; Opus 0,93. Les bandes codées ne bougent
+pas. Mesure à débit égal en cours (`fold_12.csv`).
+
+### Le folding sur 12 extraits (`fold_12.csv`), à 135 kb/s, contre la production v3
+
+| variante | ODG | ODG avancé | ViSQOL | Zimtohrli | régressions |
+|---|---|---|---|---|---|
+| copie pure (`fd0`) | −0,017 | −0,015 | −0,004 | +2,2 % | 12 |
+| `fold_mix` 2 | −0,007 | −0,008 | −0,001 | +0,1 % | 9 |
+| `fold_mix` 4 (moitié bruit) | −0,001 | −0,003 | +0,004 | −1,3 % | 2 |
+| `fold_mix` 2, à partir de 6 kHz | −0,007 | −0,008 | −0,001 | −0,3 % | 8 |
+| `fold_mix` 2 + garde | −0,001 | −0,001 | +0,009 | +1,4 % | 8 |
+| `fold_mix` 2 + garde + bruit dans les zéros −6 dB | +0,013 | −0,008 | +0,022 | −3,0 % | 1 |
+| rappel : garde + bruit dans les zéros −6 dB | **+0,017** | −0,002 | +0,021 | −2,4 % | 1 |
+
+`fold_mix` 2, extrait par extrait (ODG ; Zimtohrli) : Spector +0,004 ; −11,9 %, Eminem +0,004 ;
+−6,1 %, Airbourne +0,010 ; −2,1 % — mais Zombie Zombie −0,030 ; +13,4 %, Takemitsu −0,014 ;
++8,9 %, Mravinsky −0,029, Beethoven 59 +3,6 %.
+
+- **L'enveloppe s'améliore, les juges ne suivent qu'à moitié.** Le folding aide la musique
+  percussive (Spector, Eminem), là où l'enveloppe des aigus compte, et dégrade la musique tonale
+  (Zombie Zombie, Takemitsu, Mravinsky), dont il recopie des raies dans des aigus qui n'en ont pas.
+  Les deux effets s'annulent en moyenne. Plus on mélange de bruit, moins il nuit et moins il aide.
+- **Combiné au candidat (garde + bruit dans les zéros), il n'ajoute rien** : ODG +0,013 contre
+  +0,017, Zimtohrli un peu mieux (−3,0 contre −2,4 %).
+- **Conclusion** : appliqué partout, le folding ne vaut pas. Il faudrait le décider trame par trame,
+  ou par groupe de bandes, comme Opus décide de son étalement : copier quand l'enveloppe des aigus
+  bouge et que le contenu est bruité, garder le bruit quand le contenu est tonal. Ça demande un bit
+  de signalisation et un critère dans l'encodeur, que celui-ci peut calculer sur le signal original.
+
+### Le folding décidé trame par trame (`folddyn_12.csv`), 12 extraits, 135 kb/s, contre la production v3
+
+Un bit par canal et par trame (bit 4 de l'octet 23 de l'en-tête). Chaque bande à 0 bit vote, avec
+son énergie, pour la copie si la bande de dessous (sa source) est plate au-delà de
+−`fold_ton_db` dB, sinon pour le bruit ; la majorité décide. Diagnostic d'enveloppe : la décision
+copie presque toujours sur Spector et Eminem, nettement moins sur Zombie Zombie.
+
+| variante | ODG | ODG avancé | ViSQOL | Zimtohrli | régressions |
+|---|---|---|---|---|---|
+| folding partout, `fold_mix` 2 (rappel) | −0,007 | −0,008 | −0,001 | +0,1 % | 9 |
+| décidé, copie pure | −0,008 | −0,008 | −0,002 | +0,4 % | 12 |
+| décidé, `fold_mix` 2, seuil 8 dB | −0,004 | −0,005 | +0,002 | −0,6 % | 6 |
+| **décidé, `fold_mix` 2, seuil 5 dB** | −0,003 | −0,003 | +0,004 | −1,1 % | 3 |
+| décidé, seuil 12 dB | −0,006 | −0,007 | −0,000 | −0,0 % | 8 |
+| décidé (8 dB) + garde + bruit dans les zéros −6 dB | +0,014 | −0,006 | +0,022 | **−3,5 %** | 1 |
+| rappel : garde + bruit dans les zéros −6 dB | **+0,017** | −0,002 | +0,021 | −2,4 % | 1 |
+
+Au seuil de 5 dB, Zimtohrli extrait par extrait : Spector −11,5 %, Eminem −5,6 %, Classical −2,4 %,
+Airbourne −1,7 % ; mais Takemitsu +4,4 %, Beethoven 59 +3,9 %, Zombie Zombie +2,1 % (+13,4 % sans
+décision).
+
+- **La décision réduit nettement les dégâts** (Zombie Zombie +13 % → +2 %) et garde le gain sur la
+  musique percussive (Spector −12 %, Eminem −6 %). Plus le seuil est strict, mieux c'est.
+- **Mais PEAQ ne suit toujours pas** : l'ODG reste légèrement négatif (−0,003) et le classique
+  calme perd encore un peu (Takemitsu, Beethoven 59, Mravinsky). Combiné au candidat v4, le folding
+  échange un peu de PEAQ (+0,017 → +0,014) contre un peu de Zimtohrli (−2,4 → −3,5 %).
+- **Pas de gain net pour l'instant.** Le folding reste en option sur la branche. Pistes s'il fallait
+  insister : un critère qui regarde aussi la variation de l'enveloppe de la cible (ne copier que
+  dans les trames où les aigus bougent), ou un étalement à la manière d'Opus pour casser la
+  structure tonale recopiée.
+
+### Pourquoi le folding marche chez Opus et pas chez MULE : deux vérifications
+
+Mêmes cellules (classes de la production), 10 extraits, aplatissement médian des bandes remplies
+de bruit :
+
+| | erreur de forme | aplatissement |
+|---|---|---|
+| MULE, bruit | 2,62 dB | 0,56 |
+| MULE, ces bandes codées à l'allocation 1 (`code12`, `code16`) | **5,0 dB** | **1,2** |
+| Opus 128 | 2,06 dB | 0,88 |
+| Opus 96 | 2,33 dB | 0,87 |
+| Opus 64 | 2,50 dB | 0,83 |
+
+- **Hypothèse réfutée : Opus garde l'enveloppe même à bas débit.** À 64 kb/s, où il code beaucoup
+  moins de bandes et s'appuie davantage sur le folding, l'aplatissement ne passe que de 0,88 à
+  0,83. Son remplissage préserve vraiment l'enveloppe ; ce n'était pas seulement du codage.
+- **Chez MULE, coder un peu est pire que remplir de bruit.** À l'allocation 1, une bande ne garde
+  que quelques raies isolées : l'enveloppe devient exagérée (1,2) et l'erreur double (5,0 dB). Le
+  débit ne bouge presque pas (127,5 → 127,8 kb/s) : ces bandes sont presque entièrement à zéro.
+  C'est le défaut de la garde tonale seule, en grand.
+- **Ce qui manque à MULE, c'est l'étalement d'Opus.** Opus ne laisse jamais une bande peu codée,
+  ou recopiée, sous forme de quelques raies isolées : sa rotation redistribue l'énergie sur la
+  bande, avec un niveau choisi par trame selon que le contenu est tonal ou bruité. Ajoutons ses
+  trames de 20 ms. MULE n'a que trois remplissages possibles : bruit plat (enveloppe aplatie),
+  copie (raies recopiées), ou raies isolées (enveloppe exagérée). Le bruit dans les zéros de la
+  v4 est un premier pas vers l'étalement : il comble les trous des bandes codées.
+
+## v4 : la rotation des bandes peu codées, à la manière de l'étalement d'Opus (drapeau `MULE_ROT`)
+
+Prototype paramétrique ; avec le drapeau, l'en-tête passe à 28 octets :
+- octet 24 : l'angle à l'allocation 1 (`rot_deg`, en degrés), divisé par 2 toutes les 2 allocations ;
+- octet 25 : la dernière allocation tournée (`rot_amax`) ;
+- octet 26 : la première bande tournée (`rot_b0`) ;
+- octet 27, bit 0 : un niveau d'étalement de 2 bits par canal et par trame (`rot_dyn`) — 0 aucun,
+  1 à 3 pour 0,5, 1 et 1,5 fois l'angle ; sans ce bit, le niveau est toujours 1.
+
+**Au décodeur**, après la lecture des niveaux d'une bande codée, les valeurs (Q24) de chaque
+fenêtre de la bande sont tournées comme dans CELT (`exp_rotation1`) : une passe montante puis
+une passe descendante entre voisins, puis, à partir de 8 raies, une passe entre raies distantes
+d'environ √n. Les cosinus et sinus Q15 sont calculés une fois à l'initialisation ; le décodeur
+du baladeur, en entiers seulement, devra les tabuler.
+
+**À l'encodeur**, l'inverse exact est appliqué aux cibles avant le treillis (`band_prep`) :
+les passes en ordre inverse, chacune parcourue à l'envers, avec −s. Le bruit débit-distorsion est
+mesuré dans le domaine tourné, ce que la rotation, orthogonale, autorise. L'angle dépend de
+l'allocation, connue avant la quantification. Le niveau par trame, s'il est actif, est décidé
+avant le codage, d'après la planéité des bandes (comme la décision d'étalement d'Opus).
+
+**Vérifications.**
+- Sans le drapeau, la sortie v3 est identique au bit près.
+- Avec rotation, le rapport signal sur bruit ne bouge pas (Spector 19,37 → 19,38 dB, Takemitsu
+  24,56 dB) : l'inverse est exact.
+- La rotation touche 8 à 16 % des bandes codées au-dessus de 2,8 kHz jusqu'à l'allocation 4, et
+  20 à 29 % jusqu'à l'allocation 6. Le signal décodé change d'environ −19 dB.
+- Mesure à débit égal de R0 à R2 en cours (`rot_12.csv`).
+
+### Rotation, R0 à R2 sur 12 extraits (`rot_12.csv`), à 135 kb/s, contre la production v3
+
+| variante | ODG | ODG avancé | ViSQOL | Zimtohrli | régressions |
+|---|---|---|---|---|---|
+| R0, 20° | +0,002 | +0,001 | −0,001 | +0,0 % | 0 |
+| R0, 40° | +0,003 | +0,001 | −0,001 | +0,6 % | 1 |
+| R0, 60° | +0,002 | −0,000 | −0,002 | +0,2 % | 1 |
+| R0, 40° jusqu'à l'allocation 6 | +0,003 | −0,001 | −0,002 | +0,7 % | 1 |
+| R1, 40°, niveau par trame | +0,001 | −0,002 | −0,001 | +0,8 % | 1 |
+| R1, 60° | +0,001 | −0,003 | −0,002 | +0,5 % | 1 |
+| R2, R1 + garde | +0,002 | +0,002 | −0,006 | **+4,1 %** | 8 |
+| R2, R1 + garde + bruit dans les zéros −6 dB | +0,013 | −0,006 | +0,005 | −0,8 % | 4 |
+| rappel : garde + bruit dans les zéros −6 dB | **+0,017** | −0,002 | **+0,021** | **−2,4 %** | 1 |
+
+Diagnostic d'enveloppe : aucun changement (bandes codées avec beaucoup de zéros : 1,24 → 1,24 à
+1,26 dB). La rotation mélange des raies voisines en fréquence ; elle change la texture spectrale
+(plus de raies isolées), pas la répartition dans le temps à l'intérieur de la trame.
+
+- **Seule, la rotation est neutre** : ODG +0,002 à +0,003, les autres juges à zéro ou un peu en
+  dessous. La décision par trame n'y change rien.
+- **Avec la garde tonale, elle nuit** (Zimtohrli +4,1 %, 8 régressions) : elle étale la raie que la
+  garde vient de coder. Le décodeur ne sait pas distinguer une bande gardée d'une autre bande à
+  l'allocation 1.
+- **Elle n'ajoute rien au candidat v4** et lui retire une partie de son gain (ViSQOL +0,021 →
+  +0,005, Zimtohrli −2,4 → −0,8 %). Le bruit dans les zéros remplit déjà les trous que la rotation
+  devait combler, sans étaler les raies.
+- **R3 (validation sur 30 extraits) n'est pas lancée** : aucun réglage ne bat la référence sur les
+  12 extraits. La rotation reste en option sur la branche, désactivée.
+- Pourquoi elle sert à Opus et pas à MULE : chez Opus, la forme d'une bande est normalisée et codée
+  par quelques impulsions, qui laissent la bande presque vide sans étalement. Chez MULE, le
+  treillis code les coefficients eux-mêmes ; avec le bruit dans les zéros, les trous sont déjà
+  comblés.
+
+## v4 : réévaluation de la combinaison TNS, recette d'Apple, coder plutôt que remplir
+
+### Ce que fait Apple : lecture des facteurs d'échelle et du TNS (`eval/aac_frames.py`)
+
+Le lecteur décode maintenant le Huffman des facteurs d'échelle (table 4.A.1 de la norme, reprise
+de `libavcodec/aactab.c`) pour atteindre les drapeaux d'impulsions et de TNS du premier canal,
+puis les filtres TNS (fenêtre, longueur, ordre).
+
+| extrait | blocs courts Apple / FDK / MULE | TNS, trames longues : Apple / FDK | TNS, trames courtes : Apple / FDK |
+|---|---|---|---|
+| Spector | **16,9** / 2,0 / 4,3 % | 1,3 / 13,1 % | 15,5 / 69,2 % |
+| Eminem | **20,2** / 6,8 / 13,0 % | 3,7 / 14,6 % | 48,1 / 88,6 % |
+| Salut c'est cool | 7,2 / 5,2 / 8,0 % | 2,2 / 7,2 % | 59,6 / 82,4 % |
+| Lebanon Hanover | 17,7 / 10,2 / 19,5 % | 0,7 / 6,2 % | 46,1 / 92,4 % |
+| Max Richter, Takemitsu | < 1 % | 0,2 à 0,3 % | – |
+
+Apple n'utilise presque pas le TNS sur ses trames longues. Sa recette pour l'enveloppe des aigus
+tient en deux points : beaucoup plus de blocs courts sur la musique percussive (Spector : 4 fois
+plus que MULE), et des bandes codées plutôt que remplies (sous 16 kHz, presque aucune bande à
+zéro). Le détecteur d'attaques de MULE réagit aux montées d'énergie au-dessus de 3 kHz : il ne
+voit pas les charlestons et les sifflantes, qui font varier l'enveloppe des aigus sans former
+d'attaque franche.
+
+### Coder plutôt que remplir (`code12a2nf`, `code12a3nf`, `code16a3nf`)
+
+On force à l'allocation 2 ou 3 les bandes hautes à 0 bit, avec le bruit dans les zéros à −6 dB.
+Aplatissement des bandes concernées (6 extraits) : 0,55 → 0,58 à 0,60. Une bande faible reste
+surtout faite de zéros. Sans bruit dans les zéros, elle se réduit à des raies isolées (enveloppe
+exagérée, 1,2 avec `code12`) ; avec, le bruit stationnaire domine (enveloppe plate). Il faudrait
+beaucoup plus de bits pour qu'elle suive le signal. **Écarté.**
+
+### Le TNS sur le bruit (drapeau `MULE_TNF`)
+
+Avec le drapeau, l'en-tête passe à 30 octets (octet 28 : première bande).
+
+**À l'encodeur**, pour chaque trame longue et chaque canal :
+- un modèle tout-pôle le long des fréquences, calculé sur le vecteur codé au-dessus de la bande
+  `tnf_b0` (autocorrélation avec fenêtre de retard, puis Levinson) ;
+- transmis si son gain de prédiction atteint `tnf_gain_db` : 1 bit, l'ordre moins 1 sur 3 bits,
+  puis chaque coefficient de réflexion sur 4 bits (sin(i·π/16), comme l'essai du commit 4b5bc50).
+
+**Au décodeur** : le bruit des bandes à 0 bit passe dans 1/A(z) le long des fréquences, puis
+chaque bande est remise à son énergie d'origine. Les bandes codées ne sont pas touchées.
+
+**Vérifications.** La sortie v3 est identique au bit près, le rapport signal sur bruit ne bouge
+pas, et les 42 tests passent.
+
+**Aplatissement des bandes remplies.**
+- Au seuil de 1,5 dB, le filtre est rarement envoyé : 0,55 → 0,58.
+- **Forcé (seuil 0) : 0,54 → 0,80**, et **0,83 à partir de 6 kHz** (Opus 0,92). L'erreur de forme
+  baisse un peu (2,87 → 2,65 dB). Le filtre a le bon sens.
+- Mesure à débit égal en cours (`tnf_12.csv`).
+
+### Le TNS sur le bruit, à débit égal (`tnf_12.csv`), 12 extraits, 135 kb/s, contre la production v3
+
+| variante | débit à q égal | ODG | ODG avancé | ViSQOL | Zimtohrli | régressions |
+|---|---|---|---|---|---|---|
+| ordre 8, forcé, dès 2,8 kHz | +1,4 % | −0,011 | −0,016 | −0,003 | +4,0 % | 15 |
+| ordre 8, forcé, dès 6 kHz | +1,2 % | −0,008 | −0,012 | −0,001 | +2,0 % | 7 |
+| ordre 4, forcé, dès 6 kHz | +0,7 % | −0,004 | −0,007 | −0,000 | +0,6 % | 1 |
+| ordre 8, dès 6 kHz + garde + bruit dans les zéros | +1,4 % | +0,010 | −0,014 | +0,021 | −0,7 % | 11 |
+| ordre 4, dès 6 kHz + garde + bruit dans les zéros | +0,9 % | +0,013 | −0,008 | +0,022 | −2,1 % | 4 |
+| rappel : garde + bruit dans les zéros | +0,3 % | **+0,017** | −0,002 | +0,021 | **−2,4 %** | 1 |
+
+Ordre 4, Zimtohrli par extrait : Spector −10,8 %, Eminem −4,5 % ; tous les autres +0,3 à +5,9 %.
+
+- **Même profil que le folding.** L'enveloppe s'améliore nettement (0,54 → 0,83), mais seule la
+  musique percussive en profite (Spector, Eminem) ; ailleurs, le gain d'enveloppe ne vaut pas les
+  bits qu'il coûte (0,7 à 1,4 % de débit) ni la forme imposée au bruit. Avec le candidat v4, il
+  n'ajoute rien.
+- **Bilan de l'axe « résolution temporelle des aigus ».** Le défaut est réel et localisé (le bruit
+  de remplissage, stationnaire sur 46 ms), et deux outils savent le corriger : le folding décidé
+  par trame, le TNS sur le bruit. Mais les juges ne le récompensent que sur la pop percussive, et
+  le font payer ailleurs. Ce n'est pas le levier principal de l'écart avec Opus. Les options
+  restent sur la branche, désactivées.
+- Piste restante, encodeur seul, inspirée d'Apple : un détecteur de blocs courts qui réagit aussi à
+  la variation de l'enveloppe des aigus (Spector : Apple 17 % de blocs courts, MULE 4 %).
+
+## Le spectrogramme d'ABBA (observation de l'auteur : résolution perdue et blancs vers 13 et 17 kHz)
+
+Extrait `abba` (EBU SQAM), MULE q −7, candidat v4 (garde + bruit dans les zéros −6 dB), Opus 128.
+L'original porte une raie continue à **15,7 kHz** (sans doute un sifflement de ligne vidéo,
+15 734 Hz), au milieu de la bande 20 de MULE (13,4-17,2 kHz).
+
+Décisions de MULE (premier canal) : bande 20 remplie de bruit dans 68 % des trames, codée dans
+32 % (allocation médiane 5, 65 % de zéros) ; bande 21 (17,2-19,9 kHz) toujours remplie de bruit.
+
+| 12-20 kHz, cellules STFT (23 ms × 43 Hz) | kb/s | trous (> 10 dB sous l'original) | excès (> 10 dB au-dessus) |
+|---|---|---|---|
+| MULE v3 | 119,3 | 10,1 % | 11,9 % |
+| MULE candidat v4 | 119,9 | 9,0 % | **6,3 %** |
+| Opus 128 | 150,7 | 5,1 % | 6,6 % |
+
+- Ce que l'auteur voit est le défaut déjà identifié sur Takemitsu, en plus visible :
+  - pendant les 8 premières secondes, la raie disparaît, remplacée par un pavé de bruit plat sur
+    toute la bande 20 : la « perte de résolution » et la marche à 13,4 et 17,2 kHz ;
+  - de 9 à 12 s, la bande est codée avec beaucoup de zéros, qui font des blancs verticaux.
+- **Le candidat v4 corrige l'essentiel** : la raie revient et le pavé de bruit disparaît (excès
+  11,9 → 6,3 %, au niveau d'Opus). La raie reste en pointillé : la garde ne se déclenche que dans
+  les trames où le critère de crête passe. Opus aussi la rend en pointillé.
+- Les trous restent plus nombreux que chez Opus (9,0 contre 5,1 %), et Opus dépense 26 % de bits
+  de plus sur cet extrait.
+
+### Le spectrogramme des castagnettes
+
+Extrait `castanets` (EBU SQAM) : 16 % de blocs courts. Bandes 19 et 20 codées dans 79 et 59 %
+des trames, avec 57 et 61 % de zéros ; bande 21 toujours remplie de bruit.
+
+| 12-20 kHz | kb/s | trous (> 10 dB sous l'original) | excès |
+|---|---|---|---|
+| MULE v3 | 109,7 | 12,6 % | 4,6 % |
+| MULE candidat v4 | 110,0 | **7,8 %** | 5,0 % |
+| Opus 128 | 131,5 | 12,1 % | 4,1 % |
+
+- Les « blancs » sont ici les zéros des bandes codées : des taches noires entre les coups de
+  castagnettes, vers 10-13 et 15-17 kHz. Ce sont du vrai silence dans une bande codée avec une
+  allocation moyenne.
+- **Le bruit dans les zéros les comble** : trous 12,6 → 7,8 %, moins qu'Opus (12,1 %), pour
+  0,3 kb/s.
+- MULE coupe à 19,98 kHz alors que l'original monte à 22 kHz : c'est la bande passante, le piège
+  des 20 kHz, laissé de côté.
+
+## Hypothèse : un manque de bits entre 11 et 16 kHz (`hibits_12.csv`)
+
+Option `hi_db` : une marge de masquage supplémentaire (plus de bits) à partir de la bande `hi_b0`.
+12 extraits, 135 kb/s, à débit égal contre la production :
+
+| variante | débit à q égal | ODG | ODG avancé | ViSQOL | Zimtohrli | régressions |
+|---|---|---|---|---|---|---|
+| +3 dB dès 10,3 kHz (`hi3`) | +5 % | −0,010 | −0,018 | −0,000 | +7,4 % | 22 |
+| +6 dB dès 10,3 kHz (`hi6`) | +11 % | −0,034 | −0,040 | −0,002 | +17,6 % | 29 |
+| +6 dB dès 8,3 kHz (`hi6b18`) | +17 % | −0,043 | −0,044 | −0,001 | +21,0 % | 31 |
+| `mid_db` 4 dB jusqu'à la bande 21 (`midhi22`) | +14 % | −0,018 | −0,016 | −0,001 | +16,1 % | 25 |
+
+**Hypothèse réfutée, nettement.** Prendre des bits au reste du spectre pour les donner aux aigus
+dégrade presque tous les extraits, et Zimtohrli le plus fortement (+7 à +21 %). Seuls quelques
+morceaux denses gagnent un peu en ODG à +3 dB (Airbourne +0,031, Eminem +0,021, Spector +0,016).
+La répartition actuelle des bits entre aigus et reste du spectre est la bonne pour les juges. Les
+défauts visibles au spectrogramme (pavés de bruit, trous) ne valent pas des bits pris ailleurs ;
+le candidat v4 les corrige pour 0,3 kb/s. Option laissée dans l'encodeur, désactivée.
+
+## Les spectrogrammes vers 160 kb/s (MULE q −10, Opus 160, Apple q82)
+
+Fichiers et images : `eval/spectro_compare.py`, quatre extraits (ABBA, castagnettes, Takemitsu,
+Spector).
+
+- **Takemitsu est le cas le plus parlant.** L'original porte tout un peigne de raies entre 14 et
+  20 kHz.
+  - **MULE v3** : la bande 21 (17,2-20 kHz) est remplie de bruit plat dans toutes les trames, même
+    à 160 kb/s, et les raies y disparaissent. La bande 20 est codée avec beaucoup de trous.
+  - **Candidat v4** : il restaure les raies de la bande 20, mais pas celles de la bande 21. La garde
+    tonale ne vise qu'une raie isolée : un peigne de raies n'a pas de crête assez marquée pour la
+    déclencher.
+  - **Opus** garde les raies dans les deux bandes. **Apple** les garde jusque vers 17,5 kHz, met à
+    zéro tout ce qui est entre elles, et coupe au-dessus.
+- **ABBA** : à 160 kb/s, la bande 20 de MULE v3 est codée, avec des trous en bandes verticales ;
+  le candidat v4 les comble. Apple garde la raie à 15,7 kHz intacte, au prix de zéros partout
+  autour.
+- La bande 21 n'est jamais codée par MULE sur ces extraits : son modèle la juge sous le seuil
+  absolu d'audition (élevé à 17-20 kHz). Opus, qui n'a pas de masque, la code.
+
+## Hypothèse : des bandes plus étroites dans les aigus (24 bandes)
+
+Variante de compilation `MULE_BANDS24`, dans un répertoire séparé (`make BUILD=build-nb24
+CFLAGS="... -DMULE_BANDS24"`, puis `MULE_BUILD=build-nb24`) : la bande 20 est coupée à 15,3 kHz
+et la bande 21 à 18,6 kHz. La table des bornes de bandes est désormais mise en commun dans
+`mule.h` (`MULE_EDGES_INIT`). Les contextes du codage entropique ne changent pas : les nouvelles
+bandes restent dans la classe 2. L'en-tête annonce 24 bandes, et l'aller-retour est cohérent. À q
+égal, le débit varie de −4,4 % (Spector) à +0,6 % (Takemitsu). Mesure à débit égal en cours
+(`nb24_12.csv`).
+
+### 24 bandes, à débit égal (`nb24_12.csv`), 12 extraits, 135 kb/s, contre la production v3 (22 bandes)
+
+| variante | débit à q égal | ODG | ODG avancé | ViSQOL | Zimtohrli | régressions |
+|---|---|---|---|---|---|---|
+| 24 bandes | −3 % | −0,029 | −0,027 | **+0,021** | **−5,5 %** | 18 |
+| 24 bandes + garde + bruit dans les zéros | −2,8 % | −0,007 | −0,026 | **+0,032** | **−7,6 %** | 15 |
+| rappel : 22 bandes + garde + bruit dans les zéros | +0,3 % | **+0,017** | −0,002 | +0,021 | −2,4 % | 1 |
+
+24 bandes + garde + bruit dans les zéros, par extrait :
+
+| | ODG | ViSQOL | Zimtohrli |
+|---|---|---|---|
+| Takemitsu | +0,053 | +0,217 | **−35,7 %** |
+| Mravinsky | +0,062 | +0,078 | −19,6 % |
+| Zombie Zombie | +0,036 | +0,053 | −14,7 % |
+| Max Richter | +0,037 | +0,131 | −11,9 % |
+| Beethoven 59 | +0,023 | +0,046 | −8,5 % |
+| Belenos | **−0,200** | **−0,158** | **+15,7 %** |
+| Salut c'est cool, Classical, Lebanon Hanover | −0,014 à −0,034 | ≈ 0 | −6 à +3 % |
+
+- **Sur la musique tonale, c'est le plus gros gain mesuré depuis le début** : ViSQOL et Zimtohrli
+  progressent fortement (Takemitsu −36 %, Mravinsky −20 %). Les raies des bandes hautes y sont
+  enfin codées.
+- **Mais PEAQ recule, et Belenos s'effondre** (−0,20 d'ODG). À q égal, les 24 bandes **retirent
+  des bits** aux aigus du rock dense : Belenos passe de 149 à 136 kb/s (−9 %), Airbourne −5 %. Le
+  seuil absolu de chaque demi-bande est pris à son point le plus sensible, donc plus haut dans la
+  demi-bande supérieure, et le masque y monte. Même à son propre débit, Belenos reste moins bon
+  (environ −0,1 d'ODG à 162 kb/s), et il est très sensible au débit.
+- **Deux effets sont mêlés** : la résolution (le bon) et un changement de répartition des bits dû
+  au seuil absolu par demi-bande (le mauvais). Suite : séparer les deux, en gardant le seuil absolu
+  de la bande d'origine pour ses deux moitiés, et essayer la coupe de la seule bande 20 ou de la
+  seule bande 21.
+
+### Les seuils : le seuil absolu de la bande d'origine (`ath_parent`), et une seule bande coupée
+
+`ath_parent` : chaque bande coupée garde le seuil absolu par coefficient de sa bande v3, c'est-à-dire
+son point le plus sensible **et** sa largeur. Le seuil par coefficient est divisé par la largeur de
+la bande, et une demi-bande avait donc un seuil 3 dB plus haut. Variantes de compilation :
+`MULE_SPLIT` 1 (bande 20 seule, 23 bandes, `build-s20`), 2 (bande 21 seule, `build-s21`), 3 (les
+deux, 24 bandes). Sans coupe, l'option ne change rien (production identique au bit près).
+
+12 extraits, 135 kb/s, à débit égal contre la production v3 (`nb24ap_12.csv`, `s20_12.csv`,
+`s21_12.csv`) :
+
+| variante | ODG | ODG avancé | ViSQOL | Zimtohrli | régressions | Belenos, ODG | Takemitsu, Zimtohrli |
+|---|---|---|---|---|---|---|---|
+| 24 bandes, seuil par demi-bande | −0,029 | −0,027 | +0,021 | −5,5 % | 18 | −0,232 | −30,7 % |
+| 24 bandes, seuil d'origine | −0,007 | −0,000 | +0,040 | −6,2 % | 9 | −0,009 | −26,6 % |
+| bande 20 coupée, seuil d'origine | −0,005 | +0,003 | +0,025 | −6,1 % | 7 | −0,002 | −27,4 % |
+| bande 21 coupée, seuil d'origine | −0,002 | −0,005 | +0,014 | +0,4 % | 2 | −0,002 | +2,4 % |
+| 24 bandes, seuil d'origine + garde + bruit dans les zéros | +0,011 | −0,007 | **+0,050** | −8,4 % | 8 | −0,003 | −37,4 % |
+| **bande 20 coupée, seuil d'origine + garde + bruit dans les zéros** | **+0,013** | −0,003 | +0,034 | **−8,3 %** | 6 | −0,003 | **−38,2 %** |
+| bande 21 coupée, seuil d'origine + garde + bruit dans les zéros | +0,016 | −0,006 | +0,036 | −2,1 % | 5 | +0,018 | −20,5 % |
+| rappel : 22 bandes + garde + bruit dans les zéros | +0,017 | −0,002 | +0,021 | −2,4 % | 1 | +0,017 | −23,5 % |
+
+- **Le seuil d'origine supprime l'effet indésirable** : Belenos passe de −0,23 à −0,01, et PEAQ
+  avancé revient à zéro. C'était bien le seuil absolu par demi-bande qui retirait des bits au rock.
+- **La coupe de la bande 20 porte l'essentiel du gain.** Celle de la bande 21 n'apporte presque rien
+  à Zimtohrli : au-dessus de 17 kHz, le seuil absolu reste trop haut pour que les raies soient
+  codées.
+- **Bande 20 coupée + candidat v4, contre le candidat v4 seul** : Zimtohrli −8,3 % contre −2,4 %,
+  ViSQOL +0,034 contre +0,021, mais ODG +0,013 contre +0,017, et 6 régressions contre 1. Extrait
+  par extrait :
+  - la musique tonale progresse nettement (Zimtohrli : Takemitsu −38 %, Mravinsky −17 %, Zombie
+    Zombie −14 %, Belenos −8 %, Classical −7 %), et Beethoven 59 passe de +4,2 à −5,5 % ;
+  - le rock et la pop perdent un peu en PEAQ avancé (Lebanon Hanover −0,052, Spector −0,038,
+    Eminem −0,035, Airbourne −0,027), et en ODG sur Airbourne et Salut c'est cool (−0,02).
+- Suite : valider la coupe de la bande 20 avec le candidat v4 sur les 30 extraits.
+
+### Validation sur `test` : bande 20 coupée (seuil d'origine) + candidat v4 (`s20v4_test.csv`)
+
+Intervalles bootstrap à 95 %. Zimtohrli en écart relatif, plus petit = mieux.
+
+| | ODG @128 | @160 | ODG avancé @128 | @160 | ViSQOL @128 | @160 | Zimtohrli @128 | @160 |
+|---|---|---|---|---|---|---|---|---|
+| candidat v4 (22 bandes), contre v3 | **+0,018** [+0,012 ; +0,025] | **+0,013** | −0,010 | −0,005 | +0,017 | +0,008 | −1,3 % | −0,2 % |
+| bande 20 coupée + v4, contre v3 | +0,009 [−0,001 ; +0,019] | −0,008 | −0,015 | −0,006 | **+0,023** | +0,011 | **−6,5 %** [−9,6 ; −4,0] | **−5,8 %** |
+| bande 20 coupée + v4, contre v4 | −0,009 [−0,016 ; −0,002] | **−0,021** [−0,032 ; −0,010] | −0,005 | −0,001 | +0,006 | +0,003 | **−5,4 %** [−6,9 ; −4,0] | **−5,7 %** |
+
+Distribution de l'ODG à 128 kb/s : médiane / p10 / écart type / pire.
+- v3 : −0,151 / −0,256 / 0,070 / −0,308
+- v4 : **−0,133** / −0,225 / 0,063 / −0,278
+- bande 20 coupée + v4 : −0,146 / **−0,208** / **0,054** / −0,288
+
+- **Les juges se contredisent.** Zimtohrli donne un gain net et sûr à la coupe de la bande 20 (−5,4 à
+  −5,7 % de mieux que le candidat v4, sans aucune régression), ViSQOL un petit gain. PEAQ la
+  sanctionne, surtout à 160 kb/s (−0,021 d'ODG contre le candidat v4), avec 17 extraits de rock et de
+  pop en recul de 0,02 à 0,08 (New Order −0,069, Red Fang −0,075, Judas Priest −0,064).
+- **La distribution se resserre encore** (écart type 0,054, p10 −0,208), mais la médiane recule par
+  rapport au candidat v4.
+- Selon la règle du projet (des juges en désaccord, donc l'écoute tranche), la coupe de la bande 20
+  n'est pas adoptée sur les mesures seules. Le candidat v4 à 22 bandes reste le seul où tous les
+  juges vont dans le même sens. Écoute à prévoir : un rock à 160 kb/s (Red Fang ou New Order), où
+  PEAQ la sanctionne, et Takemitsu à 128 kb/s, où Zimtohrli la récompense le plus.
+
+## Spectrogrammes à débit égal par extrait (cible : le débit d'Apple q63 sur chaque extrait)
+
+L'auteur remarque que les comparaisons à réglage fixe désavantagent MULE sur les extraits calmes :
+à q −7, Takemitsu reçoit 105 kb/s contre 125 pour Opus et 122 pour Apple. Les notes globales,
+interpolées au même débit moyen sur 30 extraits, restent équitables : elles mesurent aussi la
+répartition des bits entre extraits, choix propre à chaque codec. Pour les comparaisons visuelles,
+chaque codec est donc réglé sur le débit d'Apple, extrait par extrait (dichotomie sur q pour MULE,
+sur le débit nominal pour Opus, à 0,6 kb/s près). Fichiers : `scratchpad/eq_wav/`.
+
+**Observation de l'auteur** : les écarts d'Apple sont presque toujours négatifs (il retire, il
+n'ajoute pas), alors que MULE « bave » sur les fréquences voisines. Mesure, 8-20 kHz, cellules STFT
+à moins de 60 dB du maximum, moyenne sur 6 extraits :
+
+| | énergie ajoutée (> +6 dB) | énergie retirée (< −6 dB) | bilan d'énergie 8-20 kHz |
+|---|---|---|---|
+| MULE v3 | 9,2 % | 11,6 % | −0,4 dB |
+| MULE v4 | 9,0 % | 10,9 % | −0,4 dB |
+| MULE v4, bande 20 coupée | 9,4 % | 11,6 % | −0,4 dB |
+| Opus | 10,6 % | 10,5 % | +0,1 dB |
+| Apple AAC | **4,2 %** | **31,4 %** | **−1,0 dB** |
+
+- **Confirmé : Apple ne fait presque que retirer.** C'est la logique d'AAC-LC : pas de remplissage
+  de bruit (une bande à zéro est muette), et une quantification dont l'arrondi tire les valeurs vers
+  zéro. Ses erreurs sont d'un seul signe, et il perd de l'énergie (−1,0 dB, −4,6 dB sur Takemitsu).
+- **MULE ne bave pas plus qu'Opus.** Tous deux conservent l'énergie de chaque bande, transmise à
+  part, et répartissent leurs erreurs des deux côtés. Leur « bavure » vient du remplissage :
+  l'énergie d'une raie non codée est étalée sur toute la bande. C'est le plus visible sur Takemitsu
+  (18 % de cellules ajoutées) : le bruit plat de la bande 21 remplit les creux entre les raies du
+  peigne.
+- Ce sont deux philosophies d'erreur : AAC laisse des trous, MULE et Opus mettent du bruit à la
+  bonne énergie. Les juges ont jusqu'ici préféré le bruit (couper ou rendre muet les aigus a toujours
+  été sanctionné). Mais, sur les raies, la précision d'AAC est meilleure.
+
+## Le coût réel d'une bande de plus
+
+Coût de l'information auxiliaire (énergies, allocations, mode et échappements d'allocation), compté
+comme le codec le code : modèles adaptatifs, distributions initiales apprises, remises à zéro aux
+paquets clés. 22 bandes contre 23 (bande 20 coupée, seuil d'origine), même q (−7), 10 extraits.
+
+| extrait | bits de plus par canal, trame et groupe | dont énergie | dont allocation | kb/s de plus |
+|---|---|---|---|---|
+| Takemitsu, Max Richter, Mravinsky | 2,4 à 2,8 | 2,0 à 2,2 | 0,4 à 0,6 | 0,21 à 0,24 |
+| ABBA, castagnettes, Eminem, Airbourne | 5,0 à 5,3 | 2,5 à 3,5 | 1,9 à 2,6 | 0,44 à 0,59 |
+| Spector, Lebanon Hanover, Belenos | 5,7 à 7,2 | 3,1 à 3,7 | 2,7 à 3,5 | 0,50 à 0,64 |
+| **moyenne** | **4,75** | | | **0,45 (0,35 % à 128 kb/s)** |
+
+- Une bande de plus coûte environ 2 à 3,5 bits d'énergie, plus une allocation presque gratuite si
+  la bande reste à 0 bit (musique calme) et de 2 à 3,5 bits si elle est codée (rock). C'est 2 à
+  5 fois plus que chez AAC (environ 1 bit par facteur d'échelle quand il bouge peu), mais 0,45 kb/s
+  en moyenne seulement.
+- **Ce coût n'explique pas le recul de PEAQ sur le rock.** À q égal, la coupe fait surtout baisser
+  les bits des **coefficients** sur le rock : Spector 124,0 → 117,8 kb/s, Airbourne 131,9 → 124,5,
+  Belenos 145,1 → 138,3, alors que la musique calme ne bouge pas. Même avec le seuil absolu
+  d'origine, les deux demi-bandes reçoivent moins de bits que la bande entière : la planéité et
+  l'étalement du masquage, calculés sur des bandes plus étroites, relèvent leurs masques. C'est une
+  nouvelle répartition des bits, que la comparaison à débit égal ne compense qu'en moyenne.
+
+### 24 bandes, frontières déplacées (`s4_12.csv`, `s5_12.csv`), 12 extraits, 135 kb/s, contre la production v3
+
+- **A** (`MULE_SPLIT` 4) : les bandes 19 et 20 coupées en deux (10,3 / 11,9 / 13,4 / 15,3 / 17,2 / 20 kHz).
+- **B** (`MULE_SPLIT` 5) : cinq bandes régulières d'environ 1,9 kHz (10,3 / 12,2 / 14,1 / 16,0 / 17,9 / 20 kHz).
+
+Toutes avec le seuil absolu d'origine (`ath_parent`).
+
+| variante | ODG | ODG avancé | ViSQOL | Zimtohrli | régressions | ODG rock (6) | ODG tonal (6) |
+|---|---|---|---|---|---|---|---|
+| A seule | −0,003 | +0,012 | +0,022 | −6,4 % | 7 | −0,023 | +0,017 |
+| B seule | −0,006 | +0,011 | +0,033 | −4,3 % | 9 | −0,027 | +0,016 |
+| bande 20 coupée seule | −0,005 | +0,003 | +0,025 | −6,1 % | 7 | −0,025 | +0,016 |
+| bandes 20 et 21 coupées | −0,007 | −0,000 | +0,040 | −6,2 % | 9 | −0,030 | +0,015 |
+| **A + candidat v4** | **+0,016** | **+0,006** | +0,033 | **−9,9 %** | **4** | −0,006 | **+0,039** |
+| B + candidat v4 | +0,012 | +0,005 | +0,041 | −9,1 % | 7 | −0,009 | +0,033 |
+| bande 20 coupée + v4 | +0,013 | −0,003 | +0,034 | −8,3 % | 6 | −0,009 | +0,035 |
+| bandes 20 et 21 coupées + v4 | +0,011 | −0,007 | +0,050 | −8,4 % | 8 | −0,012 | +0,035 |
+| candidat v4 (22 bandes) | +0,017 | −0,002 | +0,021 | −2,4 % | 1 | +0,012 | +0,023 |
+
+- **A + candidat v4 est le meilleur compromis mesuré.** Les quatre juges sont positifs : l'ODG est
+  au niveau du candidat v4 (+0,016 contre +0,017), PEAQ avancé passe de −0,002 à +0,006, ViSQOL
+  +0,033, et Zimtohrli −9,9 %, le meilleur chiffre de toute l'étude. Il y a 4 régressions. Le rock
+  ne perd presque plus rien (−0,006), et la musique tonale gagne +0,039.
+- Couper la bande 19 (10,3-13,4 kHz) plutôt que la bande 21 est le bon choix : au-dessus de
+  17 kHz, le seuil absolu empêche de toute façon les raies d'être codées.
+- Suite : valider A + candidat v4 sur les 30 extraits.
+
+### Validation de « A + candidat v4 » sur les 30 extraits (`s4v4_test.csv`) : le gain ne tient pas
+
+Contre le candidat v4 à 22 bandes, à débit égal (IC à 95 %) :
+
+| | ODG | ODG avancé | ViSQOL | Zimtohrli | régressions ODG |
+|---|---|---|---|---|---|
+| 128 kb/s | −0,011 [−0,020 ; −0,003] | −0,010 | +0,004 | −2,8 % [−5,0 ; −0,6] | 14 |
+| 160 kb/s | −0,027 [−0,037 ; −0,017] | −0,002 | +0,002 | −5,0 % [−7,0 ; −2,9] | 19 |
+
+Contre la production v3 : ODG +0,007 à 128 kb/s, −0,014 à 160 kb/s. Distribution à 128 kb/s :
+écart type 0,055 (v4 : 0,063), p10 −0,218 (v4 : −0,225), mais médiane −0,152 (v4 : −0,133).
+
+- **Les régressions sont toutes dans le rock** (New Order, Orange Goblin, Red Fang, Steel Panther,
+  Judas Priest…). Zimtohrli reste favorable en moyenne, mais il pénalise aussi Orange Goblin,
+  New Order/Joy Division et Astroqueen (+5 à +10 %).
+- **Le jeu de 12 extraits était biaisé** : 6 extraits calmes ou tonals sur 12, contre 8 sur 30
+  dans le jeu de test.
+- **Cause : la répartition des bits.** À q égal, les bandes étroites font baisser le débit de
+  6,9 % sur le rock (de −4,0 à −10,7 %) et de 3,4 % seulement sur la musique calme. À débit moyen
+  égal, le rock perd donc des bits au profit du reste. Les masques des bandes étroites sont plus
+  hauts (tonalité et étalement calculés sur moins de raies), et ce n'est pas le coût des énergies
+  (0,45 kb/s par bande).
+- **Piste** : calculer le modèle psychoacoustique sur les bandes d'origine (masque, tonalité,
+  seuil absolu) et ne coder qu'avec les bandes fines. On séparerait ainsi le gain de résolution
+  du changement de répartition des bits.
+
+## Bruit en pente, à la manière du floor de Vorbis (sonde `MULE_SLOPE`, `slope_12.csv`)
+
+Dans les trames longues, une bande remplie de bruit prend la pente en dB du niveau de ses bandes
+voisines (les deux si elles sont audibles, sinon celle qui l'est). La pente est bornée à ±12 dB aux
+bords de la bande, et l'énergie de la bande reste exacte. Aucun bit : seul le décodeur change, le
+débit est identique, et la production v3 reste exacte au bit près.
+
+- Effet mesuré (écart entre les deux moitiés de la bande) : sur la bande 20, la pente est presque
+  juste (Takemitsu : −3,5 dB, original −4,1, sans pente −0,1). Sur la bande 21, tirée de la seule
+  voisine du dessous, elle reste trop faible (+1 dB contre +3 à +9 dans l'original), et va dans le
+  mauvais sens sur Takemitsu.
+- 12 extraits, à q égal (donc à débit égal) :
+
+| variante | ODG | ODG avancé | ViSQOL | Zimtohrli | régressions |
+|---|---|---|---|---|---|
+| pente dès 2,8 kHz, contre v3 (q −6 / −9) | +0,003 / +0,003 | +0,002 / +0,001 | +0,041 / +0,028 | −3,3 / −3,7 % | 3 / 2 |
+| pente dès la bande 19, contre v3 | +0,003 / +0,003 | +0,002 / +0,001 | +0,042 / +0,029 | −2,6 / −3,1 % | 3 / 2 |
+| pente dès 2,8 kHz + v4, contre v4 | +0,002 / +0,001 | +0,001 / −0,000 | +0,017 / +0,013 | −2,6 / −2,8 % | 1 / 1 |
+| pente dès la bande 19 + v4, contre v4 | +0,001 / +0,001 | +0,000 / −0,000 | +0,017 / +0,013 | −1,8 / −2,2 % | 1 / 1 |
+
+- Les quatre juges vont dans le même sens, sans régression ODG (pire −0,016). Les seules
+  régressions sont ViSQOL sur Airbourne (−0,011, juste au seuil) et, sans la v4, Zimtohrli sur
+  Beethoven 59 et Belenos (+4 à +6,5 %). Avec la v4, Zimtohrli n'en a plus aucune.
+- Pente dès 2,8 kHz un peu meilleure que dès la bande 19. Validation de « pente + v4 » sur
+  30 extraits : `slv4_test.csv`.
+
+### Validation de « pente + v4 » sur 30 extraits (`slv4_test.csv`), contre le candidat v4, à débit égal
+
+| q (≈ kb/s) | ODG | ODG avancé | ViSQOL | Zimtohrli | régressions |
+|---|---|---|---|---|---|
+| −6 (121) | +0,0015 [+0,0003 ; +0,0029] | +0,000 | +0,005 [−0,002 ; +0,014] | −1,4 % [−2,5 ; −0,6] | ViSQOL 5 |
+| −9 (151) | +0,0009 [−0,0003 ; +0,0023] | −0,001 | +0,003 | −1,2 % [−2,7 ; −0,2] | ViSQOL 4 |
+| −12 (182) | −0,0020 [−0,0039 ; −0,0004] | −0,001 | +0,002 | −0,5 % (n.s.) | ODG 1, ViSQOL 4, Zimtohrli 1 |
+
+- Le gain se réduit sur 30 extraits : à peine positif à 120-150 kb/s, légèrement négatif à 180 kb/s.
+- ViSQOL pénalise toujours les mêmes extraits, électroniques ou denses : Crystal Castles (jusqu'à
+  −0,029), Astroqueen (−0,034), Dance with the Dead, Airbourne. Hypothèse : à côté de bandes
+  codées très fortes, la pente tirée des voisines exagère l'inclinaison du bruit.
+- **Non retenu tel quel** : sous le seuil d'un changement de format (+0,01), et les juges ne sont pas
+  unanimes. Il reste en sonde. Pistes : borner la pente plus bas (±6 dB), ou ne l'appliquer que
+  quand les deux voisines sont audibles.
+
+**Décision de l'auteur (21/11/2026) : la pente actuelle entre dans le candidat v4** (elle ne
+coûte rien et apporte de petits gains). Nouveau candidat : `slnfm6tg` (pente dès 2,8 kHz, bruit
+dans les zéros à −6 dB, garde tonale). Affinage de la pente noté dans `docs/TODO.md`.
+
+## Classes par sous-partition, à la manière des classes de résidu de Vorbis (sonde `MULE_SUBPART`)
+
+Dans les trames longues, une bande codée à partir de la bande 19 (au moins 2 sous-partitions de
+4 unités, soit 32 raies ; la dernière prend le reste : 4, 5 et 4 sous-partitions pour les bandes
+19, 20 et 21) peut laisser des sous-partitions au bruit. Après les allocations du canal : 1 bit
+brut par bande concernée (au moins une sous-partition en bruit), puis 1 bit par sous-partition.
+Les raies laissées au bruit sont sautées par le codage des coefficients : le masque est porté par
+la structure `group`, donc `band_n` et `coef_index` les sautent partout (choix d'allocation,
+Viterbi chaîné, codage, décodage). Leur bruit reprend l'énergie de la bande moins celle des raies
+codées, au moins 1/16 du niveau de la bande par raie. L'encodeur laisse au bruit une
+sous-partition dont la raie la plus forte reste sous la cible du masque plus `sp_db`. Une bande
+entièrement en bruit passe à l'allocation 0.
+
+- Usage (q −7, bandes 19-21 codées en trames longues, avec au moins une sous-partition en bruit) :
+  Takemitsu 21 %, ABBA 22 % (25 % à +6 dB), Spector 0,6 % (16 % à +6 dB), Lebanon Hanover 0,2 %
+  (10 % à +6 dB), Max Richter 0 %. Le débit augmente un peu à q égal (+0,1 à +0,4 kb/s) :
+  l'indicateur coûte 1 bit par bande codée, et des zéros en TCQ coûtaient déjà peu.
+- Mesure sur 12 extraits : `sp_12.csv`.
+
+**Correctifs avant la mesure.** (1) Les indicateurs passent par le rANS : un flux adaptatif de
+2 symboles et 3 contextes (`MULE_S_SPART` : l'indicateur de bande ; le bit de chaque
+sous-partition selon celui de la précédente), au départ uniforme, sans table entraînée ; les flux
+existants ne changent pas (v3 exacte au bit près). (2) Le niveau du bruit des sous-partitions
+sautées, « énergie de la bande moins celle des raies codées », est la différence de deux grandes
+énergies dans une bande tonale : la première mesure (faite pendant une recompilation, supprimée)
+donnait Zimtohrli +96 à +141 % sur Takemitsu. Il est borné à (D/4)² par raie : une sous-partition
+sautée reste sous le masque, environ D²/12 à sa raie la plus forte.
+
+Mesure sur 12 extraits (`sp_12.csv`), contre le candidat v4 (`slnfm6tg`), à débit égal :
+
+| variante | ODG 128 / 145 kb/s | ODG avancé | ViSQOL | Zimtohrli | régressions 128 / 145 |
+|---|---|---|---|---|---|
+| seuil −6 dB (`spm6v4`) | −0,006 / −0,007 | −0,002 / −0,001 | −0,001 / 0,000 | +0,8 / +1,2 % | 2 / 5 |
+| seuil 0 dB (`spv4`) | −0,007 / −0,011 | −0,001 / −0,002 | 0,000 / 0,000 | +1,2 / +1,8 % | 3 / 6 |
+| seuil +6 dB (`spp6v4`) | −0,018 / −0,027 | −0,006 / −0,003 | +0,001 / 0,000 | +3,1 / +4,5 % | 6 / 10 |
+| dès la bande 17, 0 dB (`sp17v4`) | −0,008 / −0,011 | −0,002 / −0,002 | 0,000 / 0,000 | +1,4 / +1,9 % | 3 / 6 |
+
+- **Négatif, et d'autant plus que davantage de sous-partitions vont au bruit.** Les régressions
+  sont sur Belenos (ODG −0,05 à −0,09), Eminem, Salut c'est cool et Takemitsu (Zimtohrli +3 à
+  +20 %). Le débit ne baisse pas (+0,1 kb/s à q égal) : les raies sous le masque coûtaient déjà peu
+  en TCQ.
+- **Enseignement** : les raies faibles que la TCQ code sous le masque (souvent ±1, ou un zéro avec
+  le bruit de `nf_coded`) valent mieux, pour tous les juges, qu'un bruit au bon niveau. Le défaut
+  des aigus de MULE est le bruit plat des bandes sans bits, pas le codage des bandes codées. Le
+  sens utile des sous-partitions serait l'inverse, coder une sous-partition dans une bande sans
+  bits, mais la garde tonale le fait déjà à l'échelle de la bande, et les sous-partitions
+  sautées autour de la raie ont aussi régressé (Takemitsu).
+- **Non retenu.** La sonde reste dans le code (`sp`), désactivée.
+
+## Affinage du bruit des bandes sans bits (`slr_12.csv`)
+
+Trois règles, côté décodeur seul (octet 30 de l'en-tête, bits 5 à 7) : pente bornée à ±6 dB au lieu
+de ±12 (`sl6v4`) ; pente seulement entre deux voisines audibles, sinon bruit plat (`slbv4`) ; bande
+21 qui tombe d'au moins 4 dB d'un bord à l'autre (`sltv4`) ; et leurs combinaisons (`slbtv4`,
+`sl6btv4`). 12 extraits, débit identique, contre le candidat v4 (`slnfm6tg`), q −6 / −9 :
+
+| variante | ODG | ODG avancé | ViSQOL | Zimtohrli | régressions |
+|---|---|---|---|---|---|
+| ±6 dB | −0,000 / +0,000 | −0,000 / +0,000 | +0,000 / +0,000 | +0,0 / −0,0 % | 0 / 0 |
+| deux voisines | −0,001 / −0,000 | +0,001 / +0,001 | −0,008 / −0,008 | +0,2 / +0,0 % | 2 / 2 |
+| bande 21 qui tombe | −0,000 / +0,000 | −0,001 / −0,001 | −0,022 / −0,021 | +0,7 / +1,0 % | 2 / 4 |
+| deux voisines + bande 21 | −0,001 / −0,000 | −0,000 / −0,000 | −0,020 / −0,020 | +0,6 / +0,9 % | 2 / 4 |
+| les trois | −0,001 / +0,000 | +0,000 / −0,000 | −0,020 / −0,020 | +0,7 / +0,9 % | 3 / 4 |
+
+- Aucune ne fait mieux que la pente actuelle. ±6 dB est neutre ; les autres font régresser
+  ViSQOL sur Max Richter (jusqu'à −0,20) et Zombie Zombie.
+- **Max Richter : son spectre monte vers 20 kHz** (−110 dB vers 17 kHz, −104 dB à 20 kHz, un bruit
+  d'enregistrement). Une règle fixe de chute inverse la forme ; « deux voisines » aplatit la bande
+  21, qui n'en a qu'une. Aucune règle fixe ne convient à tous : la suite logique serait de
+  transmettre l'inclinaison de la bande 21 quand elle est remplie (2 bits par trame longue et par
+  canal, environ 0,2 kb/s).
+- La pente actuelle reste dans le candidat. Spectrogrammes et WAV à débit égal :
+  `scratchpad/eq_wav/*_eqrate_slope.png`, `*_2b_mule_v4_slope_*kbps.wav`.
+
+**Décision de l'auteur (21/11/2026)** : à l'écoute, pas de différence perçue entre avec et sans
+pente ; les juges étant cohérents sur la pente bornée à ±6 dB (les quatre à ±0,0002 près, aucune
+régression sur 12 extraits), elle remplace la pente à ±12 dB dans le candidat v4 : **`sl6v4`**
+(`nf_slope` 1, `nf_slope_mode` 1, bruit dans les zéros à −6 dB, garde tonale). Confirmation sur
+30 extraits : `sl6v4_test.csv`.
+
+### Confirmation de la pente à ±6 dB sur 30 extraits (`sl6v4_test.csv`)
+
+- **Contre la pente à ±12 dB : identique.** Les quatre juges sont à ±0,0002 près, aucune
+  régression ; ViSQOL +0,0002 à +0,0003, significatif mais minuscule.
+- **Contre le candidat sans pente** (`nfcm6tg`), q −6 / −9 / −12 (≈ 121 / 151 / 182 kb/s) : ODG
+  +0,0016 [+0,0004 ; +0,0029] / +0,0010 / −0,0022 ; Zimtohrli −1,4 % [−2,5 ; −0,6] / −1,3 % / −0,5 % ;
+  ViSQOL +0,006 / +0,003 / +0,002, avec les mêmes régressions ViSQOL qu'à ±12 dB (Crystal Castles,
+  Astroqueen, Dance with the Dead, Airbourne).
+- **Le candidat v4 complet contre la production v3**, à q égal (même débit à 0,3 kb/s près) :
+  ODG +0,022 [+0,015 ; +0,029] / +0,019 [+0,012 ; +0,027] / +0,002 ; ViSQOL +0,025 / +0,013 / +0,005 ;
+  Zimtohrli −3,2 % / −1,9 % / −0,7 % ; mais PEAQ avancé −0,009 / −0,005 / −0,003 (5 régressions à
+  121 kb/s sur le rock : New Order/Joy Division, And One, Spector, Dance with the Dead, Eminem). Le
+  gain fond vers 180 kb/s.
+- La pente à ±6 dB est confirmée dans le candidat v4.
+
+### Faut-il borner la pente ? (question de l'auteur)
+
+Pentes réelles (q −9, 10 extraits, 19 220 bandes remplies en trames longues dès la bande 12, écart
+aux bords de la bande) : médiane 2,5 dB, p90 6,4 dB, p99 22 dB, max 27 dB. Au-delà de 6 dB : 12 %
+des bandes ; au-delà de 12 dB : 5 %, presque toutes sur Belenos (76 % de ses bandes remplies),
+ailleurs jamais (max 5 à 11 dB).
+
+- Pour l'oreille et les juges, la borne compte peu : ±6 et ±12 dB donnent les mêmes notes sur
+  30 extraits, alors qu'elles diffèrent sur 12 % des bandes.
+- Pour le décodeur, une borne reste nécessaire : `exp2_q16` et la mise à l'échelle du bruit ne sont
+  valables que jusqu'à environ ±24 dB, et un flux abîmé peut donner n'importe quel écart d'énergie
+  entre voisines (décalages hors limites, comportement indéfini). Une pente extrême concentrerait
+  aussi le bruit sur quelques raies au bord de la bande.
+- Proposition pour figer la v4 : une borne fixe (±6 dB, adoptée), sans bits de mode dans l'en-tête,
+  puisque les deux autres règles sont écartées.
+
+**Simplification (21/11/2026, décision de l'auteur)** : les bits de mode de l'octet 30 sont
+supprimés. La pente est bornée à ±6 dB, en dur dans le décodeur ; l'octet 30 ne porte plus que
+la bande de départ. Les variantes `sl6v4` et `slnfm6tg` donnent désormais la même chose (la
+seconde mesurait ±12 dB avant ce changement). Les variantes `slbv4`, `sltv4`, `slbtv4` et
+`sl6btv4` sont retirées.
+
+## Le modèle psychoacoustique et les raies tonales (travail autonome, nuit du 20 au 21/11)
+
+Remarque de l'auteur : on serait limité par le modèle psychoacoustique de l'encodeur, qui
+protège mal les notes tonales, plus que par le format ; à l'écoute, Apple fait mieux sur tout ce
+qui est tonal.
+
+**Outil** : `eval/tonal_lines.py`. Il repère les raies stables de l'original (maxima locaux à
+12 dB au moins au-dessus de la médiane de ±1 kHz, présents sur deux trames voisines, dès 1 kHz)
+et classe ce que chaque codec en fait : gardée (à 3 dB près, elle dépasse encore de 6 dB son
+entourage décodé), atténuée, amplifiée, noyée (elle ne dépasse plus). Pour MULE, la trace dit où
+la raie s'est perdue (trame courte, bande sans bits, coefficient à 0, coefficient codé).
+`--match aapl_q63` règle MULE par extrait sur le débit d'Apple.
+
+**Mesure** (12 extraits, 79 828 raies, MULE au débit d'Apple par extrait ; Opus 128 à son débit,
+souvent plus haut) :
+
+| raies noyées | 1-10 kHz | bande 19 (10,3-13,4) | bande 20 (13,4-17,2) | bande 21 (17,2-20) |
+|---|---|---|---|---|
+| MULE v3 | ≤ 0,2 % | 0,4 % | 25,5 % | 78 % |
+| candidat v4 | ≤ 0,2 % | 0,4 % | 16,9 % | 78 % |
+| Apple | ≤ 0,1 % | 0,5 % | **3,4 %** | 76 % |
+| Opus | ≤ 0,1 % | 0,3 % | 3,8 % | 12 % |
+
+- Sous 10 kHz, tout le monde garde plus de 99 % des raies. **L'écart avec Apple est tout entier
+  dans la bande 20** ; dans la bande 21, Apple coupe autant que MULE.
+- Takemitsu domine : 50 % de raies noyées (v4), Apple 32 %, Opus 4 %. Beethoven 59 : v4 3,3 %,
+  Apple 0,7 %.
+- **Où les raies se perdent** (candidat v4) : dans les bandes sans bits (5,5 % de toutes les
+  raies, presque toutes les noyées) ; dans les bandes codées, les raies sont gardées (89 % de
+  toutes les raies, 0,1 % noyées). C'est la décision d'allocation, pas la finesse de quantification.
+- **Pourquoi ces bandes restent sans bits** : pour 98 % des raies concernées, le masque de la
+  bande est le **seuil absolu d'audition**, pas le masquage. Terhardt, avec 96 dB pour la pleine
+  échelle, au point le plus sensible de la bande : environ 33 dB SPL pour la bande 20, mais 88 dB SPL
+  pour la bande 21 (il faudrait −8 dBFS pour y coder quelque chose). 15 % des raies noyées
+  dépassent pourtant la cible de la bande : la garde tonale les manque.
+- Cela explique l'échec de `hi_db` (« plus de bits dans les aigus ») : il agit sur le décalage de
+  masquage, avant la comparaison au seuil absolu, donc sans effet sur ces bandes.
+- Essais (`psy_12.csv`, contre le candidat v4) : seuil absolu −6 et −12 dB (`ath_db`) ; garde
+  tonale à 12 dB sous la cible au lieu de 6 (`tg_db`) ; et deux corrections qui visent la
+  précision des raies codées plutôt que ce mécanisme : tonalité tirée aussi de la crête de la
+  bande (`ton_crest_db`, nouveau paramètre) et masques raie par raie jusqu'en haut (`fine_nb` 22).
+
+Résultats (`psy_12.csv`, contre le candidat v4, à débit égal, 128 / 145 kb/s) :
+
+| variante | ODG | ODG avancé | ViSQOL | Zimtohrli | régressions |
+|---|---|---|---|---|---|
+| seuil absolu −6 dB | −0,003 / −0,006 | −0,002 / −0,007 | +0,001 / +0,005 | +1,9 / +5,5 % | 11 / 15 |
+| seuil absolu −12 dB | −0,009 / −0,019 | −0,008 / −0,019 | +0,014 / +0,017 | +4,7 / +12,7 % | 17 / 25 |
+| garde tonale à 12 dB | 0,000 / +0,000 | 0,000 / 0,000 | 0,000 / 0,000 | +0,0 / +0,1 % | 0 / 0 |
+| crête (10 dB) | −0,017 / −0,017 | −0,017 / −0,025 | −0,002 / −0,002 | +5,3 / +11,3 % | 18 / 23 |
+| masques raie par raie jusqu'en haut | −0,004 / −0,009 | −0,004 / −0,023 | +0,004 / +0,001 | +0,7 / +8,0 % | 7 / 16 |
+
+- Abaisser le seuil absolu coûte +3 à +7,5 kb/s à q égal ; à débit égal, seul ViSQOL le
+  récompense, PEAQ et Zimtohrli le sanctionnent (surtout le rock). Pour les juges, les raies
+  faibles de la bande 20 ne valent pas les bits qu'elles coûtent ailleurs.
+- La garde tonale plus généreuse ne change rien : les raies manquées sont des peignes, pas des
+  raies isolées, et la condition de crête les écarte.
+- La crête et les masques raie par raie dépensent des bits sans convaincre. Aucune variante
+  retenue.
+
+**Bruit autour des raies** (même mesure, `skirt` : puissance ajoutée ou retirée de 2 à 6 raies de
+part et d'autre d'une raie gardée) : médiane environ 0 dB pour tous ; p90 MULE +1,2 à +1,3 dB,
+Apple +1,6, Opus +2,0 (10-20 kHz : MULE +3,2, Apple +2,9, Opus +3,8). MULE ne bave pas plus
+qu'Apple autour des partiels.
+
+**Continuité dans le temps : les raies de la bande 20 clignotent.** Part des raies qui passent,
+d'une trame à la suivante, de gardée à noyée ou l'inverse :
+
+| | 1-10 kHz | 10-13,4 kHz | 13,4-17,2 kHz |
+|---|---|---|---|
+| MULE v3 | 0,1 % | 0,3 % | 7,9 % |
+| candidat v4 | 0,1 % | 0,4 % | **8,4 %** |
+| Apple | 0,05 % | 0,4 % | **1,8 %** |
+| Opus | 0,07 % | 0,4 % | 3,9 % |
+
+Par extrait (10-20 kHz) : Beethoven 59 v4 24 % (v3 14 %, Apple 0,6 %), Lebanon Hanover 13 % (6 %),
+Takemitsu 20 % (14 %), Mravinsky 4 % (0 %). Un partiel qui apparaît et disparaît d'une trame à
+l'autre gazouille (« birdies ») : candidat sérieux pour ce que l'auteur entend sur le tonal.
+Mécanisme : dans la bande 20, la puissance de la bande oscille autour du seuil absolu, la bande
+passe de codée à remplie de bruit ; `alloc_hyst` ne joue qu'entre deux allocations non nulles. La
+garde tonale aggrave Beethoven 59 en codant la bande par intermittence.
+
+**Correction** (encodeur seul) : `stick_db`, une hystérésis codée/bruit. Dans une trame longue
+après une trame longue, une bande codée la fois précédente et laissée à 0 reste codée à
+l'allocation 1 (`tg_a` avec la garde) tant que sa puissance, ou avec la garde sa raie la plus
+forte, reste à moins de `stick_db` sous la cible. Essais 3, 6, 10 dB sur le candidat v4
+(`stick_12.csv`).
+
+Premier essai (`stick_12.csv`) : faux. Les trois seuils donnent les mêmes notes, le débit ne
+bouge pas (+0,1 kb/s), et les extraits tonals régressent fortement (Beethoven 59 ViSQOL −0,15,
+Mravinsky Zimtohrli +18 à +20 %, Classical, Takemitsu). Cause : la branche « garde tonale » de
+l'hystérésis gardait la bande dès que sa raie la plus forte restait à `stick_db` + 6 dB sous la
+cible, sans la condition de crête de la garde. Une bande dont la note s'est éteinte restait codée
+à l'allocation 1, son bruit quantifié grossièrement au lieu d'être rempli, et le pic d'un bruit
+dépasse presque toujours ce seuil (d'où des seuils sans effet). Corrigé : la branche exige
+aussi une raie isolée (`lone_line`, partagée avec la garde tonale). Nouvel essai : `stick_12b.csv`.
+
+Résultat corrigé (`stick_12b.csv`, contre le candidat v4, 128 / 145 kb/s ; débit inchangé) :
+
+| seuil | ODG | ODG avancé | ViSQOL | Zimtohrli | régressions |
+|---|---|---|---|---|---|
+| 3 dB | −0,005 / −0,008 | +0,002 / +0,002 | −0,007 / −0,007 | +0,8 / +0,7 % | 4 / 7 |
+| 6 dB | −0,005 / −0,009 | +0,004 / +0,002 | −0,016 / −0,015 | +1,4 / +1,9 % | 6 / 9 |
+| 10 dB | −0,006 / −0,008 | +0,003 / +0,001 | −0,028 / −0,024 | +2,5 / +3,8 % | 10 / 9 |
+
+Négatif, et d'autant plus que l'hystérésis colle : les régressions sont sur les extraits tonals
+(Beethoven 59, Mravinsky, Classical, Takemitsu). Vérification en cours : l'hystérésis réduit-elle
+vraiment les bascules (`tonal_stick.csv`) ?
+
+**L'hystérésis ne réduit presque pas le clignotement** (`tonal_stick.csv`) : bascules dans la
+bande 20 8,4 % → 7,5 % (3 dB) et 6,6 % (10 dB). Décomposition des bascules du candidat v4 dans la
+bande 20, selon le sort de la raie dans les deux trames (trace) :
+
+| transition | part des bascules | taux de bascule |
+|---|---|---|
+| coefficient à 0 → à 0 | 17,5 % | 19 % |
+| codée → bande sans bits | 14,7 % | 40 % |
+| codée → coefficient à 0 | 14,4 % | 22 % |
+| coefficient à 0 → codée | 10,9 % | 19 % |
+| bande sans bits → codée | 9,9 % | 36 % |
+| bande sans bits → bande sans bits | 9,3 % | 19 % |
+| codée → codée | 2,7 % | 0,3 % |
+
+- Un quart seulement des bascules vient d'une bande qui alterne codée/bruit (ce que visait
+  l'hystérésis). L'essentiel vient de raies de bandes codées quantifiées tantôt à zéro, tantôt
+  non : une raie dont l'amplitude tourne autour du demi-pas passe à zéro une trame sur deux, et le
+  bruit qui la remplace ressort ou non au hasard. Une raie franchement codée ne clignote presque
+  jamais.
+- **Correction suivante** (encodeur seul) : `peak_w`, dans le Viterbi chaîné, un poids plus fort
+  sur l'erreur des coefficients qui sont des pics spectraux (au moins `peak_db` au-dessus de la
+  moyenne de la bande et pas plus faibles que leurs voisins à ±2 raies ; trames longues, dès la
+  bande 12) : la TCQ garde ces raies au lieu de les mettre à zéro. Essais 2, 4, 8 ; 4 à 6 dB
+  (`peak_12.csv`).
+
+Résultat (`peak_12.csv`, contre le candidat v4, 128 / 145 kb/s ; +0,2 à +0,5 kb/s à q égal,
++1,5 kb/s à 6 dB) :
+
+| variante | ODG | ODG avancé | ViSQOL | Zimtohrli | régressions |
+|---|---|---|---|---|---|
+| poids 2 | −0,001 / −0,002 | −0,001 / −0,001 | +0,002 / +0,002 | −0,8 / −0,8 % | 0 / 1 |
+| poids 4 | −0,001 / −0,003 | −0,001 / −0,002 | +0,003 / +0,003 | −0,9 / −0,3 % | 0 / 2 |
+| poids 8 | −0,001 / +0,001 | −0,004 / −0,004 | +0,004 / +0,003 | −0,9 / −0,2 % | 1 / 0 |
+| poids 4, pic à 6 dB | −0,004 / −0,005 | −0,014 / −0,010 | +0,008 / +0,007 | −0,9 / +0,1 % | 3 / 4 |
+
+Presque neutre, juges partagés (PEAQ un peu négatif, ViSQOL et Zimtohrli un peu positifs). La
+question est l'effet sur le clignotement (`tonal_peak.csv`).
+
+**Effet sur le clignotement** (bascules dans la bande 20, mêmes 12 extraits) : candidat v4 8,4 %,
+hystérésis 3 dB 7,5 %, 10 dB 6,6 %, poids sur les pics 2 : 9,4 %, 8 : 10,0 % ; Apple 1,8 %. Le
+poids garde un peu plus de raies (noyées 23,1 → 21,4 %, 10-20 kHz) mais par intermittence : il
+augmente le clignotement. Aucune des deux corrections ne le règle.
+
+**Exemple d'écoute** (`scratchpad/flicker_wav/`, au débit d'Apple) : Beethoven 59 (142 kb/s) et
+Mravinsky (135 kb/s), original, candidat v4, Apple. Sur Beethoven 59, une raie continue à
+15,6 kHz dans l'original : MULE la rend en pointillés, Apple la garde continue (et coupe le reste
+au-dessus de 16 kHz environ).
+
+### Bilan de la nuit
+
+- L'outil `eval/tonal_lines.py` localise le défaut : MULE garde ses raies aussi bien qu'Apple
+  sous 13,4 kHz, ne bave pas plus autour des partiels, mais dans la bande 20 (13,4-17,2 kHz) il en
+  noie davantage (16,9 % contre 3,4 %) et surtout **les fait clignoter** (8,4 % de bascules par
+  trame contre 1,8 %).
+- Le mécanisme n'est pas le masquage mais le **seuil absolu** (bandes sans bits) et le **demi-pas
+  de quantification** (raies codées tantôt à 0, tantôt non) : des raies faibles qui oscillent
+  autour d'un seuil de décision dur.
+- Rien n'est adopté. Les leviers essayés (seuil absolu plus bas, garde tonale plus large, crête,
+  masques raie par raie, hystérésis codée/bruit, poids sur les pics) sont négatifs ou neutres pour
+  les juges, et aucun ne supprime le clignotement.
+- Pistes : (1) une décision **temporelle par raie**, comme le suivi de stabilité des partiels du
+  modèle 2 de MPEG : qu'une raie stable dans le temps garde la même décision (codée ou non) d'une
+  trame à l'autre, en mémorisant les raies codées ; (2) côté décodeur, un bruit de remplissage
+  qui ne fasse pas « ressortir » une raie au hasard une trame sur deux (bruit corrélé d'une trame
+  à l'autre sur les raies tonales, par exemple) ; (3) l'écoute de l'auteur pour confirmer que ce
+  clignotement est bien ce qu'il entend.
+
+## Encodeur qui suit les raies (`trk`, étapes 0 et 1, 21/11/2026)
+
+Proposition validée par l'auteur : suivre chaque raie dans le temps pour que la décision « codée
+ou non » soit continue d'une trame à l'autre (`core/enc_track.c`, encodeur seul, format inchangé).
+
+- **Deux passes.** La première encode normalement mais relève seulement, par trame longue et par
+  canal, les pics de la FFT (au moins `trk_prom` 12 dB au-dessus de la moyenne en dB des ±32 raies,
+  pas plus faibles que leurs voisins à ±2, dès la bande `trk_b0` 12 jusqu'à 19,98 kHz, 48 au plus ;
+  énergie des 3 raies, étalonnée en unités MDCT par le rapport des énergies totales) et la cible de
+  chaque bande (masque × qualité). Son résultat est jeté. La FFT est employée parce que le
+  coefficient MDCT d'une sinusoïde stable varie d'une trame à l'autre avec sa phase : un seuil sur
+  les valeurs MDCT ferait clignoter une note parfaite.
+- **Suivi** : un pic est relié au pic le plus proche (±1 raie) de la trame précédente, ou à
+  défaut de l'avant-dernière (trou d'une trame comblé).
+- **Décision par raie suivie** : codée sur toute sa vie si elle dure au moins `trk_len` (4)
+  trames et si son rapport médian (énergie de la raie sur cible × largeur de la bande, soit son
+  niveau face au seuil d'une sinusoïde) atteint `trk_db`.
+- **Deuxième passe** : plancher d'allocation pour une bande qui tient une raie codée (le niveau
+  unité D/2 au plus la moitié de l'amplitude de la raie), appliqué aussi après le choix
+  débit-distorsion ; dans le Viterbi chaîné, le niveau 0 est interdit aux deux coefficients MDCT
+  les plus forts autour de la raie. En M/S, les raies des deux canaux protègent le canal M.
+- La raie « non codée » n'est pas encore empêchée d'être codée par intermittence (le volet
+  « jamais » de la proposition).
+
+**Étape 0** : le suivi retrouve 95 à 99 % des raies que `tonal_lines.py` voit dans la bande 20
+(Beethoven 59, Takemitsu ; Spector 84 %). Débit et décodage normaux, encodage environ 7 s par
+extrait (deux passes). Étalonnage vérifié avec des sinusoïdes à 15 kHz : codée jusqu'à −70 dBFS
+(26 dB SPL), laissée au bruit à −80 dBFS (16 dB SPL), pour un seuil de Terhardt d'environ 33 dB
+SPL et q −9. Les raies qui clignotent dans la bande 20 sont donc sous le seuil d'audition de
+MULE : rapport médian des raies suivies (≥ 4 trames) d'environ −12 à −15 dB (Beethoven 59,
+Takemitsu), d'où aucune décidée codée à `trk_db` 0.
+
+**Étape 1** : essais à `trk_db` 0, −12, −18 (`trk_12.csv`), puis clignotement (`tonal_trk.csv`).
+
+Résultats de l'étape 1 (`trk_12.csv`, contre le candidat v4, à débit égal, 128 / 145 kb/s ; +0,1 à
++0,6 kb/s à q égal) et clignotement (`tonal_trk.csv`, au débit d'Apple) :
+
+| variante | ODG | ODG avancé | ViSQOL | Zimtohrli | régressions | bascules bande 20 | noyées bande 20 |
+|---|---|---|---|---|---|---|---|
+| candidat v4 | | | | | | 8,4 % | 16,5 % |
+| suivi 0 dB | −0,001 / −0,000 | −0,000 / −0,001 | +0,000 / +0,000 | +0,0 / +0,1 % | 0 / 0 | | |
+| suivi −12 dB | −0,003 / −0,001 | −0,001 / −0,002 | −0,001 / −0,003 | +0,3 / +0,8 % | 2 / 3 | 5,4 % | 8,8 % |
+| suivi −18 dB | −0,002 / −0,001 | +0,000 / −0,001 | −0,016 / −0,010 | +0,7 / +1,2 % | 4 / 6 | **3,1 %** | **4,9 %** |
+| Apple | | | | | | 1,8 % | 3,1 % |
+
+- **Le suivi règle le mécanisme** : Beethoven 59 passe de 23,8 % de bascules à 1,5 % (Apple 0,6 %),
+  la raie à 15,6 kHz redevient continue sur le spectrogramme.
+- **Les juges ne suivent pas** : ViSQOL pénalise justement les extraits corrigés (Beethoven 59
+  −0,08 à −0,10, Takemitsu −0,04 à −0,08 à −18 dB).
+- **Le spectrogramme montre pourquoi** : le plancher fait coder toute la bande 20 à une allocation
+  basse pour une raie ; la plupart des autres coefficients tombent à zéro, et le bruit des zéros
+  (`nf_coded`, −6 dB) ne remplace pas le bruit de remplissage à la bonne énergie : la bande se vide
+  autour de la raie.
+- **Correction** : `sp` 2, les sous-partitions dans le bon sens. Une bande que le suivi fait passer
+  de bruit à codée ne code que les sous-partitions (environ 0,7 kHz) qui tiennent ses raies ; le
+  reste garde un bruit à l'énergie de la bande moins celle des raies codées (`MULE_SUBPART`, v4).
+  Essais `tkm18spv4`, `tkm12spv4` (`trksp_12.csv`, `tonal_trksp.csv`). Fichiers d'écoute :
+  `scratchpad/flicker_wav/*_3_mule_v4_suivi_*` (Beethoven 59, Mravinsky, Takemitsu).
+
+Premier essai `sp` 2 (`trksp_12.csv`) : la bande restait creuse autour de la raie, comme sans
+sous-partitions (ViSQOL Beethoven 59 −0,11, Zimtohrli +9 à +13 %), bien que le clignotement tombe
+(bande 20 : 2,9 % à −18 dB). Cause : la borne (D/4)² posée sur le bruit des sous-partitions
+sautées (contre l'erreur sur Takemitsu) ; ici le pas est fixé par une raie faible, donc petit, et la
+borne écrase le bruit. Correction (décodeur, sonde `MULE_SUBPART`) : la borne ne joue que si les
+raies codées portent la moitié de l'énergie de la bande ou plus (bande tonale) ; une bande codée
+pour une raie suivie faible garde son bruit. Spectrogramme : la bande 20 de Beethoven 59 garde son
+bruit, la raie à 15,6 kHz reste en grande partie continue. Nouvel essai : `trksp2_12.csv`,
+`tonal_trksp2.csv`.
+
+Deuxième essai (`trksp2_12.csv`) : Beethoven 59 ne régresse plus, mais Takemitsu s'effondre
+(Zimtohrli +39 à +42 %, ViSQOL −0,14 à −18 dB). Le spectrogramme montre que les raies du peigne
+sont continues, mais le bruit des sous-partitions sautées clignote à son tour (salves entre 13,4
+et 14,7 kHz) : la borne bascule d'une trame à l'autre selon que les raies codées portent ou non la
+moitié de l'énergie. Estimer le niveau du bruit au décodeur par différence n'est pas fiable.
+
+**Correction, à la manière de Vorbis** : l'encodeur mesure le niveau du bruit des sous-partitions
+sautées et l'envoie, 3 bits bruts par bande à sous-partitions sautées, par pas de 3 dB sous le
+niveau de la bande (`MULE_SUBPART`). Spectrogramme de Takemitsu : les salves ont presque disparu
+(une reste vers 3,8 s), les raies du peigne restent continues. Troisième essai : `trksp3_12.csv`,
+`tonal_trksp3.csv`.
+
+Troisième essai (`trksp3_12.csv`, contre le candidat v4, 128 / 145 kb/s) :
+
+| variante | ODG | ODG avancé | ViSQOL | Zimtohrli | régressions |
+|---|---|---|---|---|---|
+| suivi −18 dB + sous-partitions | −0,002 / −0,001 | +0,000 / −0,001 | −0,007 / −0,002 | +0,5 / +1,1 % | 2 / 2 |
+| suivi −12 dB + sous-partitions | −0,004 / −0,002 | −0,002 / −0,003 | −0,000 / −0,001 | +0,8 / +1,9 % | 2 / 2 |
+
+Il ne reste presque qu'une régression, Takemitsu (ViSQOL −0,07 / −0,03 à −18 dB ; Zimtohrli +7 à
++14 % à −12 dB) ; Beethoven 59 et Mravinsky sont neutres. Juges proches de zéro, encore un peu
+négatifs : c'est maintenant à l'écoute de trancher.
+
+**Remarque de l'auteur : on s'entraînerait sur des artefacts d'enregistrement de Beethoven 59 et
+Takemitsu.** Vérification (raies de 13,4 à 20 kHz de l'original, `tonal_12b.csv`) :
+- **Beethoven 59** : 85 % de ces raies sont une seule raie constante à 15,61 kHz, présente sur
+  58 % des trames, quelle que soit la musique. C'est la fréquence de balayage ligne des téléviseurs
+  et moniteurs cathodiques (15 625 Hz, PAL/SECAM) : un sifflement capté à l'enregistrement, pas
+  la musique. Peu d'adultes l'entendent.
+- **Takemitsu** : un peigne de raies à fréquences fixes de 15 à 19 kHz (18,99 kHz sur 37 % des
+  trames, 17,66 et 16,24 kHz sur environ 20 %), sans rapport apparent avec les notes : bande
+  magnétique, électronique ou parasites, en tout cas douteux comme « note tonale ».
+- Les autres extraits ont peu de raies dans ces bandes, dispersées (au plus 5 % des trames pour
+  une même fréquence).
+- Conséquence : la mesure du clignotement dans la bande 20 et l'écart avec Apple viennent surtout
+  de ces deux extraits, donc en bonne partie d'artefacts. Le suivi des raies ne peut pas être
+  adopté sur cette base ; seule la validation sur 30 extraits (en cours, `tkm18sp_test.csv`) et
+  l'écoute de passages musicaux comptent. Sous 13,4 kHz, là où sont les notes, la mesure ne montre
+  pas de déficit de MULE face à Apple : ce que l'auteur entend sur le tonal reste à identifier.
+
+## Belenos (cornemuse) : MULE remplit les creux entre les harmoniques
+
+Proposé par l'auteur : un extrait très tonal et sans artefact, l'un des plus difficiles. Au débit
+d'Apple (133-134 kb/s, fichiers `eq_wav`), écart décodé − original, médiane (p90) :
+
+| région | creux entre partiels : MULE v3 | candidat v4 | Opus | Apple | partiels (tous) |
+|---|---|---|---|---|---|
+| 0,2-1 kHz | +3,4 (+13,4) | +3,4 (+13,3) | +2,8 (+11,6) | **+0,6 (+5,5)** | ≈ 0 |
+| 1-4 kHz | +3,1 (+13,2) | +3,2 (+13,5) | +4,0 (+14,1) | **+1,3 (+9,2)** | −0,1 |
+| 4-10 kHz | +2,7 (+12,4) | +3,3 (+13,1) | +4,3 (+15,0) | **+1,2 (+9,6)** | −0,1 |
+| 10-16 kHz | +0,8 (+7,8) | +1,0 (+8,4) | +3,9 (+14,0) | +0,6 (+9,3) | −0,1 à −0,3 |
+
+(Creux : minima locaux à plus de 2 raies d'un partiel, à 70 dB au plus sous le maximum de la trame.)
+
+- Les partiels sont rendus au même niveau par tous ; c'est le fond entre les notes qui change :
+  MULE et Opus y ajoutent environ 3 dB (13 dB au p90), Apple 0,6 à 1,3 dB. Le contraste harmonique
+  baisse : la remarque de l'auteur (« MULE bave, Apple ne fait que retirer »), mesurée sur un vrai
+  instrument et dans les fréquences des notes.
+- Mécanisme probable : Apple quantifie avec une zone morte (un petit coefficient va à zéro) ; la
+  TCQ de MULE n'a pas de zéro dans la moitié de ses états : un coefficient presque nul y est
+  reconstruit à ±D/2 quand le treillis l'impose. Le bruit des zéros du candidat v4 en ajoute un peu
+  (4-10 kHz : +3,3 dB contre +2,7 en v3).
+- Correction à essayer (encodeur seul) : dans le Viterbi, une erreur qui ajoute de l'énergie
+  (|reconstruction| > |original|) coûte plus cher qu'une erreur qui en retire.
+
+### Le suivi des raies sur 30 extraits (`tkm18sp_test.csv` : suivi −18 dB, sous-partitions, niveau de bruit transmis)
+
+ODG par extrait à débit moyen égal (interpolé, sans extrapolation) :
+
+| 128 kb/s | médiane | p10 | p25 | p75 | p90 | écart type | pire |
+|---|---|---|---|---|---|---|---|
+| MULE v3 | −0,151 | −0,256 | −0,189 | −0,116 | −0,084 | 0,070 | −0,308 (Zombie Zombie) |
+| candidat v4 | −0,130 | −0,221 | −0,172 | −0,094 | −0,072 | 0,063 | −0,280 (Belenos) |
+| v4 + suivi | −0,133 | −0,219 | −0,174 | −0,102 | −0,077 | 0,060 | −0,269 (Belenos) |
+| Opus | −0,092 | −0,141 | −0,125 | −0,078 | −0,052 | 0,113 | −0,685 (Belenos) |
+| Apple | −0,277 | −0,456 | −0,372 | −0,217 | −0,206 | 0,120 | −0,683 (Zombie Zombie) |
+
+| 160 kb/s | médiane | p10 | p25 | p75 | p90 | écart type | pire |
+|---|---|---|---|---|---|---|---|
+| MULE v3 | +0,009 | −0,149 | −0,026 | +0,042 | +0,104 | 0,082 | −0,176 (Takemitsu) |
+| candidat v4 | +0,016 | −0,107 | −0,025 | +0,081 | +0,108 | 0,079 | −0,165 (Takemitsu) |
+| v4 + suivi | +0,030 | −0,111 | −0,026 | +0,074 | +0,093 | 0,077 | −0,163 (Lebanon Hanover) |
+| Opus | +0,010 | −0,051 | −0,012 | +0,038 | +0,054 | 0,075 | −0,302 (Belenos) |
+| Apple | −0,013 | −0,114 | −0,053 | +0,025 | +0,049 | 0,068 | −0,195 (Zombie Zombie) |
+
+Médianes des autres juges à 128 kb/s : ViSQOL v4 4,668, suivi 4,671, Opus 4,627, Apple 4,519 ;
+Zimtohrli (×10⁻⁴, plus bas = mieux) v4 3,53, suivi 3,54, Opus 3,16, Apple 3,75.
+
+- **Le suivi ne change presque rien en général** : médiane −0,133 contre −0,130 à 128 kb/s,
+  +0,030 contre +0,016 à 160 ; dispersion un peu plus serrée, pire extrait un peu meilleur. À q égal
+  (+0,3 à +0,6 kb/s) : ODG +0,000 à +0,004, Zimtohrli −0,4 %, ViSQOL ≈ 0, 0 à 2 régressions
+  (Takemitsu, Beethoven 59 en ViSQOL). Neutre : son effet se limite aux extraits à raies fixes,
+  surtout des artefacts.
+- Figure : `scratchpad/dist30.png`.
+
+**Correction : poids asymétrique dans le Viterbi** (`tcq_up_w`, encodeur seul) : une erreur qui
+ajoute de l'énergie (|reconstruction| > |original|) coûte `tcq_up_w` fois plus. Creux de Belenos au
+débit d'Apple, médiane (p90) en dB, et niveau des partiels :
+
+| | 0,2-1 kHz | 1-4 kHz | 4-10 kHz | 10-16 kHz | partiels |
+|---|---|---|---|---|---|
+| candidat v4 | +3,4 (+13,2) | +3,2 (+13,5) | +3,3 (+13,1) | +1,0 (+8,4) | −0,0 à −0,1 |
+| poids 2 | +3,1 (+12,6) | +2,8 (+12,9) | +2,8 (+12,4) | +0,7 (+7,8) | −0,1 à −0,2 |
+| poids 4 | +2,5 (+11,9) | +2,1 (+11,7) | +2,2 (+11,6) | +0,3 (+7,2) | −0,1 à −0,4 |
+| poids 8 | +1,9 (+11,4) | +1,8 (+11,2) | +1,9 (+11,3) | +0,0 (+7,0) | −0,2 à −0,5 |
+| poids 16 | +1,5 (+10,5) | +1,3 (+10,9) | +1,4 (+10,8) | −0,3 (+6,5) | −0,3 à −0,6 |
+| sans bruit des zéros | +3,7 (+13,6) | +3,2 (+13,1) | +2,8 (+12,5) | +0,8 (+7,8) | −0,0 à −0,1 |
+| poids 8, sans bruit des zéros | +2,0 (+11,7) | **+1,2 (+10,3)** | **+0,1 (+8,6)** | **−0,7 (+5,0)** | −0,2 à −0,5 |
+| Apple | +0,6 (+5,5) | +1,3 (+9,1) | +1,2 (+9,6) | +0,6 (+9,3) | −0,0 à −0,3 |
+
+- Le poids vide les creux de façon régulière ; sans le bruit des zéros du candidat v4, le poids 8
+  atteint ou dépasse Apple au-dessus de 1 kHz. Sous 1 kHz, MULE reste au-dessus (+2,0 contre +0,6).
+- Conflit avec le candidat v4 : son bruit dans les zéros (`nf_coded`) remplit justement les creux.
+- Mesure sur 12 extraits (`up_12.csv`) : poids 4 et 8 avec le candidat, poids 8 sans bruit des
+  zéros, poids 8 avec un bruit des zéros à −12 dB, candidat sans bruit des zéros (témoin).
+
+Figure de répartition du billet (outillage du blog, style Excalidraw) : `enc_fig3_v4` de
+`docs/blog/tools/figs_enc.py`, `docs/blog/fig/enc-fig3-v4.svg` et `-160.svg` (Opus, MULE v4,
+MULE v3, Apple).
+
+Mesure sur 12 extraits (`up_12.csv`, première version, poids sur tout dépassement) : très mauvais
+pour tous les juges et tous les extraits. À 128 kb/s, contre le candidat v4 : poids 4 ODG −0,145,
+ViSQOL −0,042, Zimtohrli +17 % (38 régressions) ; poids 8 −0,216 / −0,072 / +35 % (47) ; poids 8
+sans bruit des zéros −0,278 / −0,120 / +56 % ; poids 8 avec bruit des zéros à −12 dB −0,233 /
+−0,107 / +45 %. Le témoin sans bruit des zéros perd lui aussi (−0,012, ViSQOL −0,013, Zimtohrli
++4 %, 13 régressions) : `nf_coded` est utile. Cause : le poids pénalise tout dépassement, gros
+coefficients compris ; le quantificateur arrondit tout vers le bas et le signal perd de l'énergie
+partout (partiels de Belenos déjà −0,5 dB). Bien plus brutal qu'une zone morte, qui n'agit que
+sur les petits coefficients.
+
+**Version restreinte** : le poids ne joue que pour un coefficient sous le demi-pas (|x| < D/2),
+c'est-à-dire les ±1 forcés par les états impairs de la TCQ. Belenos, au débit d'Apple : creux
++2,6 / +2,5 / +2,6 dB (poids 4) et +2,0 / +2,1 / +2,3 (poids 16) de 0,2 à 10 kHz, contre +3,4 / +3,2
+/ +3,3 ; partiels inchangés (−0,0 à −0,1). Mesure : `up2_12.csv`.
+
+Résultat de la version restreinte (`up2_12.csv`, contre le candidat v4, 128 / 145 kb/s) : rejetée
+par les quatre juges, d'autant plus que le poids est fort.
+
+| poids | ODG | ODG avancé | ViSQOL | Zimtohrli | régressions |
+|---|---|---|---|---|---|
+| 4 | −0,054 / −0,043 | −0,037 / −0,018 | −0,011 / −0,008 | +16 / +10 % | 40 / 30 |
+| 8 | −0,087 / −0,073 | −0,070 / −0,042 | −0,013 / −0,010 | +27 / +21 % | 42 / 40 |
+| 16 | −0,112 / −0,094 | −0,101 / −0,065 | −0,016 / −0,010 | +36 / +30 % | 43 / 39 |
+
+- Une zone morte dure (proposition de l'auteur) serait le cas limite d'un poids infini : les juges
+  la sanctionneraient au moins autant. Non implémentée pour l'instant.
+- Les ±1 forcés par la TCQ agissent comme un fin bruit qui garde l'énergie des passages faibles ;
+  les juges le préfèrent nettement à des zéros, comme partout dans cette étude (coupures, seuil
+  absolu, zéros : la perte d'énergie est punie). D'où aussi la médiane PEAQ très basse d'Apple.
+- Mais l'oreille de l'auteur préfère Apple sur le tonal : cas où l'écoute tranche. Fichiers de
+  Belenos au débit d'Apple : `scratchpad/belenos_wav/` (original, candidat v4, poids 4, poids 16,
+  Apple).
+
+**Écoute de l'auteur (Belenos)** : pas de différence perçue entre le candidat v4, les poids 4 et 16
+et Apple. Spectrogrammes (`belenos_wav/belenos_0-8k.png`, `belenos_0-2k_zoom.png`,
+`belenos_2-3k.png`) : sous 2,5 kHz, la différence d'Apple avec l'original est presque nulle ;
+entre 3 et 8 kHz, Apple creuse de profonds trous entre les harmoniques (et sur certaines
+harmoniques). MULE répartit une erreur modérée sur tout le spectre.
+
+**L'artefact entre 2 et 3 kHz** (remarqué par l'auteur) : un seul creux, vers 2,45-2,6 kHz pendant
+les 4,3 premières secondes, dans la bande 11 (2,41-2,76 kHz, sous la frontière de `nf_coded` et
+des masques raie par raie à 2,76 kHz). Original environ −90 à −100 dB, partiels voisins −30 à
+−40 dB. Le candidat v4 le remplit d'environ +15 dB : les ±1 forcés de la TCQ, au pas de la bande,
+réglé pour ses partiels. Le poids 16 le vide plus que l'original. Apple le garde à peu près (bandes
+de facteur d'échelle plus étroites). L'énergie de chaque bande est exacte pour tous (±0,1 dB).
+Même rempli, le creux reste environ 45 dB sous les partiels voisins : masqué, ce qui explique que
+l'auteur n'entende pas de différence. Pas prioritaire : visible mais inaudible, toutes les
+corrections dans l'encodeur sont punies par les juges, et une correction propre demanderait un pas
+plus fin dans les bandes basses (changement de format).
+
+Bilan de la piste « tonal » : les défauts visibles sont soit des artefacts d'enregistrement
+(Beethoven 59, Takemitsu), soit masqués (creux de Belenos). Aucun défaut tonal à la fois mesurable
+et audible trouvé ; il faudrait un passage où l'auteur entend Apple meilleur. `tcq_up_w` (restreint
+aux coefficients sous le demi-pas) et `trk` restent des options, désactivées.
+
+## Gel du format v4 (21/11/2026)
+
+Décision de l'auteur : figer la v4 avec le candidat `sl6v4`. Synthèse : `docs/V4.md` ; format
+normatif : `spec/FORMAT.md` (version 4).
+
+- **Format** : octet 8 à 4, en-tête de 22 octets comme la v3 (drapeaux de la v3 seulement) ; par
+  canal et par trame, 3 bits bruts du niveau du bruit des zéros ; bruit des zéros et bruit en pente
+  (±6 dB) à partir de la bande 12, toujours actifs. Le décodeur lit v4, v3 et v2. L'encodeur écrit
+  la v4, garde tonale active par défaut (`tg` 1, `nf_off_db` −6).
+- **Nettoyage** : toutes les sondes et options d'essai de la branche retirées (repliement,
+  rotation, TNS, coupures, bandes coupées `MULE_SPLIT`, seuil absolu de la bande d'origine,
+  `hi_db`, sous-partitions et leur flux rANS, suivi des raies `core/enc_track.c`, hystérésis, poids
+  sur les pics, poids asymétrique, tonalité par la crête). 98 variantes d'évaluation retirées de
+  `eval/refcodecs.py`. Les réglages qui existaient sur `main` restent.
+- **Vérification** : la v4 figée décode exactement le même son que le candidat `sl6v4` sur 5
+  extraits (empreintes du PCM identiques), 9 octets d'en-tête de moins par fichier : les mesures
+  de `sl6v4_test.csv` valent pour la v4. Vecteurs de test : v3 gelés dans `tests/vectors/v3`, v4
+  écrits dans `tests/vectors` ; 56 tests verts.
+- **QEMU** (Cortex-M3, même décodeur, flux v3 et v4 du même extrait, 10 s, exact au bit près) :
+  abba q −12 836 278 → 871 920 instructions par trame (+4,3 %), pire 944 800 → 963 560 ; abba q −7
+  789 410 → 841 349 (+6,6 %), pire +3,6 % ; Belenos q −7 922 261 → 950 978 (+3,1 %), pire +2,7 %.
+  État 49 372 octets ; code de `dec.c` 16 989 → 18 433 octets.
+- **ABX à 128 kb/s** : kit `data/listen/v4/` (`eval/abx_v4.py`) : glockenspiel, clavecin,
+  castagnettes, Belenos, Lebanon Hanover, Takemitsu ; AAC Apple en VBR contraint 128 (`aaplc_128`,
+  110 à 140 kb/s selon l'extrait) et MULE v4 au même débit. Résultats : `eval/results/V4-ABX.md`.
+
+## Répartition des notes Zimtohrli (21/11/2026) et correction des fichiers d'Opus et d'Apple
+
+`ref_test.csv` (Opus) et `aapl_test.csv` (Apple) dataient d'avant le `%.6g` de `run_eval.py` :
+Zimtohrli y est arrondi à 1e-4 (11 et 12 valeurs distinctes sur 270 et 180). Remesurés en entier
+sur les 30 extraits : `ref2_test.csv` (opus 112 à 176) et `aapl2_test.csv` (q63 à q91), précis ;
+PEAQ identique aux anciens fichiers (seul l'arrondi de Zimtohrli était en cause). Les comparaisons
+Zimtohrli de MULE contre MULE n'étaient pas touchées ; les médianes d'Opus et d'Apple données
+pendant la v4 l'étaient (Opus 3,16 annoncé à 128 kb/s, 3,38 en réalité).
+
+Figure `enc-fig5-zimt` (et `-160`, `-en`, `docs/blog/tools/figs_enc.py`) ; distance ×1e-4 par
+extrait, à débit moyen égal (plus bas = mieux) :
+
+| | médiane 128 | p10-p90 128 | pire 128 | médiane 160 | p10-p90 160 | pire 160 |
+|---|---|---|---|---|---|---|
+| Opus | **3,38** | 2,43-4,16 | 4,44 (Steel Panther) | 2,26 | 1,53-2,87 | 3,02 (Belenos) |
+| MULE v4 | 3,53 | 2,57-4,73 | 6,39 (Garbage) | 1,80 | 1,28-2,33 | 4,61 (Garbage) |
+| MULE v3 | 3,49 | 2,57-5,35 | 6,59 (Garbage) | **1,77** | 1,27-2,77 | 4,54 (Garbage) |
+| Apple | 4,12 | 3,44-4,96 | 5,20 (Dance with the Dead) | 2,29 | 1,86-2,60 | 2,79 (Takemitsu) |
+
+- À 128 kb/s, Opus a la meilleure médiane ; à 160 kb/s, MULE passe nettement devant (1,8 contre
+  2,3 pour Opus et Apple). La v4 resserre surtout le haut de la distribution (p90 5,35 → 4,73 à
+  128 kb/s), sa médiane bouge peu.
+- Zimtohrli ne voit pas les mêmes extraits que PEAQ : le pire de MULE est Garbage (et non Belenos
+  ou Zombie Zombie), et Belenos est son extrait le plus facile, alors qu'il est le pire pour PEAQ.
+
+## Pourquoi Zimtohrli pénalise autant Garbage (21/11/2026)
+
+Remarque de l'auteur : Zimtohrli est probablement un meilleur juge que PEAQ à ces débits ; il
+pénalise beaucoup Garbage (pire extrait de MULE). Zimtohrli ×1e-4 :
+
+| Garbage | ~128 kb/s | ~160 kb/s | ~200 kb/s |
+|---|---|---|---|
+| MULE v4 | 6,86 | 4,90 | 3,94 |
+| Opus | 3,97 | 2,67 | 2,19 (173 kb/s) |
+| Apple | 5,42 | 2,58 (167 kb/s) | 1,33 (206 kb/s) |
+
+Diagnostic (scratchpad `zimt_diag.py`, à ~128 kb/s, MULE v4 q −6, Opus 128, Apple q63) :
+- **Erreur gardée dans une seule bande** (l'original ailleurs) : 12-21 kHz MULE 3,66, Opus 0,30,
+  Apple 1,54 ; sous 12 kHz, MULE fait jeu égal avec Opus (0,5 à 1,1). Par passage de 3 s, MULE
+  passe de 3,4 à 8,6, Opus reste vers 3,7-4,2. Stéréo hors de cause (L, R, S comme Opus).
+- **Pas une coupure** : l'original a un contenu fort jusqu'à 20 kHz et MULE en rend l'énergie
+  moyenne à 0,5 dB près.
+- **L'énergie des aigus fluctue d'une trame à l'autre** : écart-type de l'erreur d'énergie
+  12-20 kHz dans le temps, analyse de 46 ms, MULE 1,65 dB contre 0,54 pour Opus (5,8 ms : 3,12
+  contre 1,11) ; Spector 0,94, Lebanon Hanover 0,50.
+- **Par décision de l'encodeur** (bandes 19-21, trames longues) : bandes remplies de bruit
+  (35 %) écart médian +0,49 dB, écart-type 3,83 dB (Spector 2,38) ; bandes codées justes
+  (écart-type 0,22 à 0,93 dB). L'énergie d'une bande de bruit, mesurée sur toute la fenêtre longue,
+  est restituée stationnaire : les aigus de Garbage (cymbales, charleston) varient vite, le bruit ne
+  suit pas. C'est le défaut d'enveloppe du début de la v4, à l'échelle des trames.
+- **Essais d'encodeur** (erreur 12-21 kHz) : `code16` (bandes à partir de la 16 codées à
+  l'allocation 1 au lieu du bruit) 3,66 → 2,42 pour +0,2 kb/s ; `tr7` (plus de blocs courts) 3,12 ;
+  `tr99` (aucun) 4,21 ; `sh6` sans effet.
+- Pistes (encodeur seul, format v4 inchangé) : réévaluer `code16` sur 30 extraits avec Zimtohrli
+  comme critère principal ; une « garde d'enveloppe » qui code une bande des aigus au lieu de la
+  remplir quand son énergie varie fortement dans la trame.
+
+## Pistes 1 et 2 pour Garbage, Zimtohrli comme juge prioritaire (`hf_test.csv`, 30 extraits)
+
+Demande de l'auteur : évaluer les deux pistes avec Zimtohrli comme juge prioritaire ; resserrer le
+nuage de points serait un bon ajout avant de fusionner la v4.
+
+- **Piste 1, `code14`/`code16`/`code18`** (toute bande sans bits codée à l'allocation 1 à partir
+  de la bande 14, 16 ou 18).
+- **Piste 2, garde d'enveloppe `eg`** (nouveau, encodeur seul, format v4 inchangé) : dans une trame
+  longue, une bande sans bits à partir de la bande 16 est codée à l'allocation 1 si son énergie sur
+  les 8 blocs courts de la fenêtre (FFT de Hann aux places des blocs courts) culmine `eg_db` au-dessus
+  de sa moyenne (en M/S, l'un ou l'autre canal). Seuils 4, 6, 9 dB.
+
+Contre la v4 (`sl6v4_test.csv`, le son de la v4 figée), à débit moyen égal ; débit inchangé
+(±0,2 kb/s à q égal) :
+
+| variante | Zimtohrli 128 / 150 | Garbage | rég. Zimtohrli | ODG | ViSQOL (rég.) |
+|---|---|---|---|---|---|
+| code14 | +4,5 % / +6,9 % | −17 / −21 % | 17 / 18 | −0,013 / −0,015 | −0,078 / −0,069 (24) |
+| code16 | +4,1 % / +6,4 % | −17 / −21 % | 16 / 18 | −0,012 / −0,013 | −0,077 / −0,069 (24) |
+| code18 | +4,2 % / +6,4 % | −17 / −21 % | 18 / 18 | −0,012 / −0,013 | −0,078 / −0,069 (24-25) |
+| **eg4** | **−1,6 % [−3,1 ; −0,5] / −1,8 % [−3,6 ; −0,5]** | −15 / −17 % | 0 / 0 | −0,002 / −0,000 | −0,005 / −0,004 (7 / 3) |
+| **eg6** | **−1,4 % [−2,4 ; −0,5] / −1,7 % [−2,8 ; −0,7]** | −10 / −14 % | 0 / 0 | +0,000 / +0,001 | −0,001 / −0,001 (0) |
+| eg9 | −0,05 % / −0,06 % | −1 / −2 % | 0 | 0,000 | 0,000 |
+
+Répartition des distances Zimtohrli (×1e-4) :
+
+| | médiane 128 | p90 128 | écart type 128 | pire 128 | médiane 150 | p90 150 | écart type 150 | pire 150 |
+|---|---|---|---|---|---|---|---|---|
+| v4 | 3,53 | 4,73 | 0,92 | 6,39 (Garbage) | 2,11 | 2,74 | 0,74 | 4,94 (Garbage) |
+| eg4 | 3,48 | **4,47** | **0,79** | **5,46** (Garbage) | **2,05** | 2,73 | **0,61** | **4,10** (Garbage) |
+| eg6 | **3,46** | 4,56 | 0,83 | 5,76 (Garbage) | 2,07 | **2,69** | 0,65 | 4,26 (Garbage) |
+| code16 | 3,59 | 4,94 | 0,86 | 5,50 (Zombie Zombie) | 2,14 | 3,00 | 0,67 | 4,14 (Zombie Zombie) |
+| Opus | 3,38 | 4,16 | 0,69 | 4,44 (Steel Panther) | 2,50 | 3,23 | 0,55 | 3,36 (Kompromat) |
+
+- **Coder toutes les bandes des aigus est rejeté** : Garbage gagne beaucoup, mais Zimtohrli
+  régresse sur la moitié des extraits (+4 à +7 % en moyenne) et ViSQOL plus encore (24 régressions).
+  Coder à l'allocation 1 un bruit régulier est pire que le remplir.
+- **La garde d'enveloppe resserre le nuage sans régression Zimtohrli** : écart type 0,92 → 0,79
+  (eg4) ou 0,83 (eg6) à 128 kb/s, pire extrait 6,39 → 5,46 ou 5,76, p90 4,73 → 4,47 ou 4,56 ;
+  moyenne −1,4 à −1,8 % (intervalles de confiance sous zéro). eg4 resserre le plus mais fait
+  régresser ViSQOL sur 7 extraits à 128 kb/s (−0,012 à −0,020 : Beethoven 59, Spector, Garbage,
+  Kompromat, Dance with the Dead, Astroqueen, Classical) ; eg6 n'a qu'une régression ViSQOL à q −6
+  (Beethoven 59, −0,012), aucune à débit égal, et PEAQ neutre.
+- eg6 remplit la règle d'adoption des réglages fins (encodeur seul, juges d'accord ou neutres, pas
+  de régression) ; eg4 serait à trancher à l'écoute.
+
+**Décision de l'auteur (21/11/2026) : la garde d'enveloppe à 6 dB entre dans la production**,
+active par défaut (`eg` 1, `eg_band` 16, `eg_db` 6, `eg_a` 1). Encodeur seul, format v4 inchangé.
+La production produit exactement le flux mesuré sous le nom `eg6` ; `eg0` donne la v4 d'avant
+(`sl6v4_test.csv`). Le kit ABX, les figures et le tableau du README datent d'avant la garde.
+
+Figures `enc-fig5-zimt` (et `-160`, `-en`) refaites avec la production (garde d'enveloppe :
+`mule-eg6`, q −6 et −9 dans `hf_test.csv`, q −12 mesuré dans `eg6q12_test.csv`). Zimtohrli ×1e-4 :
+
+| | médiane 128 | p90 128 | écart type 128 | pire 128 | médiane 160 | p90 160 | écart type 160 | pire 160 |
+|---|---|---|---|---|---|---|---|---|
+| MULE v4 (garde) | 3,46 | 4,56 | 0,83 | 5,76 (Garbage) | **1,76** | **2,26** | 0,60 | 3,90 (Garbage) |
+| v4 sans garde | 3,53 | 4,73 | 0,92 | 6,39 (Garbage) | 1,80 | 2,33 | 0,70 | 4,61 (Garbage) |
+| MULE v3 | 3,49 | 5,35 | 1,10 | 6,59 (Garbage) | 1,77 | 2,77 | 0,80 | 4,54 (Garbage) |
+| Opus | **3,38** | **4,16** | 0,69 | 4,44 (Steel Panther) | 2,26 | 2,87 | 0,49 | 3,02 (Belenos) |
+| Apple | 4,12 | 4,96 | 0,70 | 5,20 (Dance with the Dead) | 2,29 | 2,60 | 0,36 | 2,79 (Takemitsu) |
+
+De la v3 à la v4 avec la garde, l'écart type passe de 1,10 à 0,83 (128 kb/s) et de 0,80 à 0,60
+(160 kb/s) ; le pire extrait, Garbage, de 6,59 à 5,76 et de 4,54 à 3,90.
+
+## Pistes 3 et 4 : affiner la garde d'enveloppe et le niveau du bruit (`tune2_test.csv`, 30 extraits)
+
+Contre la production (garde d'enveloppe à 6 dB : `mule-eg6`, `hf_test.csv` et `eg6q12_test.csv`),
+à débit moyen égal, Zimtohrli en premier :
+
+| variante | Zimtohrli 128 / 150 | rég. Zimtohrli | écart type 128 / 150 | pire 128 / 150 | ODG | ViSQOL (rég.) |
+|---|---|---|---|---|---|---|
+| production (eg6) | | | 0,830 / 0,645 | 5,76 / 4,26 | | |
+| eg5 (seuil 5 dB) | −0,29 % [−0,65 ; +0,01] / −0,39 % [−0,72 ; −0,08] | 0 / 0 | 0,802 / 0,636 | 5,52 / 4,19 | −0,000 / −0,001 | −0,001 (0) |
+| eg6a2 (allocation 2) | +0,02 / −0,02 % | 0 | 0,831 / 0,643 | 5,76 / 4,26 | 0 | 0 |
+| eg6b14 (dès la bande 14) | +0,06 / −0,09 % | 0 | 0,824 / 0,642 | 5,76 / 4,26 | 0 | 0 |
+| eg6b19 (dès la bande 19) | +0,10 / −0,01 % | 0 | 0,830 / 0,643 | 5,76 / 4,26 | 0 | 0 |
+| nfm3 (zéros à −3 dB) | +2,0 / +2,5 % | 9 / 9 | 0,852 / 0,685 | 6,09 / 4,64 | −0,002 / −0,005 | +0,006 (0) |
+| nfm9 (zéros à −9 dB) | +0,1 / −0,4 % | 3 / 2 | 0,850 / 0,640 | 5,57 / 4,03 | −0,005 | −0,006 (8 / 3) |
+| nfb1 (bandes de bruit −1,5 dB) | −0,85 % [−1,28 ; −0,45] / −0,77 % [−1,34 ; −0,22] | 0 / 0 | 0,798 / 0,617 | 5,54 / 4,17 | +0,001 | −0,013 (10 / 10) |
+
+- L'allocation 2 et la bande de départ de la garde ne changent rien : seul le seuil compte.
+- Le seuil à 5 dB resserre encore un peu (écart type 0,83 → 0,80, pire 5,76 → 5,52) sans
+  régression, mais le gain moyen est minuscule (intervalle qui touche zéro à 128 kb/s).
+- Le bruit des zéros reste bien à −6 dB : −3 dB est nettement pire, −9 dB mitigé.
+- Abaisser les bandes de bruit d'un pas (`nf_bias` 1) aide Zimtohrli (−0,8 %, aucune régression,
+  écart type 0,83 → 0,80) mais ViSQOL régresse sur 10 extraits (−0,013 en moyenne) : juges en
+  désaccord, à l'écoute. C'est le désaccord déjà noté dans E2-LOG.md quand `nf_bias` avait été
+  essayé en v2.
+
+**Décisions de l'auteur (21/11/2026)** : la garde d'enveloppe passe à **5 dB** et l'énergie des
+bandes de bruit est abaissée d'un pas (**`nf_bias` 1**, 1,5 dB), toutes deux dans la production.
+Encodeur seul. Variante `eg5nfb1` = la production ; les variantes d'avant fixent ce qu'elles avaient
+mesuré (`eg6`, `eg5`, `nfb1`, ... avec `nf_bias` explicite ; `eg0` = la v4 figée sans garde ni
+abaissement). La combinaison n'a pas encore été mesurée en tant que telle : elle le sera comme
+point de départ de la campagne ci-dessous et dans sa validation.
+
+## Campagne de réglage avec Zimtohrli (piste 1, `eval/m6_tune.py --objective zimt`)
+
+Demande de l'auteur : une campagne complète avec Zimtohrli comme juge sur le jeu `dev`. Outil de la
+v3 (M6, CMA-ES) avec un objectif Zimtohrli : distance moyenne à 128 kb/s, interpolée à débit égal
+entre deux points mesurés (~120 et ~136 kb/s), sur la moitié paire de `dev` ; PEAQ enregistré. Sept
+réglages autour de la production : `tcap_db` 15-35 (25), `mid_db` 0-8 (4), `low_db` 5-15 (10),
+`fft_noise_db` 2-6 (4), `rd_lambda` 1-3 (2), `tcq_rdl` 0,25-1 (0,5), `pre_db` 5-15 (10). 12
+générations de 8. Validation ensuite sur l'autre moitié de `dev` et sur `test` (`--tag z1` :
+`m6_search_z1.csv`, `m6_best_z1.json`, variante `mule-m6z1`).
+
+**Recherche (21/11, 18 h 31 - 22 h 20)** : production 2,696e-4 (ODG −0,225, adv −0,278) ; meilleur
+point dès la génération 6, inchangé ensuite : 2,327e-4 (**−13,7 %**, ODG −0,239, adv −0,265).
+`tcap_db` 15,3, `mid_db` 6,1, **`low_db` 15 (borne haute)**, `fft_noise_db` 3,4, `rd_lambda` 2,42,
+`tcq_rdl` 0,48, `pre_db` 9,7. `tcap_db` (protection des crêtes tonales) descend vers sa borne basse.
+
+**Validation à débit égal** (q −4, −6, −9, −12 ; `m6z1_test.csv`, `m6z1q4_test.csv`,
+`m6z1_devodd.csv`, `m6z1q4_devodd.csv` ; IC bootstrap 95 %) :
+
+| | Zimtohrli | ODG | ODG adv | ViSQOL |
+|---|---|---|---|---|
+| test @128 | **−13,3 %** [−15,7 ; −10,9], 29/29 | −0,019 [−0,027 ; −0,011] | +0,010 | −0,007 (3/29 mieux) |
+| test @160 | **−13,4 %**, 27/27 | −0,016 (ns) | 0,000 | −0,006 (1/27) |
+| dev impair @128 | **−12,4 %**, 25/26 | −0,017 | +0,011 | −0,011 (0/26) |
+| dev impair @160 | **−13,2 %**, 21/21 | −0,023 | +0,003 | −0,007 (1/21) |
+
+Le gain Zimtohrli se tient hors recherche (pas de surapprentissage) et resserre le haut de la
+distribution (test @128 : p90 4,60 → 4,17, pire 5,99 → 5,79 e-4). Mais PEAQ de base et ViSQOL
+reculent faiblement et de façon cohérente : juges en désaccord, règle d'adoption non remplie →
+écoute. Pires extraits ODG : Monster Magnet (−0,076), Red Fang, Judas Priest ; plus grands gains
+Zimtohrli : Zombie Zombie (−32 %), Carpenter Brut, Heilung, Lebanon Hanover.
+
+**Écoute (22/11, nuit ; kit `data/listen/m6z1/`, `eval/abx_pair.py`, 128 kb/s ±0,1 par extrait,
+squishyball 16 essais, production contre `m6z1`)** : Monster Magnet 7/16, Red Fang 6/16, Zombie
+Zombie 9/16, Heilung 8/16, Belenos 8/16, clavecin 6/16 ; **44/96 au total (46 %)**, aucun extrait
+au seuil de 12/16. L'auteur ne distingue pas les deux réglages, ni là où PEAQ pénalise `m6z1`, ni
+là où Zimtohrli le favorise, ni sur les aigus tonaux.
+
+Oubli rattrapé : NMR interne et modèle 2f, mesurés mais pas lus dans la comparaison ci-dessus.
+NMR neutre partout (−0,04 à +0,03 dB, intervalles sur zéro). 2f −3,6 / −3,0 (test, 128 / 160
+kb/s) et −2,6 / −3,7 (dev impair), significatif sauf test @160 : même sens que PEAQ de base, dont
+il reprend deux MOV (pas un juge indépendant).
+
+**Décision de l'auteur (22/11/2026)** : le réglage `m6z1` devient la production (valeurs arrondies :
+`tcap_db` 15,3, `mid_db` 6,1, `low_db` 15, `fft_noise_db` 3,4, `rd_lambda` 2,42, `tcq_rdl` 0,48,
+`pre_db` 9,7). Les variantes du 21/11 (`eg*`, `nfm*`, `nfb1`, `eg5nfb1`) gardent les anciennes
+valeurs (`PSY21` dans `eval/refcodecs.py`). Production mesurée sur `test` : `prod4_test.csv`.
+
+**Production mesurée sur `test` (`prod4_test.csv`, q −4, −6, −9, −12)**, à débit moyen égal
+(interpolation de `figs_enc.odg_at`) : ODG −0,151 / −0,001 (128 / 160 kb/s), ODG avancé −0,338 /
+−0,136, Zimtohrli 2,95e-4 à 128 kb/s (médiane 2,94, écart type 0,78, pire Garbage 4,88), 1,38 à
+160. Contre la v3 : 3,74 (Garbage 6,59) ; Opus 3,32 (médiane 3,38) ; Apple 4,11.
+
+**ViSQOL n'est plus un juge (décision de l'auteur, 22/11/2026)** : son modèle SVR (mode audio) sature
+près de la transparence et ses petits reculs n'ont jamais été entendus en ABX. Toujours calculé.
+Juges : Zimtohrli d'abord, puis PEAQ de base et avancé (2f en dérive) et la NMR interne ; en cas
+de désaccord, l'écoute. Dans le tableau du README, la colonne ViSQOL @128 devient Zimtohrli @128 :
+Vorbis et FDK-AAC remesurés pour l'occasion (`ref3_test.csv`, `ref3b_test.csv` : Zimtohrli était
+arrondi à 1e-4 dans `ref_test` et `aac_test`), FDK 5,08, Vorbis 5,12.

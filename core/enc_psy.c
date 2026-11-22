@@ -98,9 +98,10 @@ void psy_init(psy_t *p, int m)
         p->zc[b] = bark((lo + hi) / 2);
         p->fc[b] = (lo + hi) / 2;
         p->width[b] = (EDGES[b + 1] - EDGES[b]) * scale;
+        double alo = lo, ahi = hi, aw = p->width[b];
         double amin = 1e300;
         for (int i = 0; i < 16; i++) {
-            double f = (lo + (hi - lo) * i / 15.0) / 1000;
+            double f = (alo + (ahi - alo) * i / 15.0) / 1000;
             if (f < 0.02)
                 f = 0.02;
             double a = 3.64 * pow(f, -0.8) - 6.5 * exp(-0.6 * (f - 3.3) * (f - 3.3)) + 1e-3 * pow(f, 4);
@@ -109,7 +110,7 @@ void psy_init(psy_t *p, int m)
         }
         if (amin > 140)
             amin = 140;
-        p->ath[b] = (m / 2.0) * pow(10, (amin - 96.0) / 10) / p->width[b];
+        p->ath[b] = (m / 2.0) * pow(10, (amin - 96.0) / 10) / aw;
     }
     for (int i = 0; i < NB; i++)
         for (int j = 0; j < NB; j++) {
