@@ -5,7 +5,7 @@
 A mule is what you get when you cross a horse and a donkey. It is sturdy, it carries its load,
 it is famously stubborn, and it has no offspring. MULE is the same thing for audio: a cross
 between **Opus**, **Vorbis** and **AAC**, built to run on one tiny music player, the Snowsky
-Echo Mini (a Cortex-M3 without a floating-point unit). It carries the music, it refuses to go
+Echo Mini (a Dual Cortex-M0 SOC without a floating-point unit). It carries the music, it refuses to go
 at low bitrates, and it will not start a dynasty.
 
 This is an **experimental, learning project**. It does not try to replace anything, and it
