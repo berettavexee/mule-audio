@@ -43,6 +43,7 @@ void mule_dec_free(mule_dec *d);
 int mule_dec_packet(mule_dec *d, const uint8_t *p, int len, int16_t *pcm, int max_samples);
 void mule_dec_seek(mule_dec *d);
 void mule_dec_set_fft(int (*fft)(int32_t *re, int32_t *im, int bits));
+void mule_dec_set_fft_mem(int32_t *re, int32_t *im);
 int mule_dec_pre_skip(const mule_dec *d);
 size_t mule_dec_size(void);
 %MULE_ENC_PARAMS%
@@ -243,6 +244,9 @@ def c_params(params):
     p.tcq_chain = params.tcq_chain
     p.coef_a8 = params.coef_a8
     p.tcq_rd_states = params.tcq_rd_states
+    p.ath_rel_db = params.ath_rel_db
+    p.ath_ref_db = params.ath_ref_db
+    p.ath_rel_rel = params.ath_rel_rel
     return p
 
 

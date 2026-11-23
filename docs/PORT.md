@@ -92,6 +92,41 @@ Pistes d'optimisation restantes :
 - le contexte inter-trame (multiplication 64 bits par coefficient) ;
 - la FFT logicielle à la place de `HIFIACC`.
 
+## 8 bis. Optimisations du 23/11/2026 : mémoire, et une variante pour Cortex-M0
+
+Toutes exactes au bit : empreintes identiques au PC sur les 68 flux de `bench/qemu/exact.sh` (abba, castagnettes, Belenos et glockenspiel à q −12, −4 et +4, puis tous les vecteurs de test v2 à v5), `make test` vert.
+
+**Mémoire** (la priorité du cœur B) :
+- les index de la trame courante (`ycur`, lecture du flux) et la moitié gauche de l'IMDCT (`y`, synthèse) partagent leur place (une union) : −2 Kio ;
+- `MULE_FFT_MEM_EXTERNAL` : la FFT de l'IMDCT travaille dans une mémoire fournie par l'appelant (`mule_dec_set_fft_mem`), sur l'appareil celle de `HIFIACC` ; plus de copie aller-retour, et −4 Kio d'état ;
+- `MULE_DEC_STATE_MAX` (`mule.h`) : la taille maximale de l'état, vérifiée à la compilation, pour réserver la mémoire statique au plus juste. État : 47 364 octets sur M3 (49 412 avant), 43 268 avec `MULE_FFT_MEM_EXTERNAL`.
+
+Le tampon PCM du codec (32 Kio) n'est pas une cible : il porte la transition sans blanc entre pistes, et sa taille est commune à tous les codecs du firmware.
+
+**Calcul sur M3** : la pré-rotation compte son index en ordre binaire inversé au lieu de le recalculer (92 000 → 27 000 instructions par trame), le gain 2^28 des blocs courts est un décalage, les produits du bruit sont ramenés à 32 bits là où leurs bornes le permettent. abba q −7 : 864 000 → 780 000 instructions par trame (−10 %).
+
+**Variante Cortex-M0** (`-DMULE_NO_LONG_MUL`, le même `core/dec.c`) : le M0 n'a ni multiplication 32 × 32 → 64 ni division, et la bibliothèque C les fait en général sur 64 × 64 bits. La variante :
+- calcule chaque produit 64 bits exact à partir de quatre produits 16 × 16, en 17 instructions Thumb-1 (`smul64`, assembleur en ligne) ;
+- passe la FFT entière en assembleur (`mule_fft_v6m`) : les demi-mots du facteur de rotation coupés une fois par k, les papillons d'un étage dans l'ordre k puis i (des paires disjointes : mêmes résultats) ;
+- utilise une division 64 / 32 par décalages sur les seuls bits du quotient, et des produits 64 × 32 sans la bibliothèque C.
+
+Sur ARMv7-M, et en C sur PC, les mêmes fonctions retombent sur le produit et la division ordinaires. Le chemin C de la variante est vérifié contre la référence par fuzzing différentiel (`tools/fuzz/build_lf.sh`).
+
+Instructions par trame, abba q −7, 10 s (`bench/qemu/prof.sh`, le code M0 exécuté sur la machine M3 de QEMU, dont il est un sous-ensemble) :
+
+| Section | M3 | M0, décodeur générique | M0, variante |
+|---|---|---|---|
+| lecture du flux | 428 000 | 1 103 000 | 713 000 |
+| bandes de bruit et repliées | 34 000 | (comprises ci-dessus) | 140 000 |
+| pré-rotation | 27 000 | 324 000 | 148 000 |
+| FFT logicielle | 154 000 | 1 075 000 | 481 000 |
+| post-rotation | 44 000 | 354 000 | 209 000 |
+| fenêtres et addition | 44 000 | 220 000 | 134 000 |
+| sortie | 58 000 | 110 000 | 109 000 |
+| **total** | **780 000** | **3 125 000** | **1 904 000** (−39 %) |
+
+Code de `core/dec.c` : 19,8 Kio sur M3, 25,3 Kio pour la variante M0 (22,0 Kio pour le décodeur générique compilé pour M0). À 43 trames par seconde, la variante demande environ 82 millions d'instructions par seconde avec la FFT logicielle, environ 61 millions avec une FFT matérielle. Deux essais sans gain, retirés : une routine assembleur par multiplication complexe, appelée depuis les rotations (l'appel et le passage par tableau coûtent ce que l'assembleur gagne) ; la mise à jour des CDF par paires d'entrées de 16 bits dans un mot de 32 bits (exacte, mais les masques par paire coûtent plus que les deux boucles sans branchement : +7 % sur M3, +35 % sur M0). Reste à essayer : les boucles de rotation entières en assembleur (environ −70 000 instructions par trame sur M0).
+
 ## 9. Intégration au firmware et premiers essais sur l'appareil
 
 **Intégration** (dépôt `echo-mini-newfw`, branche de test `Mule`, ETUDE §159 et §160) :

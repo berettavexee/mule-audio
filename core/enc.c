@@ -67,6 +67,9 @@ void mule_enc_defaults(mule_enc_params *p)
     p->tr_hf_db = 6.0;          /* 8.5 before the v5 (N-LOG.md, the corrected detector) */
     p->tr_hf_ton = 10.0;        /* tonal veto (v5: Belenos) */
     p->tr_decay_db = 1.0;       /* 3 before 22/11/2026 (the voice's glottal pulses) */
+    p->ath_rel_db = 0.0;        /* off: being measured (23/11/2026) */
+    p->ath_ref_db = -14.0;
+    p->ath_rel_rel = 0.5;
 }
 
 /* ---------------------------------------------------------------- measurement trace */
@@ -747,7 +750,9 @@ static int encode_ops(const double *pcm, int64_t L, const mule_enc_params *pr, i
     if (pr->rd_lambda > 0 && !(o.mr = mule_models_alloc()))
         goto done;
     double seg[MULE_N_LONG], tmp[MULE_N_LONG];
+    double lev = -200.0;                        /* the relative ATH's level follower (dBFS) */
     for (int t = 0; t < T; t++) {
+        double ms = 0;
         fstart[t] = o.n;
         if (mule_enc_trace)
             mule_enc_trace->frame = t;
@@ -768,6 +773,7 @@ static int encode_ops(const double *pcm, int64_t L, const mule_enc_params *pr, i
             for (int i = 0; i < MULE_N_LONG; i++) {
                 int64_t j = (int64_t)F * (t - 1) + i;
                 seg[i] = j >= 0 && j < L ? pcm_sample(pcm[2 * j + c]) : 0.0;
+                ms += seg[i] * seg[i];
             }
             if (pr->fft_tonal) {
                 if (!type)
@@ -806,7 +812,16 @@ static int encode_ops(const double *pcm, int64_t L, const mule_enc_params *pr, i
                 }
             }
         }
-        encode_frame(pr, &pl, &ps, type, key, X, PW, s, &o);
+        if (pr->ath_rel_db > 0) {               /* relative ATH: this frame's settings */
+            double lf = 10 * log10(ms / (2 * MULE_N_LONG) + 1e-20);
+            lev = lf > lev - pr->ath_rel_rel ? lf : lev - pr->ath_rel_rel;
+            double down = pr->ath_ref_db - lev;
+            down = down < 0 ? 0 : (down > pr->ath_rel_db ? pr->ath_rel_db : down);
+            mule_enc_params pf = *pr;
+            pf.ath_db -= down;
+            encode_frame(&pf, &pl, &ps, type, key, X, PW, s, &o);
+        } else
+            encode_frame(pr, &pl, &ps, type, key, X, PW, s, &o);
     }
     fstart[T] = o.n;
     rc = o.err ? -1 : 0;

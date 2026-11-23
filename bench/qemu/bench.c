@@ -34,6 +34,18 @@ static void put_u(const char *label, uint64_t v)
     semi_puts(b);
 }
 
+#ifdef MULE_PROF
+static uint32_t prof_t, prof_cur;
+static uint64_t prof_acc[8];
+void mule_prof_mark(int section)
+{
+    uint32_t t = TIMER0_VALUE;
+    prof_acc[prof_cur] += prof_t - t;
+    prof_t = t;
+    prof_cur = (uint32_t)section;
+}
+#endif
+
 int main(void)
 {
     mule_dec *d = mule_dec_init(dec_mem, sizeof dec_mem, mule_head, sizeof mule_head);
@@ -44,6 +56,9 @@ int main(void)
     TIMER0_RELOAD = 0xffffffffu;
     TIMER0_VALUE = 0xffffffffu;
     TIMER0_CTRL = 1;
+#ifdef MULE_PROF
+    prof_t = TIMER0_VALUE;
+#endif
     uint32_t hash = 2166136261u, frames = 0, worst = 0;
     uint64_t total = 0;
     for (uint32_t i = 0; i < MULE_NPACKETS; i++) {
@@ -70,5 +85,11 @@ int main(void)
     put_u("worst_frame_instructions ", (uint64_t)worst * 40);
     put_u("hash ", hash);
     put_u("state_bytes ", mule_dec_size());
+#ifdef MULE_PROF
+    static const char *const names[8] = {"prof_read ", "prof_pre ", "prof_fft ", "prof_post ",
+                                         "prof_window ", "prof_output ", "prof_noise ", "prof_ms "};
+    for (int i = 0; i < 8; i++)
+        put_u(names[i], prof_acc[i] * 40 / (frames ? frames : 1));
+#endif
     return 0;
 }

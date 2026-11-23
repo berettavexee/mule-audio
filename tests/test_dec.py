@@ -161,5 +161,31 @@ def test_external_fft_hook():
     assert np.abs(hooked.astype(np.int64) - soft).max() <= 1
 
 
+def test_external_fft_memory():
+    """The IMDCT's FFT in the caller's memory (mule_dec_set_fft_mem, the device's accelerator
+    memory): the same output, sample for sample, with the software FFT and with a hook working in
+    place in that memory"""
+    x = signals()["sine_lr"] + 0.05 * signals()["noise"]
+    data, _ = native.c_encode(x, E.Params(q_db=-9))
+    ref, _ = decode(data)
+    re = native.ffi.new("int32_t[512]")
+    im = native.ffi.new("int32_t[512]")
+    seen = []
+
+    @native.ffi.callback("int(int32_t *, int32_t *, int)")
+    def where(r, i, bits):
+        seen.append(r == re and i == im)
+        return 0                                # then the software FFT, in that memory
+    native.lib.mule_dec_set_fft_mem(re, im)
+    native.lib.mule_dec_set_fft(where)
+    try:
+        y, _ = decode(data)
+    finally:
+        native.lib.mule_dec_set_fft(native.ffi.NULL)
+        native.lib.mule_dec_set_fft_mem(native.ffi.NULL, native.ffi.NULL)
+    assert seen and all(seen)
+    assert np.array_equal(y, ref)
+
+
 if __name__ == "__main__":
     make_vectors()

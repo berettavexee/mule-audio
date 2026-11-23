@@ -43,15 +43,138 @@ struct mule_dec_state {
     int32_t acc[2][ACC_LEN];            /* overlap-add, from the current frame's start */
     int32_t pend[2][MULE_F];            /* right half of the previous long block (unwindowed) */
     coef_t X[2][MULE_F];                /* the frame's coefficients (short frames: [8][128]) */
-    uint16_t ycur[MULE_F];              /* scratch: a channel's indices of this frame */
-    int32_t y[MULE_F];                  /* scratch: the left half of a block's IMDCT */
-    int32_t fre[512], fim[512];         /* scratch: the FFT (HIFIACC's memory on the device) */
+    union {                             /* scratch, never both at once (2 KiB saved): */
+        uint16_t ycur[MULE_F];          /* a channel's indices of this frame (stream reading) */
+        int32_t y[MULE_F];              /* the left half of a block's IMDCT (synthesis) */
+    } sc;
+#ifndef MULE_FFT_MEM_EXTERNAL
+    int32_t fre[512], fim[512];         /* scratch: the FFT (else the caller's, mule_dec_set_fft_mem) */
+#endif
     int pend_valid;                     /* pend holds a long block's right half */
     int need_key, drop_frames;          /* after a seek: wait for a key packet, drop its 1st frame */
     const uint8_t *p, *end;             /* rANS: words still to read */
     uint32_t x;                         /* rANS state */
     int err;                            /* the packet is damaged */
 };
+
+/* The exact 64-bit product of two int32. Cores without a 32x32 -> 64 multiply (Cortex-M0,
+ * -DMULE_NO_LONG_MUL) build it from four 16 x 16 products instead of the C library's general
+ * 64 x 64 multiply: the same value, so the same output, bit for bit. */
+#if defined(MULE_NO_LONG_MUL) && defined(__thumb__) && !defined(__thumb2__)
+/* ARMv6-M (Cortex-M0, M0+, M1): the same four products in 17 Thumb-1 instructions */
+static inline int64_t smul64(int32_t a, int32_t b)
+{
+    uint32_t lo, hi, t0, t1;
+    __asm__(".syntax unified\n\t"              /* (GCC hands Thumb-1 asm over divided) */
+            "uxth  %[lo], %[a]\n\t"            /* lo = al */
+            "uxth  %[t0], %[b]\n\t"            /* t0 = bl */
+            "asrs  %[a], %[a], #16\n\t"        /* a = ah */
+            "asrs  %[b], %[b], #16\n\t"        /* b = bh */
+            "movs  %[hi], %[a]\n\t"
+            "muls  %[hi], %[b], %[hi]\n\t"     /* hi = ah bh */
+            "muls  %[a], %[t0], %[a]\n\t"      /* a = ah bl */
+            "muls  %[t0], %[lo], %[t0]\n\t"    /* t0 = al bl */
+            "muls  %[lo], %[b], %[lo]\n\t"     /* lo = al bh */
+            "lsls  %[t1], %[a], #16\n\t"       /* (hi:t0) += ah bl << 16 */
+            "asrs  %[a], %[a], #16\n\t"
+            "adds  %[t0], %[t0], %[t1]\n\t"
+            "adcs  %[hi], %[hi], %[a]\n\t"
+            "lsls  %[t1], %[lo], #16\n\t"      /* (hi:t0) += al bh << 16 */
+            "asrs  %[lo], %[lo], #16\n\t"
+            "adds  %[t0], %[t0], %[t1]\n\t"
+            "adcs  %[hi], %[hi], %[lo]\n\t"
+            ".syntax divided"
+            : [lo] "=&l"(lo), [hi] "=&l"(hi), [t0] "=&l"(t0), [t1] "=&l"(t1), [a] "+l"(a), [b] "+l"(b)
+            :
+            : "cc");
+    return (int64_t)((uint64_t)hi << 32 | t0);
+}
+#elif defined(MULE_NO_LONG_MUL)
+static inline int64_t smul64(int32_t a, int32_t b)
+{
+    uint32_t al = (uint16_t)a, bl = (uint16_t)b;
+    int32_t ah = a >> 16, bh = b >> 16;         /* a = ah 2^16 + al, al in [0, 2^16) */
+    uint32_t lo = al * bl;
+    int32_t hi = ah * bh;
+    int32_t m1 = ah * (int32_t)bl, m2 = (int32_t)al * bh;   /* |m| < 2^31 */
+    uint32_t t = lo + ((uint32_t)m1 << 16);
+    hi += (m1 >> 16) + (t < lo);
+    lo = t;
+    t = lo + ((uint32_t)m2 << 16);
+    hi += (m2 >> 16) + (t < lo);
+    return (int64_t)((uint64_t)(uint32_t)hi << 32 | t);
+}
+#else
+static inline int64_t smul64(int32_t a, int32_t b)
+{
+    return (int64_t)a * b;
+}
+#endif
+
+/* k * m for a k that usually fits 32 bits (smul64 then), exact either way: past 32 bits, k =
+ * kh 2^32 + kl, kl in [0, 2^32): kl m = smul64((int32_t)kl, m) + (m 2^32 if kl >= 2^31), and kh m
+ * only matters modulo 2^32 (the product fits 64 bits) */
+static inline int64_t mul64k(int64_t k, int32_t m)
+{
+    if (k == (int32_t)k)
+        return smul64((int32_t)k, m);
+#ifdef MULE_NO_LONG_MUL
+    uint32_t kl = (uint32_t)k, kh = (uint32_t)((uint64_t)k >> 32);
+    uint32_t top = kh * (uint32_t)m + (kl >> 31 ? (uint32_t)m : 0);
+    return (int64_t)((uint64_t)smul64((int32_t)kl, m) + ((uint64_t)top << 32));
+#else
+    return k * m;
+#endif
+}
+
+/* floor(n / d), n >= 0, d > 0: C's 64-bit division, but by shifts and subtractions over the
+ * quotient's bits only (the C library's general 64 / 64 division is slow on cores without a
+ * divider). The same quotient, so the same output. */
+#ifdef MULE_NO_LONG_MUL
+/* floor(n / d) for a quotient below 2^(sh + 1): restoring division from d << sh down */
+static uint64_t udiv_bits(uint64_t n, uint32_t d, int sh)
+{
+    uint64_t dd = (uint64_t)d << sh, q = 0;
+    for (; sh >= 0; sh--, dd >>= 1) {
+        q <<= 1;
+        if (n >= dd) {
+            n -= dd;
+            q |= 1;
+        }
+    }
+    return q;
+}
+#endif
+
+static uint64_t udiv64_32(uint64_t n, uint32_t d)
+{
+    if (!(n >> 32))
+        return (uint32_t)n / d;
+#ifdef MULE_NO_LONG_MUL                         /* d << sh: d's top bit at n's (n >= 2^32 > d) */
+    return udiv_bits(n, d, __builtin_clz(d) + 32 - __builtin_clz((uint32_t)(n >> 32)));
+#else
+    return n / d;
+#endif
+}
+
+/* n / d truncated towards zero (C's division), d > 0 */
+static inline int64_t sdiv64_32(int64_t n, uint32_t d)
+{
+    return n >= 0 ? (int64_t)udiv64_32((uint64_t)n, d) : -(int64_t)udiv64_32(-(uint64_t)n, d);
+}
+
+/* -DMULE_PROF (bench/qemu): the caller's mule_prof_mark(i) is told where the decoder enters
+ * section i (0 stream reading, 1 IMDCT pre-rotation, 2 FFT, 3 post-rotation, 4 windows and
+ * overlap-add, 5 output, 6 noise-filled and folded bands, 7 inverse M/S) */
+#ifdef MULE_PROF
+void mule_prof_mark(int section);
+#define PROF(i) mule_prof_mark(i)
+#else
+#define PROF(i) ((void)0)
+#endif
+
+/* the state fits MULE_DEC_STATE_MAX (C99: a negative array size fails the build otherwise) */
+typedef char mule_dec_state_fits[sizeof(struct mule_dec_state) <= MULE_DEC_STATE_MAX ? 1 : -1];
 
 /* ---------------- stream reading ---------------- */
 
@@ -202,7 +325,7 @@ static band_scale scale_of(int q, int a)
 /* The coefficient of TCQ level k: k * factor, rounded, saturated to int32. */
 static coef_t coef_value(int64_t k, const band_scale *bs)
 {
-    int64_t v = k * bs->mant;
+    int64_t v = mul64k(k, (int32_t)bs->mant);   /* (a Q30 mantissa < 2^31) */
     if (bs->sh <= 0)
         v *= (int64_t)1 << -bs->sh;     /* (0 with valid q and a; never a shift of v < 0) */
     else if (bs->sh < 63)
@@ -221,7 +344,7 @@ static void noise_band(mule_dec *d, coef_t *X, const int *idx, int n, int q)
     for (int i = 0; i < n; i++) {
         d->lcg = d->lcg * 1664525u + 1013904223u;
         z[i] = (int32_t)(d->lcg >> 16) - 32768;
-        e += (int64_t)z[i] * z[i];
+        e += (uint32_t)(z[i] * z[i]);           /* (<= 2^30) */
     }
     uint32_t R = isqrt64((uint64_t)e);
     if (!R) {
@@ -230,17 +353,18 @@ static void noise_band(mule_dec *d, coef_t *X, const int *idx, int n, int q)
         return;
     }
     int64_t A = fx_scale64(1 << 8, q);                          /* 2^(q/4), Q32 */
-    int64_t gain = A * (int64_t)isqrt64((uint64_t)n << 32) / R; /* times sqrt(n) (Q16) / R */
+    int64_t gain = sdiv64_32(A * (int64_t)isqrt64((uint64_t)n << 32), R);   /* sqrt(n) (Q16) / R */
     for (int i = 0; i < n; i++)                                 /* Q48 per unit of z -> Q24 */
-        X[idx[i]] = (int32_t)(((int64_t)z[i] * gain) >> 24);
+        X[idx[i]] = (int32_t)(mul64k(gain, z[i]) >> 24);
 }
 
 /* v4: 2^x in Q16 for x in Q16 (|x| <= 4), the fraction by a cubic (0.1 %). */
 static int64_t exp2_q16(int64_t x)
 {
-    int64_t i = x >> 16, f = x & 0xFFFF;        /* x = i + f, f in [0, 1) */
-    int64_t p = 65536 + ((f * (45426 + ((f * (15743 + ((f * 4367) >> 16))) >> 16))) >> 16);
-    return i >= 0 ? p << i : p >> -i;
+    int32_t i = (int32_t)(x >> 16);             /* x = i + f, f in [0, 1); |i| <= 4 */
+    uint32_t f = (uint32_t)x & 0xFFFF;          /* every product below < 2^32 */
+    uint32_t p = 65536 + ((f * (45426 + ((f * (15743 + ((f * 4367) >> 16))) >> 16))) >> 16);
+    return i >= 0 ? (int64_t)p << i : (int64_t)(p >> -i);
 }
 
 /* v4 (spec 5.3): noise_band with a slope, for a long frame's noise-filled band b from
@@ -255,22 +379,22 @@ static void noise_band_sloped(mule_dec *d, coef_t *X, const int *idx, int n, con
     int64_t s = 0;                              /* log2 per line, Q16 (q / 4) */
     if (l < r) {
         int cl = 4 * (EDGES[l] + EDGES[l + 1]), cr = 4 * (EDGES[r] + EDGES[r + 1]);
-        s = ((int64_t)(q[r] - q[l]) << 14) / (cr - cl);
+        s = ((q[r] - q[l]) * (1 << 14)) / (cr - cl);    /* (|.| < 2^21: 32 bits) */
     }
     if (!s) {
         noise_band(d, X, idx, n, q[b]);
         return;
     }
     int cb = 4 * (EDGES[b] + EDGES[b + 1]);
-    int64_t lim = ((int64_t)1 << 16) / (n / 2 > 0 ? n / 2 : 1);
+    int64_t lim = (1 << 16) / (n / 2 > 0 ? n / 2 : 1);
     s = s > lim ? lim : (s < -lim ? -lim : s);  /* +-1 log2 (6 dB) at the band's ends */
     int32_t z[MULE_BAND_MAX];
     int64_t e = 0;
     for (int i = 0; i < n; i++) {
         d->lcg = d->lcg * 1664525u + 1013904223u;
         int64_t w = exp2_q16(s * (8 * EDGES[b] + i - cb) + (s >> 1));  /* line centre */
-        z[i] = (int32_t)((((int64_t)(d->lcg >> 16) - 32768) * w) >> 18);   /* |z| < 2^15 */
-        e += (int64_t)z[i] * z[i];
+        z[i] = (int32_t)(smul64((int32_t)(d->lcg >> 16) - 32768, (int32_t)w) >> 18);   /* |z| < 2^15 */
+        e += (uint32_t)(z[i] * z[i]);           /* (< 2^30) */
     }
     uint32_t R = isqrt64((uint64_t)e);
     if (!R) {
@@ -279,9 +403,9 @@ static void noise_band_sloped(mule_dec *d, coef_t *X, const int *idx, int n, con
         return;
     }
     int64_t A = fx_scale64(1 << 8, q[b]);
-    int64_t gain = A * (int64_t)isqrt64((uint64_t)n << 32) / R;
+    int64_t gain = sdiv64_32(A * (int64_t)isqrt64((uint64_t)n << 32), R);
     for (int i = 0; i < n; i++)
-        X[idx[i]] = (int32_t)(((int64_t)z[i] * gain) >> 24);
+        X[idx[i]] = (int32_t)(mul64k(gain, z[i]) >> 24);
 }
 
 /* v4 (spec 5.3): the noise of a zero coefficient in a coded band, level nf (1..7):
@@ -294,7 +418,7 @@ static coef_t nf_value(mule_dec *d, int nf, const band_scale *bs)
     d->lcg = d->lcg * 1664525u + 1013904223u;
     int32_t z = (int32_t)(d->lcg >> 16) - 32768;
     band_scale b8 = {bs->mant, bs->sh + 8};     /* the level in Q8 */
-    return coef_value(((int64_t)z * NF_Q8[nf]) >> 15, &b8);
+    return coef_value((z * NF_Q8[nf]) >> 15, &b8);     /* (|z| <= 2^15: 32 bits) */
 }
 
 /* v5 (spec 5.3): a zero-bit band of a short frame from MULE_NF_START up, filled from the decoded
@@ -310,26 +434,28 @@ static void fold_band(mule_dec *d, coef_t *X, const int *idx, int n, int q, int 
 {
     int64_t es = 0, ez = 0;
     uint32_t lcg0 = d->lcg;
-    for (int i = 0; i < n; i++) {
-        int64_t sv = X[idx[i] - w] >> 8;
-        es += sv * sv;
+    for (int i = 0; i < n; i++) {               /* |sv| < 2^24, |zv| <= 2^15 */
+        int32_t sv = X[idx[i] - w] >> 8;
+        es += smul64(sv, sv);
         d->lcg = d->lcg * 1664525u + 1013904223u;
-        int64_t zv = (int32_t)(d->lcg >> 16) - 32768;
-        ez += zv * zv;
+        int32_t zv = (int32_t)(d->lcg >> 16) - 32768;
+        ez += (uint32_t)(zv * zv);
     }
     uint32_t Rs = isqrt64((uint64_t)es), Rz = isqrt64((uint64_t)ez);
-    int64_t cf = Rs ? FOLD_COS[MULE_FOLD_MIX] : 0, cn = Rs ? FOLD_COS[8 - MULE_FOLD_MIX] : 256;
-    int64_t sq = isqrt64((uint64_t)n << 32);    /* sqrt(n), Q16 */
+    int32_t cf = Rs ? FOLD_COS[MULE_FOLD_MIX] : 0, cn = Rs ? FOLD_COS[8 - MULE_FOLD_MIX] : 256;
+    int32_t sq = (int32_t)isqrt64((uint64_t)n << 32);   /* sqrt(n), Q16: < 2^20 (n <= 176) */
     int64_t e = 0;
     d->lcg = lcg0;                              /* the same noise again */
     for (int i = 0; i < n; i++) {               /* each part at an rms of 2^16; |t| < 2^21 */
-        int64_t sv = X[idx[i] - w] >> 8;
+        int32_t sv = X[idx[i] - w] >> 8;
         d->lcg = d->lcg * 1664525u + 1013904223u;
-        int64_t zv = (int32_t)(d->lcg >> 16) - 32768;
-        int64_t a = Rs ? sv * sq / Rs : 0, b = Rz ? zv * sq / Rz : 0;
-        int64_t t = (cf * a + cn * b) >> 8;
-        X[idx[i]] = (coef_t)t;
-        e += t * t;
+        int32_t zv = (int32_t)(d->lcg >> 16) - 32768;
+        /* |sv| <= Rs and |zv| <= Rz (each is one of the summed squares): quotients <= sq < 2^20 */
+        int32_t a = Rs ? (int32_t)sdiv64_32(smul64(sv, sq), Rs) : 0;
+        int32_t b = Rz ? (int32_t)sdiv64_32(smul64(zv, sq), Rz) : 0;
+        int32_t t = (cf * a + cn * b) >> 8;     /* (256 2^20 2: < 2^30) */
+        X[idx[i]] = t;
+        e += smul64(t, t);
     }
     uint32_t R = isqrt64((uint64_t)e);
     if (!R) {
@@ -338,27 +464,37 @@ static void fold_band(mule_dec *d, coef_t *X, const int *idx, int n, int q, int 
         return;
     }
     int64_t A = fx_scale64(1 << 8, q);
-    int64_t gain = A * sq / R;
+    int64_t gain = sdiv64_32(A * sq, R);
     for (int i = 0; i < n; i++)
-        X[idx[i]] = (int32_t)(((int64_t)X[idx[i]] * gain) >> 24);
+        X[idx[i]] = (int32_t)(mul64k(gain, X[idx[i]]) >> 24);
 }
 
 /* M/S to L/R in place: L = (M + S) / sqrt 2, R = (M - S) / sqrt 2 (spec 5.5). */
 static void inverse_ms(coef_t *a, coef_t *b)
 {
-    int64_t m = *a, s = *b;
-    *a = (int32_t)(((m + s) * FX_INVSQRT2) >> 31);
-    *b = (int32_t)(((m - s) * FX_INVSQRT2) >> 31);
+    int64_t m = *a, s = *b;                     /* (m +- s: 33 bits) */
+    *a = (int32_t)(mul64k(m + s, FX_INVSQRT2) >> 31);
+    *b = (int32_t)(mul64k(m - s, FX_INVSQRT2) >> 31);
 }
 
 /* ---------------- transform and synthesis ---------------- */
 
 static int (*fft_hook)(int32_t *re, int32_t *im, int bits);
+static int32_t *fft_re, *fft_im;        /* the caller's FFT memory (mule_dec_set_fft_mem), or NULL */
 
 /* An external FFT for the IMDCT (see mule.h); NULL: the software one. */
 void mule_dec_set_fft(int (*fft)(int32_t *re, int32_t *im, int bits))
 {
     fft_hook = fft;
+}
+
+/* The IMDCT's FFT memory, 512 points each (see mule.h): the device's accelerator memory, which
+ * the external FFT then works on in place; NULL: the state's own (required with
+ * MULE_FFT_MEM_EXTERNAL, whose state has none). */
+void mule_dec_set_fft_mem(int32_t *re, int32_t *im)
+{
+    fft_re = re;
+    fft_im = im;
 }
 
 /* a + b and a - b on 32 bits, wrapping as the Cortex-M3 does (two's complement, defined in C
@@ -374,18 +510,224 @@ static inline int32_t wsub(int32_t a, int32_t b)
     return (int32_t)((uint32_t)a - (uint32_t)b);
 }
 
+#if defined(MULE_NO_LONG_MUL) && defined(__thumb__) && !defined(__thumb2__)
+/* fx_fft for ARMv6-M (Cortex-M0, M0+), the same values bit for bit: each 64-bit product from four
+ * 16 x 16 ones, summed exactly on 64 bits; the twiddle's halves split once per k (the butterflies
+ * of a stage, k outer, i inner: disjoint pairs, the same results in any order).
+ * mule_fft_v6m(re, im, n, fx_fft_tw). Stack: 0 wl, 4 wh, 8 xl, 12 xh (the twiddle's halves),
+ * 16 vr, 20 re, 24 len (bytes), 28 twiddle stride (bytes), 32 twiddle pointer, 36 k (bytes),
+ * 40 n (bytes), 44 twiddles; r8 a's pointer, r9 im - re, r10 len / 2, r11 len, r12 re's end;
+ * r0 rh, r1 ih, r2 rl, r3 il (the halves of re[b], im[b]), r4:r5 the 64-bit sum. */
+void mule_fft_v6m(int32_t *re, int32_t *im, int n, const int32_t *tw);
+__asm__(
+    "    .syntax unified\n"
+    "    .text\n"
+    "    .align 2\n"
+    "    .global mule_fft_v6m\n"
+    "    .type mule_fft_v6m, %function\n"
+    "    .thumb_func\n"
+    "mule_fft_v6m:\n"
+    "push  {r4-r7, lr}\n"
+    "mov   r4, r8\n"
+    "mov   r5, r9\n"
+    "mov   r6, r10\n"
+    "mov   r7, r11\n"
+    "push  {r4-r7}\n"
+    "sub   sp, #48\n"
+    "str   r0, [sp, #20]\n"
+    "subs  r1, r1, r0\n"
+    "mov   r9, r1\n"
+    "lsls  r2, r2, #2\n"
+    "str   r2, [sp, #40]\n"
+    "adds  r4, r0, r2\n"
+    "mov   r12, r4\n"
+    "str   r3, [sp, #44]\n"
+    "movs  r4, #8\n"
+    "str   r4, [sp, #24]\n"
+    "movs  r4, #1\n"
+    "lsls  r4, r4, #11\n"
+    "str   r4, [sp, #28]\n"
+    ".Lfft_stage:\n"
+    "ldr   r4, [sp, #24]\n"
+    "mov   r11, r4\n"
+    "lsrs  r4, r4, #1\n"
+    "mov   r10, r4\n"
+    "ldr   r4, [sp, #44]\n"
+    "str   r4, [sp, #32]\n"
+    "movs  r4, #0\n"
+    "str   r4, [sp, #36]\n"
+    ".Lfft_k:\n"
+    "ldr   r4, [sp, #32]\n"
+    "ldr   r5, [r4]\n"
+    "ldr   r6, [r4, #4]\n"
+    "uxth  r7, r5\n"
+    "str   r7, [sp, #0]\n"
+    "asrs  r5, r5, #16\n"
+    "str   r5, [sp, #4]\n"
+    "uxth  r7, r6\n"
+    "str   r7, [sp, #8]\n"
+    "asrs  r6, r6, #16\n"
+    "str   r6, [sp, #12]\n"
+    "ldr   r5, [sp, #28]\n"
+    "adds  r4, r4, r5\n"
+    "str   r4, [sp, #32]\n"
+    "ldr   r4, [sp, #20]\n"
+    "ldr   r5, [sp, #36]\n"
+    "adds  r4, r4, r5\n"
+    "mov   r8, r4\n"
+    ".Lfft_bf:\n"
+    "mov   r6, r8\n"
+    "add   r6, r10\n"
+    "mov   r7, r9\n"
+    "ldr   r0, [r6]\n"
+    "ldr   r1, [r6, r7]\n"
+    "uxth  r2, r0\n"
+    "asrs  r0, r0, #16\n"
+    "uxth  r3, r1\n"
+    "asrs  r1, r1, #16\n"
+    "ldr   r4, [sp, #4]\n"
+    "muls  r4, r0, r4\n"
+    "ldr   r6, [sp, #12]\n"
+    "muls  r6, r1, r6\n"
+    "subs  r4, r4, r6\n"
+    "ldr   r5, [sp, #0]\n"
+    "muls  r5, r2, r5\n"
+    "ldr   r6, [sp, #8]\n"
+    "muls  r6, r3, r6\n"
+    "subs  r5, r5, r6\n"
+    "movs  r6, #0\n"
+    "sbcs  r4, r4, r6\n"
+    "ldr   r6, [sp, #0]\n"
+    "muls  r6, r0, r6\n"
+    "lsls  r7, r6, #16\n"
+    "asrs  r6, r6, #16\n"
+    "adds  r5, r5, r7\n"
+    "adcs  r4, r4, r6\n"
+    "ldr   r6, [sp, #4]\n"
+    "muls  r6, r2, r6\n"
+    "lsls  r7, r6, #16\n"
+    "asrs  r6, r6, #16\n"
+    "adds  r5, r5, r7\n"
+    "adcs  r4, r4, r6\n"
+    "ldr   r6, [sp, #8]\n"
+    "muls  r6, r1, r6\n"
+    "lsls  r7, r6, #16\n"
+    "asrs  r6, r6, #16\n"
+    "subs  r5, r5, r7\n"
+    "sbcs  r4, r4, r6\n"
+    "ldr   r6, [sp, #12]\n"
+    "muls  r6, r3, r6\n"
+    "lsls  r7, r6, #16\n"
+    "asrs  r6, r6, #16\n"
+    "subs  r5, r5, r7\n"
+    "sbcs  r4, r4, r6\n"
+    "lsls  r4, r4, #1\n"
+    "lsrs  r5, r5, #31\n"
+    "orrs  r4, r4, r5\n"
+    "str   r4, [sp, #16]\n"
+    "ldr   r4, [sp, #12]\n"
+    "muls  r4, r0, r4\n"
+    "ldr   r6, [sp, #4]\n"
+    "muls  r6, r1, r6\n"
+    "adds  r4, r4, r6\n"
+    "ldr   r5, [sp, #8]\n"
+    "muls  r5, r2, r5\n"
+    "ldr   r6, [sp, #0]\n"
+    "muls  r6, r3, r6\n"
+    "adds  r5, r5, r6\n"
+    "movs  r6, #0\n"
+    "adcs  r4, r4, r6\n"
+    "ldr   r6, [sp, #8]\n"
+    "muls  r6, r0, r6\n"
+    "lsls  r7, r6, #16\n"
+    "asrs  r6, r6, #16\n"
+    "adds  r5, r5, r7\n"
+    "adcs  r4, r4, r6\n"
+    "ldr   r6, [sp, #12]\n"
+    "muls  r6, r2, r6\n"
+    "lsls  r7, r6, #16\n"
+    "asrs  r6, r6, #16\n"
+    "adds  r5, r5, r7\n"
+    "adcs  r4, r4, r6\n"
+    "ldr   r6, [sp, #0]\n"
+    "muls  r6, r1, r6\n"
+    "lsls  r7, r6, #16\n"
+    "asrs  r6, r6, #16\n"
+    "adds  r5, r5, r7\n"
+    "adcs  r4, r4, r6\n"
+    "ldr   r6, [sp, #4]\n"
+    "muls  r6, r3, r6\n"
+    "lsls  r7, r6, #16\n"
+    "asrs  r6, r6, #16\n"
+    "adds  r5, r5, r7\n"
+    "adcs  r4, r4, r6\n"
+    "lsls  r4, r4, #1\n"
+    "lsrs  r5, r5, #31\n"
+    "orrs  r4, r4, r5\n"
+    "mov   r6, r8\n"
+    "mov   r7, r9\n"
+    "ldr   r0, [r6]\n"
+    "ldr   r1, [r6, r7]\n"
+    "ldr   r5, [sp, #16]\n"
+    "adds  r2, r0, r5\n"
+    "subs  r0, r0, r5\n"
+    "adds  r3, r1, r4\n"
+    "subs  r1, r1, r4\n"
+    "str   r2, [r6]\n"
+    "str   r3, [r6, r7]\n"
+    "add   r6, r10\n"
+    "str   r0, [r6]\n"
+    "str   r1, [r6, r7]\n"
+    "add   r8, r11\n"
+    "cmp   r8, r12\n"
+    "bhs   .Lfft_knext\n"
+    "b     .Lfft_bf\n"
+    ".Lfft_knext:\n"
+    "ldr   r4, [sp, #36]\n"
+    "adds  r4, r4, #4\n"
+    "str   r4, [sp, #36]\n"
+    "cmp   r4, r10\n"
+    "bhs   .Lfft_snext\n"
+    "b     .Lfft_k\n"
+    ".Lfft_snext:\n"
+    "ldr   r4, [sp, #28]\n"
+    "lsrs  r4, r4, #1\n"
+    "str   r4, [sp, #28]\n"
+    "ldr   r4, [sp, #24]\n"
+    "lsls  r4, r4, #1\n"
+    "str   r4, [sp, #24]\n"
+    "ldr   r5, [sp, #40]\n"
+    "cmp   r4, r5\n"
+    "bhi   .Lfft_done\n"
+    "b     .Lfft_stage\n"
+    ".Lfft_done:\n"
+    "add   sp, #48\n"
+    "pop   {r4-r7}\n"
+    "mov   r8, r4\n"
+    "mov   r9, r5\n"
+    "mov   r10, r6\n"
+    "mov   r11, r7\n"
+    "pop   {r4-r7, pc}\n"
+    "    .size mule_fft_v6m, . - mule_fft_v6m\n");
+#define MULE_FFT_V6M 1
+#endif
+
 /* In-place complex FFT (forward, unscaled) of n = 64 or 512 points. The input is in bit-reversed
  * order already, as HIFIACC wants it; twiddles exp(-2 i pi k / 512) in Q31. */
 static void fx_fft(int32_t *re, int32_t *im, int n)
 {
+#ifdef MULE_FFT_V6M
+    mule_fft_v6m(re, im, n, fx_fft_tw);
+    return;
+#endif
     for (int len = 2; len <= n; len <<= 1) {
         int step = 512 / len;
         for (int i = 0; i < n; i += len)
             for (int k = 0; k < len / 2; k++) {
-                int64_t wr = fx_fft_tw[2 * k * step], wi = fx_fft_tw[2 * k * step + 1];
+                int32_t wr = fx_fft_tw[2 * k * step], wi = fx_fft_tw[2 * k * step + 1];
                 int a = i + k, b = a + len / 2;
-                int32_t vr = (int32_t)((re[b] * wr - im[b] * wi) >> 31);
-                int32_t vi = (int32_t)((re[b] * wi + im[b] * wr) >> 31);
+                int32_t vr = (int32_t)((smul64(re[b], wr) - smul64(im[b], wi)) >> 31);
+                int32_t vi = (int32_t)((smul64(re[b], wi) + smul64(im[b], wr)) >> 31);
                 re[b] = wsub(re[a], vr);
                 im[b] = wsub(im[a], vi);
                 re[a] = wadd(re[a], vr);
@@ -394,13 +736,12 @@ static void fx_fft(int32_t *re, int32_t *im, int n)
     }
 }
 
-/* x with its `bits` low bits in reverse order. */
-static uint32_t bitrev(uint32_t x, int bits)
+/* (u g) >> 31 on 32 bits, for the IMDCT's gains: g = 2^28 (n = 256) is a shift */
+static inline int32_t post_gain(int64_t u, int32_t g)
 {
-    uint32_t r = 0;
-    for (int i = 0; i < bits; i++)
-        r |= (x >> i & 1) << (bits - 1 - i);
-    return r;
+    if (g == FX_G128 && FX_G128 == 1 << 28)
+        return (int32_t)(u >> 3);
+    return (int32_t)(mul64k(u, g) >> 31);
 }
 
 /* y[0..n) = g * IMDCT(X[0..m)) in Q24, n = 2m (2048 or 256), through the n/4-point FFT:
@@ -411,30 +752,45 @@ static uint32_t bitrev(uint32_t x, int bits)
  * y[i] for i < m goes to ylo, the rest to yhi[i - m] (a long block's right half: pend). */
 static void imdct(mule_dec *d, const int32_t *X, int32_t *ylo, int32_t *yhi, int m)
 {
+    PROF(1);
     int n = 2 * m, n4 = n / 4, bits = n == 2048 ? 9 : 6;
     const int32_t *w = n == 2048 ? fx_w2048 : fx_w256;
-    int64_t g = n == 2048 ? FX_G1024 : FX_G128;
-    int32_t *re = d->fre, *im = d->fim;
+    int32_t g = n == 2048 ? FX_G1024 : FX_G128;
+#ifdef MULE_FFT_MEM_EXTERNAL
+    int32_t *re = fft_re, *im = fft_im;
+    (void)d;
+#else
+    int32_t *re = fft_re ? fft_re : d->fre, *im = fft_re ? fft_im : d->fim;
+#endif
+    uint32_t r = 0;                             /* bitrev(j, bits), counted in reverse */
     for (int j = 0; j < n4; j++) {
-        int64_t a = X[2 * j], b = X[m - 1 - 2 * j], c = w[2 * j], s = w[2 * j + 1];
-        uint32_t r = bitrev((uint32_t)j, bits);
-        re[r] = (int32_t)((a * c + b * s) >> 32);
-        im[r] = (int32_t)((b * c - a * s) >> 32);
+        int32_t a = X[2 * j], b = X[m - 1 - 2 * j], c = w[2 * j], s = w[2 * j + 1];
+        re[r] = (int32_t)((smul64(a, c) + smul64(b, s)) >> 32);
+        im[r] = (int32_t)((smul64(b, c) - smul64(a, s)) >> 32);
+        uint32_t bit = (uint32_t)n4 >> 1;       /* r + 1 in reversed bit order */
+        while (r & bit) {
+            r ^= bit;
+            bit >>= 1;
+        }
+        r |= bit;
     }
+    (void)bits;
+    PROF(2);
     if (!fft_hook || !fft_hook(re, im, bits))
         fx_fft(re, im, n4);
+    PROF(3);
     /* post-rotation and unfolding together; out[j] (j = 4q .. 4q+3) goes to two outputs:
      *   j even (2t): y[n4 + t] = -g out, y[n4 - 1 - t] = g out
      *   j odd (2t + 1): y[3 n4 + t] = g out, y[3 n4 - 1 - t] = g out */
     int32_t *h = yhi - m;
     for (int q = 0; q < n4 / 2; q++) {
         int k = n4 - 1 - q;
-        int64_t fr = re[q], fi = im[q], c = w[2 * q], s = w[2 * q + 1];
-        int64_t gr = re[k], gi = im[k], c2 = w[2 * k], s2 = w[2 * k + 1];
-        int32_t o0 = (int32_t)(((-((fi * c - fr * s) >> 30)) * g) >> 31);
-        int32_t o1 = (int32_t)(((-((fr * c + fi * s) >> 30)) * g) >> 31);
-        int32_t o2 = (int32_t)((((gr * c2 + gi * s2) >> 30) * g) >> 31);
-        int32_t o3 = (int32_t)((((gi * c2 - gr * s2) >> 30) * g) >> 31);
+        int32_t fr = re[q], fi = im[q], c = w[2 * q], s = w[2 * q + 1];
+        int32_t gr = re[k], gi = im[k], c2 = w[2 * k], s2 = w[2 * k + 1];
+        int32_t o0 = post_gain(-((smul64(fi, c) - smul64(fr, s)) >> 30), g);
+        int32_t o1 = post_gain(-((smul64(fr, c) + smul64(fi, s)) >> 30), g);
+        int32_t o2 = post_gain((smul64(gr, c2) + smul64(gi, s2)) >> 30, g);
+        int32_t o3 = post_gain((smul64(gi, c2) - smul64(gr, s2)) >> 30, g);
         ylo[n4 + 2 * q] = -o0;
         ylo[n4 - 1 - 2 * q] = o0;
         h[3 * n4 + 2 * q] = o1;
@@ -444,6 +800,7 @@ static void imdct(mule_dec *d, const int32_t *X, int32_t *ylo, int32_t *yhi, int
         h[3 * n4 + 2 * q + 1] = o3;
         h[3 * n4 - 2 - 2 * q] = o3;
     }
+    PROF(4);
 }
 
 /* The frame's overlap-add (spec 6), per channel: the previous long block's falling half (its
@@ -454,7 +811,7 @@ static void synth(mule_dec *d, int type)
 {
     int prev_short = d->prev_type == 1, cur_short = type == 1;
     for (int c = 0; c < 2; c++) {
-        int32_t *y = d->y, *acc = d->acc[c];
+        int32_t *y = d->sc.y, *acc = d->acc[c];
         if (d->pend_valid) {
             int s = cur_short ? 128 : 1024, z = (MULE_F - s) / 2;
             const int32_t *sl = s == 1024 ? fx_slope1024 : fx_slope128;
@@ -462,14 +819,14 @@ static void synth(mule_dec *d, int type)
             for (int i = 0; i < z; i++)         /* window 1, then the slope read backwards */
                 acc[i] += p[i];
             for (int i = z; i < z + s; i++)
-                acc[i] += (int32_t)(((int64_t)p[i] * sl[z + s - 1 - i]) >> 31);
+                acc[i] += (int32_t)(smul64(p[i], sl[z + s - 1 - i]) >> 31);
         }                                       /* (window 0 beyond: nothing) */
         if (!cur_short) {
             imdct(d, d->X[c], y, d->pend[c], MULE_F);
             int s = prev_short ? 128 : 1024, z = (MULE_F - s) / 2;
             const int32_t *sl = s == 1024 ? fx_slope1024 : fx_slope128;
             for (int i = z; i < z + s; i++)
-                acc[i] += (int32_t)(((int64_t)y[i] * sl[i - z]) >> 31);
+                acc[i] += (int32_t)(smul64(y[i], sl[i - z]) >> 31);
             for (int i = z + s; i < MULE_F; i++)
                 acc[i] += y[i];
         } else {
@@ -477,8 +834,8 @@ static void synth(mule_dec *d, int type)
                 imdct(d, d->X[c] + 128 * k, y, y + 128, 128);
                 int o = MULE_SHORT_OFF + 128 * k;
                 for (int i = 0; i < MULE_N_SHORT; i++) {
-                    int64_t wv = i < 128 ? fx_slope128[i] : fx_slope128[MULE_N_SHORT - 1 - i];
-                    acc[o + i] += (int32_t)((y[i] * wv) >> 31);
+                    int32_t wv = i < 128 ? fx_slope128[i] : fx_slope128[MULE_N_SHORT - 1 - i];
+                    acc[o + i] += (int32_t)(smul64(y[i], wv) >> 31);
                 }
             }
         }
@@ -646,6 +1003,7 @@ static int read_band(mule_dec *d, coef_t *X, uint16_t *ycur, const group *gr, in
  * Returns early with err set on a damaged stream (energies or allocations out of range). */
 static void decode_frame(mule_dec *d, int16_t *out)
 {
+    PROF(0);
     int type = sym(d, MULE_S_BTYPE, 0);
     group grp[MULE_N_SUB];
     int ng = read_groups(d, type, grp);
@@ -659,8 +1017,8 @@ static void decode_frame(mule_dec *d, int16_t *out)
         coef_t *X = d->X[c];
         int64_t tail1 = 0, tail2 = 0;           /* index u of the two previous coefficients */
         int inter_ok = type == 0 && d->lvalid[c];
-        uint16_t *ycur = d->ycur;
-        memset(ycur, 0, sizeof d->ycur);
+        uint16_t *ycur = d->sc.ycur;
+        memset(ycur, 0, sizeof d->sc.ycur);
         int q[MULE_NB] = {0}, a[MULE_NB] = {0};
         int nf = d->v5 ? sym(d, MULE_S_NFLEV, 0)    /* the level of the zero coefficients' noise: */
                : d->v4 ? (int)raw(d, 3) : 0;    /* modelled (v5), 3 raw bits (v4) */
@@ -674,6 +1032,7 @@ static void decode_frame(mule_dec *d, int16_t *out)
                 if (q[b] <= MULE_QMIN)          /* silent band */
                     continue;
                 if (a[b] == 0) {                /* noise at the band's energy */
+                    PROF(6);
                     int n = band_count(&grp[g], b), idx[MULE_BAND_MAX];
                     for (int i = 0; i < n; i++)
                         idx[i] = coef_index(&grp[g], b, i);
@@ -683,6 +1042,7 @@ static void decode_frame(mule_dec *d, int16_t *out)
                         noise_band_sloped(d, X, idx, n, q, b);
                     else
                         noise_band(d, X, idx, n, q[b]);
+                    PROF(0);
                     continue;
                 }
                 int inter = inter_ok && d->along[c][b] > 0;
@@ -693,13 +1053,14 @@ static void decode_frame(mule_dec *d, int16_t *out)
             }
         }
         if (type == 0) {                        /* the inter-frame context of the next frame */
-            memcpy(d->ylong[c], ycur, sizeof d->ycur);
+            memcpy(d->ylong[c], ycur, sizeof d->sc.ycur);
             memcpy(d->qlong[c], q, sizeof q);
             memcpy(d->along[c], a, sizeof a);
             d->lvalid[c] = 1;
         } else
             d->lvalid[c] = 0;
     }
+    PROF(7);
     for (int g = 0; g < ng; g++)                /* inverse M/S, per band */
         for (int b = 0; b < MULE_NB; b++) {
             if (!ms[b])
@@ -711,8 +1072,10 @@ static void decode_frame(mule_dec *d, int16_t *out)
             }
         }
 #ifndef MULE_BENCH_NOSYNTH                      /* (bench/qemu: the stream reading alone) */
+    PROF(4);
     synth(d, type);
 #endif
+    PROF(5);
     d->pend_valid = type == 0;
     d->prev_type = type;
     for (int i = 0; i < MULE_F; i++)
@@ -733,6 +1096,10 @@ mule_dec *mule_dec_init(void *mem, size_t size, const uint8_t *h, int len)
 {
     if (size < sizeof(mule_dec) || len < MULE_HEAD_LEN_V2 || memcmp(h, "MULEHead", 8))
         return NULL;
+#ifdef MULE_FFT_MEM_EXTERNAL
+    if (!fft_re || !fft_im)                     /* the FFT memory must be given first */
+        return NULL;
+#endif
     int n = 8, flags = 0;               /* v2: 8 states, restarted in each band, 16 symbols */
     if (h[8] >= 3 && h[8] <= MULE_VERSION) {    /* v3 to v5: the trellis's size, chaining, alphabet */
         if (len < MULE_HEAD_LEN || h[20] < 3 || h[20] > 6 || (h[21] & ~(MULE_TCQ_CHAIN | MULE_COEF_A8)))

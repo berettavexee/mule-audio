@@ -61,6 +61,9 @@ class Params:
     tr_db: float = 8.5          # transient detector threshold (dB; 10 before 20/11/2026)
     short_db: float = 0.0       # noise target offset in short frames (dB; < 0: more bits)
     tg_ton: float = 5.0         # a lone line: peak this many dB above a noise's (2 ln n x mean)
+    ath_rel_db: float = 0.0     # relative ATH: lowered by ath_ref_db - passage level, at most this (0: off)
+    ath_ref_db: float = -14.0   # its reference level (dBFS)
+    ath_rel_rel: float = 0.5    # its level follower's fall (dB per frame)
 
 
 # the model streams in the decoder's order: (name, symbols, contexts) (core/models.c)

@@ -11,3 +11,4 @@ build_dev/
 build_*/
 build-*/
 bench/qemu/packets.h
+/work/

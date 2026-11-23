@@ -17,7 +17,14 @@
  *   fuzz_dec CORPUS_DIR SECONDS SEED      fuzz (CORPUS_DIR: seeds in, new inputs out)
  *   fuzz_dec FILE...                      replay inputs (a crash's input, the corpus)
  *
- * A failing input is written to crash-<pid>-<n>.bin in the current directory before abort. */
+ * A failing input is written to crash-<pid>-<n>.bin in the current directory before abort.
+ *
+ * Built with -DLIBFUZZER (clang -fsanitize=fuzzer, tools/fuzz/build_lf.sh), the same checks run
+ * as libFuzzer's target (LLVMFuzzerTestOneInput) and this file's own fuzzer is left out. With
+ * -DFUZZ_DIFF, every input is also decoded by a second build of core/dec.c, the one for cores
+ * without a 32 x 32 -> 64 multiply (MULE_NO_LONG_MUL, its C code: smul64 from 16-bit products, the
+ * 64 / 32 division by shifts), its API renamed nlm_* (nlm_rename.h): any difference in the return
+ * values or the samples is a failure (that build must be bit-exact on any input). */
 #include <dirent.h>
 #include <signal.h>
 #include <stdint.h>
@@ -29,6 +36,15 @@
 #include <unistd.h>
 #include "mule.h"
 
+#ifdef FUZZ_DIFF
+mule_dec *nlm_dec_init(void *mem, size_t size, const uint8_t *head, int len);
+size_t nlm_dec_size(void);
+int nlm_dec_channels(const mule_dec *d);
+int nlm_dec_packet(mule_dec *d, const uint8_t *p, int len, int16_t *pcm, int max_samples);
+void nlm_dec_seek(mule_dec *d);
+#endif
+
+#ifndef LIBFUZZER
 /* ---------------------------------------------------------------- coverage */
 
 /* gcc's -fsanitize-coverage=trace-pc calls __sanitizer_cov_trace_pc at every basic block of the
@@ -46,6 +62,7 @@ void __sanitizer_cov_trace_pc(void)
     hit[loc ^ prev_loc] = 1;
     prev_loc = loc >> 1;
 }
+#endif
 
 /* ---------------------------------------------------------------- one execution */
 
@@ -67,6 +84,7 @@ static void dump_current(void)
 
 void __sanitizer_set_death_callback(void (*cb)(void));
 
+#ifndef LIBFUZZER
 static void on_alarm(int sig)
 {
     (void)sig;
@@ -74,6 +92,7 @@ static void on_alarm(int sig)
     dump_current();
     abort();
 }
+#endif
 
 static void fail(const char *what)
 {
@@ -84,6 +103,9 @@ static void fail(const char *what)
 
 enum { GUARD = 64, MAXF = 8 };
 static _Alignas(16) uint8_t decmem[1 << 17];
+#ifdef FUZZ_DIFF
+static _Alignas(16) uint8_t decmem2[1 << 17];
+#endif
 
 /* Decodes one input; returns the number of packets fed. */
 static int run_one(const uint8_t *in, size_t n)
@@ -98,6 +120,12 @@ static int run_one(const uint8_t *in, size_t n)
     if (mule_dec_size() > sizeof decmem)
         fail("decoder state larger than the harness's buffer");
     mule_dec *d = mule_dec_init(decmem, sizeof decmem, in + 1, (int)hl);
+#ifdef FUZZ_DIFF
+    mule_dec *d2 = nlm_dec_init(decmem2, sizeof decmem2, in + 1, (int)hl);
+    if (!d != !d2)
+        fail("FUZZ_DIFF: the two builds disagree on the header");
+    static int16_t out2[MAXF * MULE_F * 2];
+#endif
     if (!d)
         return 0;
     int ch = mule_dec_channels(d);
@@ -112,8 +140,12 @@ static int run_one(const uint8_t *in, size_t n)
         pos += 3;
         if (len > n - pos)
             len = n - pos;
-        if (op & 1)
+        if (op & 1) {
             mule_dec_seek(d);
+#ifdef FUZZ_DIFF
+            nlm_dec_seek(d2);
+#endif
+        }
         int frames = MAXF - (int[]){0, 1, 2, 4}[op >> 1 & 3];
         int max = frames * MULE_F;
         for (int i = 0; i < GUARD; i++)
@@ -122,6 +154,13 @@ static int run_one(const uint8_t *in, size_t n)
         uint8_t *p = malloc(len ? len : 1);
         memcpy(p, in + pos, len);
         int r = mule_dec_packet(d, p, (int)len, out + GUARD, max);
+#ifdef FUZZ_DIFF
+        int r2 = nlm_dec_packet(d2, p, (int)len, out2, max);
+        if (r != r2)
+            fail("FUZZ_DIFF: the two builds return different counts");
+        if (r > 0 && memcmp(out + GUARD, out2, sizeof(int16_t) * (size_t)r * (size_t)ch))
+            fail("FUZZ_DIFF: the two builds decode different samples");
+#endif
         free(p);
         if (r < -2 || r > max || (r > 0 && r % MULE_F))
             fail("mule_dec_packet returned an impossible count");
@@ -134,6 +173,13 @@ static int run_one(const uint8_t *in, size_t n)
     return np;
 }
 
+#ifdef LIBFUZZER
+int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
+{
+    run_one(data, size);
+    return 0;
+}
+#else
 /* ---------------------------------------------------------------- corpus and mutations */
 
 typedef struct {
@@ -354,3 +400,4 @@ int main(int argc, char **argv)
     }
     return 0;
 }
+#endif

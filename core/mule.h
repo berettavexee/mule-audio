@@ -125,6 +125,13 @@ typedef struct mule_dec_state mule_dec;
 /* A decoder in caller-provided memory of mule_dec_size() bytes (no allocation), from the
  * MULEHead packet; NULL if invalid or not readable here (version, unknown CDF table: byte 19). */
 mule_dec *mule_dec_init(void *mem, size_t size, const uint8_t *head, int len);
+/* The most memory a decoder's state takes on any build (mule_dec_size() is at most this; core/dec.c
+ * checks it at compile time): a caller that reserves static memory can size it with this. */
+#ifdef MULE_FFT_MEM_EXTERNAL
+#define MULE_DEC_STATE_MAX 43520        /* without the FFT memory (mule_dec_set_fft_mem) */
+#else
+#define MULE_DEC_STATE_MAX 47616
+#endif
 size_t mule_dec_size(void);
 /* The same on the heap (not built with MULE_NO_MALLOC). */
 mule_dec *mule_dec_new(const uint8_t *head, int len);
@@ -141,5 +148,9 @@ void mule_dec_seek(mule_dec *d);
  * (bits 9 or 6) in bit-reversed order; it writes their forward FFT, unscaled, in natural order
  * and returns 1, or returns 0 to leave it to the software FFT. NULL: software only. */
 void mule_dec_set_fft(int (*fft)(int32_t *re, int32_t *im, int bits));
+/* The memory the IMDCT's FFT works in, re[512] and im[512] (the device's accelerator memory, so
+ * that the external FFT needs no copy); NULL: the decoder state's own. Built with
+ * MULE_FFT_MEM_EXTERNAL, the state has none (4 KiB less) and mule_dec_init needs it set first. */
+void mule_dec_set_fft_mem(int32_t *re, int32_t *im);
 
 #endif

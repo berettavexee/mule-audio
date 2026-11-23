@@ -88,6 +88,14 @@ typedef struct {
                          * 12-21 (2.8-17 kHz, FFT of the mid) are flatter than -tr_hf_ton dB (10; 0: off) */
     double tr_decay_db; /* the detector's memory decay per block of 128 (1 dB since 22/11/2026, 3 before:
                          * a voice's glottal pulses were taken for attacks, N-LOG.md) */
+    /* Relative threshold in quiet (Vorbis' ath_adjatt, LAME's adaptive ATH): the ATH is calibrated
+     * for full scale at 96 dB SPL, but a quiet passage is played louder; with ath_rel_db > 0 it is
+     * lowered by ath_ref_db minus the passage's level (dBFS, mean square of the frame's 2048
+     * samples, both channels; a follower that rises at once and falls ath_rel_rel dB per frame),
+     * by ath_rel_db at most, never raised (0: off, the absolute ATH) */
+    double ath_rel_db;
+    double ath_ref_db;  /* (-14 dBFS: a loud passage of music) */
+    double ath_rel_rel; /* (0.5 dB per frame: 22 dB/s) */
 } mule_enc_params;
 
 void mule_enc_defaults(mule_enc_params *p);

@@ -36,17 +36,21 @@ class Vorbis:
 
 
 class Opus:
-    """libopus through opusenc, VBR, decoded with opusdec at 44.1 kHz (its own resampler)."""
+    """libopus through opusenc, VBR, decoded with opusdec at 44.1 kHz (its own resampler).
+    opusdec dithers its 16-bit output by default (opus_<kbps>, every Opus measurement before
+    22/11/2026); opusnd_<kbps> decodes without dither: on tracks whose highs are near -100 dBFS
+    (EBU SQAM orchestra, piano) the dither alone adds 8 to 14 dB of energy at 10-20 kHz."""
 
-    def __init__(self, kbps):
+    def __init__(self, kbps, dither=True):
         self.kbps = kbps
-        self.name = f"opus_{kbps}"
+        self.dither = dither
+        self.name = f"opus_{kbps}" if dither else f"opusnd_{kbps}"
 
     def run(self, wav, work):
         enc = os.path.join(work, "enc.opus")
         dec = os.path.join(work, "dec.wav")
         _sh(["opusenc", "--quiet", "--music", "--vbr", "--bitrate", str(self.kbps), wav, enc])
-        _sh(["opusdec", "--quiet", "--rate", "44100", enc, dec])
+        _sh(["opusdec", "--quiet", "--rate", "44100"] + ([] if self.dither else ["--no-dither"]) + [enc, dec])
         return dec, enc, audio_bytes(enc, 2)
 
 
@@ -286,6 +290,17 @@ class Mule:
         if _k:
             VARIANTS[_k] = {**PRE_V5, **VARIANTS[_k]}
     del _k
+    # the threshold in quiet and the level (23/11/2026, after the 300-track campaign: quiet
+    # tracks got far fewer bits than from Opus, their spectrum below the ATH calibrated at 96 dB
+    # SPL for full scale), production settings otherwise: ath20 the ATH 20 dB lower everywhere;
+    # athrg the ATH moved by minus the track's ReplayGain 2.0 gain (the listener sets the volume
+    # so that the track plays at -18 LUFS), in run(); for an excerpt, MULE_TRACK_LUFS names a
+    # JSON {excerpt name: {"track_lufs": ...}} of the whole tracks' loudness (campaign.py)
+    VARIANTS["ath20"] = {"ath_db": -20.0}
+    VARIANTS["athrg"] = {}
+    # athl: the relative ATH (Vorbis, LAME): lowered by -14 dBFS minus the passage's level, 24 dB
+    # at most, the level follower falling 0.5 dB per frame (core/mule_enc.h, ath_rel_db)
+    VARIANTS["athl"] = {"ath_rel_db": 24.0}
 
     def __init__(self, variant, q):
         from mule import params
@@ -303,8 +318,22 @@ class Mule:
         x, fs = sf.read(wav, dtype="float64", always_2d=True)
         dec = os.path.join(work, "dec.wav")
         enc = os.path.join(work, "enc.mule")
+        prm = self.params
+        if self.name.startswith("mule-athrg_"):
+            import dataclasses
+            from mule import replaygain
+            lufs = None
+            if os.environ.get("MULE_TRACK_LUFS"):   # excerpts: the whole track's loudness, as the
+                import json                         # encoder of the track would measure it
+                with open(os.environ["MULE_TRACK_LUFS"]) as f:
+                    lufs = json.load(f)[os.path.splitext(os.path.basename(wav))[0]]["track_lufs"]
+            if lufs is None:
+                m = replaygain.Meter(fs)
+                m.add(x)
+                lufs = m.loudness()
+            prm = dataclasses.replace(prm, ath_db=prm.ath_db - replaygain.gain(lufs))
         with open(enc, "wb") as f:
-            f.write(native.c_encode(x, self.params)[0])
+            f.write(native.c_encode(x, prm)[0])
         cmd = [os.path.join(self.ROOT, os.environ.get("MULE_BUILD", "build"), "mule-dec"), enc, dec]
         r = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
         if r.returncode:                        # keep the evidence, retry once (P4 incident)
@@ -340,6 +369,8 @@ def get(name):
         return Vorbis(float(val.lstrip("q")))
     if kind == "opus":
         return Opus(int(val))
+    if kind == "opusnd":
+        return Opus(int(val), dither=False)
     if kind == "aac":
         return AAC(int(val))
     if kind == "aacv":
