@@ -14,8 +14,9 @@ environ un bit de plus par coefficient. Il n'y a pas de repas gratuit.
 
 Sauf qu'il y en a un, presque. Il s'appelle la **quantification codée en treillis**, ou TCQ
 (*Trellis-Coded Quantization*), et il gagne de la précision en piochant dans une grille deux
-fois plus fine, tout en ne payant que le pas entier. Dans MULE, c'est l'idée qui a le plus rapporté : +0,06 d'[ODG](https://en.wikipedia.org/wiki/Perceptual_Evaluation_of_Audio_Quality) quand elle
-est arrivée, puis encore +0,036 quand je l'ai poussée plus loin. À titre de comparaison, la
+fois plus fine, tout en ne payant que le pas entier. Dans MULE, c'est l'idée qui a le plus rapporté : +0,063 d'[ODG](https://en.wikipedia.org/wiki/Perceptual_Evaluation_of_Audio_Quality)
+(la note de PEAQ, sans unité, de −4 pour « très gênant » à 0 pour « imperceptible ») quand elle
+est arrivée, puis encore +0,036 d'ODG quand je l'ai poussée plus loin. À titre de comparaison, la
 plupart des idées du projet se battent pour quelques millièmes.
 
 Le plus vexant, c'est que je ne l'ai pas inventée. Elle a plus de trente ans, elle vient des
@@ -45,8 +46,9 @@ Le problème, c'est que ces pavages malins, il faut les stocker ou les calculer,
 exactement ce que font les dictionnaires de [Vorbis](https://fr.wikipedia.org/wiki/Vorbis) (ses [*codebooks*](https://fr.wikipedia.org/wiki/Quantification_vectorielle)) ou la [PVQ](https://en.wikipedia.org/wiki/Pyramid_vector_quantization) d'[Opus](https://en.wikipedia.org/wiki/Opus_%28audio_format%29), avec les
 conséquences que vous connaissez si vous avez lu le premier billet : de la RAM, ou une migraine.
 La TCQ, elle, en récupère environ 1 dB sur les 1,53 possibles avec 8 états, à haut débit et
-sans aucun dictionnaire. C'est là toute sa magie. À nos débits, un peu plus d'un bit par
-coefficient, ce sera moins : on y revient plus bas.
+sans aucun dictionnaire. C'est là toute sa magie. À nos débits, ce sera moins : vers 128 kb/s,
+MULE dépense de l'ordre de 1,25 bit par coefficient, et c'est ce régime que les chiffres de ce
+billet visent ; on y revient plus bas.
 
 ## L'astuce : deux règles graduées qui s'entrelacent
 
@@ -76,9 +78,16 @@ coefficient-ci, et cette valeur fixe la règle imposée au suivant. Le bit qui d
 n'est donc jamais envoyé : il voyage dans la valeur du coefficient d'avant, que le décodeur lit
 de toute façon.
 
-Une rotation fixe, D0, D1, D2, D3 à chaque coefficient, ne rapporterait rien : l'encodeur n'aurait
-plus aucun choix, et chaque coefficient serait simplement arrondi sur une règle imposée d'avance.
-Tout le gain vient de la liberté de choisir son chemin.
+Attention, ce choix n'est pas un simple arrondi. Si l'encodeur prenait toujours, sur la règle
+permise, la graduation la plus proche, la famille tomberait d'elle-même et il ne choisirait rien
+du tout. La liberté vient de ce qu'il peut accepter, sur un coefficient, une graduation un peu
+moins proche, parce que sa famille ouvre au coefficient suivant la règle qui l'arrange. Perdre un
+peu ici pour gagner davantage là : c'est un arbitrage sur plusieurs coefficients, que seul un
+algorithme qui compare des chemins entiers peut faire (on y vient avec Viterbi).
+
+De même, une rotation fixe, D0, D1, D2, D3 à chaque coefficient, ne rapporterait rien :
+l'encodeur n'aurait plus aucun choix, et chaque coefficient serait simplement arrondi sur une
+règle imposée d'avance. Tout le gain vient de la liberté de choisir son chemin.
 
 Comme chaque choix engage le coefficient suivant, l'encodeur n'arrondit
 plus chaque valeur à l'aveugle : il cherche la **suite de choix** qui, sur toute la bande, colle
@@ -104,9 +113,12 @@ Encore faut-il des règles de passage précises entre les deux règles graduées
 « Le choix précédent décide de la règle suivante » : il faut bien une règle de transition précise, et
 c'est le **treillis** qui la donne. C'est une petite [machine à états](https://fr.wikipedia.org/wiki/Automate_fini). À chaque coefficient, la
 machine est dans l'un de ses 8 états ; l'état dit quelle règle graduée est permise, et le choix
-de la famille fait passer la machine dans l'état suivant. Dans MULE, depuis l'état t, on passe
-à l'état (2t + 0) ou (2t + 1), modulo 8, selon la famille choisie. Ce sont exactement les tables
-de la [partie 2 de JPEG 2000](https://jpeg.org/jpeg2000/) : je n'ai rien inventé.
+de la famille fait passer la machine dans l'état suivant. La convention est simple : **un état
+pair impose la règle paire (D0 ou D2), un état impair la règle impaire (D1 ou D3)**. Depuis
+l'état t, on passe à l'état (2t + b) modulo 8, où le bit de branche b (0 ou 1) dit laquelle des
+deux familles permises a été prise ; quelle famille donne b = 0 dépend de l'état, par une table
+fixe. Ce sont exactement les tables de la [partie 2 de JPEG 2000](https://jpeg.org/jpeg2000/) :
+je n'ai rien inventé.
 
 ![Figure 3 : le treillis à 8 états, déroulé sur quelques coefficients ; chaque branche est
 étiquetée par la famille qu'elle impose](fig/b2-fig3-treillis.svg)
@@ -123,7 +135,7 @@ signal. C'est la TCQ. Elle a fini dans JPEG 2000, puis, sous une forme cousine
 Le coût pour le décodeur sur le baladeur : une table de 16 entrées, une parité et un décalage par
 coefficient. Comparé à une IMDCT, c'est invisible.
 
-## Viterbi : choisir tout le chemin d'un coup
+## Viterbi, le GPS de l'encodeur
 
 Reste le vrai travail, côté encodeur : trouver la meilleure suite de choix. On ne peut pas
 décider coefficient par coefficient, parce qu'un choix excellent maintenant peut imposer une
@@ -176,6 +188,14 @@ c'est la famille qui désigne la branche : la machine passe dans l'état 1. Éta
 impaire, graduations ±D/2, ±3D/2… L'encodeur écrit « index 0, négatif » : le décodeur lit −D/2,
 famille D3, et la machine passe dans l'état 3. Et ainsi de suite, coefficient après coefficient :
 c'est le chemin dessiné en gras sur la figure 3.
+
+Le décodeur tourne donc en boucle sur trois gestes, sans jamais recevoir de bit de contrôle :
+
+1. **l'état courant S fixe la règle** : paire si S est pair, impaire sinon ;
+2. **le fichier donne l'index et, si besoin, le signe**, qui désignent une graduation de cette
+   règle : c'est la valeur quantifiée ;
+3. **la famille de cette valeur (D0 à D3) fait passer la machine dans l'état suivant S'**, qui
+   fixe la règle du coefficient d'après.
 
 Concrètement, chaque coefficient occupe dans le fichier, dans l'ordre :
 
@@ -232,6 +252,13 @@ d'Opus est imbuvable. J'ai essayé de lire deux ou trois papiers sur le sujet, m
 rendre à l'évidence : je suis incapable de comprendre suffisamment la PVQ pour la configurer. En
 plus, elle perdait face à la TCQ.
 
+Que ce soit bien clair, ce n'est pas un procès de la PVQ. Dans Opus, elle fonctionne très bien,
+parce que tout CELT est construit autour d'elle : l'énergie de chaque bande est codée à part, la
+forme est un point sur une sphère, et l'allocation, la rotation qui étale l'énergie des sons
+tonals ou les découpages en temps et en fréquence sont réglés pour elle. Dans MULE, je l'ai
+greffée sur un codec pensé pour un quantificateur scalaire, et c'est dans ce cadre-là, sur les
+sons tonals, qu'elle perd face à la TCQ.
+
 ![Figure 6 : la note PEAQ à 128 et 160 kb/s du quantificateur scalaire, de la TCQ et de la PVQ,
 face à Opus et Vorbis, sur le corpus de réglage (66 extraits), le seul où les trois
 quantificateurs ont été mesurés ensemble](fig/b2-fig6-v2.svg)
@@ -260,7 +287,10 @@ treillis enchaîné, on peut lui donner plus d'états : avec des bandes trop cou
 supplémentaires n'avaient pas le temps de servir. Un treillis de 64 états met six coefficients à
 ouvrir tous ses chemins : dans une bande de 8, c'est presque toute la bande ; sur une trame
 entière, c'est négligeable, et les états supplémentaires offrent à l'encodeur bien plus de
-chemins entre lesquels choisir. Le simulateur donnait +0,17 dB à 32 états, +0,23 dB à 64.
+chemins entre lesquels choisir. La règle du jeu ne change pas : à 64 états, on passe de l'état t
+à l'état (2t + b) modulo 64, et c'est toujours la parité de l'état qui impose la règle paire ou
+impaire ; seule la table qui associe une famille au bit b est plus grande. Le simulateur donnait
++0,17 dB à 32 états, +0,23 dB à 64.
 
 ![Figure 7 : le gain du treillis sur le quantificateur scalaire selon le nombre d'états, avec
 redémarrage à chaque bande et en chaîne sur la trame (simulateur, 1,25 bit par
@@ -271,8 +301,8 @@ vite : +0,015 d'ODG à 8 états en chaîne, +0,026 à 16, +0,037 à 32, +0,040 �
 extraits de test : **+0,036 à 128 kb/s** pour le format v3, toutes les mesures sont concordantes. 
 Le plus gros gain de l'encodeur depuis le passage à la TCQ.
 
-![Figure 8 : le gain en ODG dans le codec selon le nombre d'états du treillis en
-chaîne](fig/b2-fig8-etats.svg)
+![Figure 8 : le gain de note PEAQ (en ODG, échelle de −4 à 0) dans le codec à 128 kb/s, par
+rapport au format v2, selon le nombre d'états du treillis en chaîne](fig/b2-fig8-etats.svg)
 
 J'ai évidemment essayé 48 états, parce que pourquoi pas, et parce qu'entre 32 et 64 il y avait
 peut-être un compromis. Il n'y en avait pas : 48 états font moins bien que 32 (+0,12 dB contre
@@ -320,7 +350,13 @@ pourquoi ne la trouve-t-on dans aucun codec audio grand public ?
 Je n'ai pas de réponse sérieuse. Peut-être les brevets, à l'époque où [AAC](https://fr.wikipedia.org/wiki/Advanced_Audio_Coding) et Vorbis ont été
 conçus. Peut-être parce que la PVQ d'Opus en récupère une partie autrement, en quantifiant les
 coefficients ensemble. Peut-être parce que personne n'a eu besoin de serrer un codec dans 30 Kio
-sur un Cortex-M3. Si vous connaissez la réponse, je suis preneur.
+sur un Cortex-M3. Peut-être, enfin, à cause de l'encodeur : ce qui ne coûte presque rien au
+décodeur coûte cher de l'autre côté. Un Viterbi de 64 états, plus les estimations de débit pour
+choisir l'allocation de chaque bande, c'est ce qui a fait tomber l'encodeur de MULE à 1,9 fois le
+temps réel avant l'astuce du petit treillis. Sur un serveur qui encode une bibliothèque une fois
+pour toutes, on s'en moque ; pour un encodeur temps réel (la voix sur IP, la radio en direct,
+l'enregistrement sur un téléphone des années 2000), c'est un vrai frein. Si vous connaissez la
+réponse, je suis preneur.
 
 Au prochain épisode : une fois quantifiés, ces index doivent encore être écrits avec le moins de
 bits possible, et on verra que la compression ne vient pas du codeur, mais du modèle.
@@ -329,7 +365,7 @@ bits possible, et on verra que la compression ne vient pas du codeur, mais du mo
 
 ## Notes pour la relecture (à retirer avant publication)
 
-- **Longueur** : environ 3170 mots (cible 3 000 à 3 500).
+- **Longueur** : environ 3 700 mots après la relecture du 23/11 (3 170 avant ; cible 3 000 à 3 500, à resserrer).
 - **Chiffres repris des journaux** :
   - +0,063 / +0,037 d'ODG sur `test`, aucune régression, λ 0,3 : `docs/VARIANTS-BC.md` §3 et §4 ;
   - balayage de λ (+4,8 %, 15, 1 et 59 régressions) : `docs/VARIANTS-BC.md` §3 ;
@@ -356,7 +392,14 @@ bits possible, et on verra que la compression ne vient pas du codeur, mais du mo
     long de la règle, ce qui est exact ;
   - « le choix de la famille fait passer la machine dans l'état suivant » : dans la spec, la
     branche br et la parité de l'état donnent la famille (§5.3) ;
-  - le treillis met « trois coefficients » à ouvrir ses chemins à 8 états (log2 8).
+  - le treillis met « trois coefficients » à ouvrir ses chemins à 8 états (log2 8) ;
+  - la transition (2t + b) mod n et « état pair = règle paire » : `core/mule.h`
+    (`mule_tcq_sub`, `mule_tcq_step_n`) : sous-ensemble j = (s & 1) + 2 (b xor parité(s & masque)),
+    état suivant (2s + b) mod n ; la « table fixe » du texte est cette parité (masques 0x6, 0xD,
+    0x17, 0x33 pour 8 à 64 états).
+- **« De l'ordre de 1,25 bit par coefficient vers 128 kb/s »** : c'est le régime retenu pour le
+  simulateur (`B-LOG.md`, « le régime de MULE ») ; 128 kb/s sur 88 200 coefficients par seconde
+  font 1,45 bit tout compris, énergies et allocations incluses.
 - **Figures** : toutes générées par `docs/blog/tools/figs2.py` (même style que le billet 1) ;
   1 à 3 sont des illustrations, 4 vient de la trace de l'encodeur en format v2 (trompette SQAM,
   bande prise à la médiane : la TCQ n'y fait pas mieux que l'arrondi, ce que le texte dit), 5 de la
