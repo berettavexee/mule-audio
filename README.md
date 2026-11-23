@@ -177,7 +177,7 @@ python3 -m venv --system-site-packages .venv && .venv/bin/pip install -r require
 make                                    # build/libmule.so, build/mule-dec
 make test
 
-tools/mule-enc in.flac out.mule         # 128 kb/s by default (my library average: VBR)
+tools/mule-enc in.flac out.mule         # 128 kb/s by default (VBR, each track drawn toward it)
 tools/mule-enc --bitrate 160 --title "..." --picture cover.jpg in.wav out.mule
 tools/mule-gain -a album/*.mule         # ReplayGain 2.0, track and album
 tools/mule-dec out.mule out.wav         # 16-bit WAV, the reference decoder
@@ -186,7 +186,9 @@ tools/mule-dec out.mule out.wav         # 16-bit WAV, the reference decoder
 `mule-enc` takes `opusenc`'s options (`--bitrate`, `--title`, `--artist`, `--comment tag=val`,
 `--picture`, `--discard-comments`...), any input libsndfile reads (or `-` for stdin), any sample
 rate (resampled to 44.1 kHz, the only one the format knows), mono or more than two channels
-(made stereo), and copies the tags and pictures of a FLAC input.
+(made stereo), and copies the tags and pictures of a FLAC input. As with Opus, `--bitrate` holds
+each track near the requested rate (a rate leveler: on 300 tracks, 95 % within ±10 % of it, with
+the same quality as pure quality VBR); `-q` is pure quality VBR, whose rate follows the music.
 
 The evaluation corpus is not included (it comes from the EBU SQAM disc and a private music
 library); `eval/corpus.py` shows how it was cut (the library's root in `MULE_LIBRARY`).

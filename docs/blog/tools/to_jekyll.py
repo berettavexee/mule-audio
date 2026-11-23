@@ -1,7 +1,8 @@
 """Turns a blog post of docs/blog/ into a Jekyll post of the blog (berettavexee.github.io):
 front matter (author from the blog's _config.yml), the review notes dropped (from "## Notes pour la relecture"), the H1 title moved to
 the front matter, the "jet" mention dropped, figures copied to assets/img/mule-<name> and their
-links rewritten (alt text on one line).
+links rewritten (alt text on one line), each followed by its caption as a paragraph of class
+"caption" (the theme shows no alt text; styled in public/css/lanyon.css).
 
     .venv/bin/python docs/blog/tools/to_jekyll.py docs/blog/01-anatomie.md <blog repo> \\
         --date 2026-11-19 --slug mule-anatomie-codec-audio --tags "audio codec ..."
@@ -10,6 +11,11 @@ import argparse
 import os
 import re
 import shutil
+
+
+def caption(alt):
+    """The caption paragraph of a figure: its alt text, markdown's special characters escaped."""
+    return re.sub(r"([*_`\[\]<>])", r"\\\1", alt)
 
 
 def main():
@@ -42,7 +48,8 @@ def main():
     def img(m):
         name = os.path.basename(m.group(2))
         figs.append(name)
-        return f"![{' '.join(m.group(1).split())}](/assets/img/mule-{name})"
+        alt = " ".join(m.group(1).split())
+        return f"![{alt}](/assets/img/mule-{name})\n\n{caption(alt)}\n{{: .caption}}"
 
     body = re.sub(r"!\[(.*?)\]\(fig/([^)]+)\)", img, body, flags=re.S)
     head = (f'---\nlayout: post\ntitle: "{title}"\ndate: {a.date}\nauthor: "{a.author}"\n'

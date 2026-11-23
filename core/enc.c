@@ -70,6 +70,17 @@ void mule_enc_defaults(mule_enc_params *p)
     p->ath_rel_db = 0.0;        /* off: being measured (23/11/2026) */
     p->ath_ref_db = -14.0;
     p->ath_rel_rel = 0.5;
+    p->bf_rel_db = 0.0;         /* band floor off */
+    p->bf_snr_db = 0.0;
+    p->rc_k = 0.0;              /* rate leveler off */
+    p->rc_tau = 200.0;
+    p->rc_max = 9.0;
+    p->rc_r0 = 76.4;
+    p->rc_slope = 9.21;
+    p->opa_mode = 0;            /* Opus' band allocation off */
+    p->opa_eta = 0.8;
+    p->opa_k = 1.0;
+    p->opa_alpha = 0.5;
 }
 
 /* ---------------------------------------------------------------- measurement trace */
@@ -270,6 +281,10 @@ static void frame_analysis(const mule_enc_params *pr, const psy_t *py, double X[
                 psy_fine(py, pr, X[c], f->FL[c][g], f->MK[c][g]);
             if (pr->dyn_a > 0)
                 psy_dynalloc(pr, f->P[c][g], f->MK[c][g]);
+            if (pr->bf_rel_db > 0)
+                psy_floor(pr, f->P[c][g], f->MK[c][g]);
+            if (pr->opa_mode)
+                psy_opus(pr, f->P[c][g], f->MK[c][g]);
         }
     if (pr->pre_db > 0) {
         if (f->type == 0) {
@@ -751,6 +766,7 @@ static int encode_ops(const double *pcm, int64_t L, const mule_enc_params *pr, i
         goto done;
     double seg[MULE_N_LONG], tmp[MULE_N_LONG];
     double lev = -200.0;                        /* the relative ATH's level follower (dBFS) */
+    double rtarget = pr->rc_r0 * pow(2, -pr->q_db / pr->rc_slope), rate = rtarget; /* the rate leveler: target, average (kb/s) */
     for (int t = 0; t < T; t++) {
         double ms = 0;
         fstart[t] = o.n;
@@ -812,16 +828,27 @@ static int encode_ops(const double *pcm, int64_t L, const mule_enc_params *pr, i
                 }
             }
         }
-        if (pr->ath_rel_db > 0) {               /* relative ATH: this frame's settings */
+        mule_enc_params pf = *pr;               /* this frame's settings */
+        if (pf.opa_kbps <= 0)                   /* Opus' allocation: the setting's rate */
+            pf.opa_kbps = rtarget;
+        if (pr->ath_rel_db > 0) {               /* relative ATH */
             double lf = 10 * log10(ms / (2 * MULE_N_LONG) + 1e-20);
             lev = lf > lev - pr->ath_rel_rel ? lf : lev - pr->ath_rel_rel;
             double down = pr->ath_ref_db - lev;
             down = down < 0 ? 0 : (down > pr->ath_rel_db ? pr->ath_rel_db : down);
-            mule_enc_params pf = *pr;
             pf.ath_db -= down;
-            encode_frame(&pf, &pl, &ps, type, key, X, PW, s, &o);
-        } else
-            encode_frame(pr, &pl, &ps, type, key, X, PW, s, &o);
+        }
+        if (pr->rc_k > 0) {                     /* rate leveler */
+            double off = pr->rc_k * pr->rc_slope * log2(rate / rtarget);
+            off = off > pr->rc_max ? pr->rc_max : (off < -pr->rc_max ? -pr->rc_max : off);
+            pf.q_db += off;
+        }
+        double b0 = o.bits;
+        encode_frame(&pf, &pl, &ps, type, key, X, PW, s, &o);
+        if (pr->rc_k > 0) {                     /* this frame's rate (kb/s), into the average */
+            double r = (o.bits - b0) * 44100.0 / F / 1000;
+            rate += (r - rate) / pr->rc_tau;
+        }
     }
     fstart[T] = o.n;
     rc = o.err ? -1 : 0;

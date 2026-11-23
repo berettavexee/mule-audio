@@ -247,6 +247,18 @@ def c_params(params):
     p.ath_rel_db = params.ath_rel_db
     p.ath_ref_db = params.ath_ref_db
     p.ath_rel_rel = params.ath_rel_rel
+    p.bf_rel_db = params.bf_rel_db
+    p.bf_snr_db = params.bf_snr_db
+    p.rc_k = params.rc_k
+    p.rc_tau = params.rc_tau
+    p.rc_max = params.rc_max
+    p.rc_r0 = params.rc_r0
+    p.rc_slope = params.rc_slope
+    p.opa_mode = params.opa_mode
+    p.opa_kbps = params.opa_kbps
+    p.opa_eta = params.opa_eta
+    p.opa_k = params.opa_k
+    p.opa_alpha = params.opa_alpha
     return p
 
 

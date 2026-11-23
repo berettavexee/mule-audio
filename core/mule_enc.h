@@ -96,6 +96,38 @@ typedef struct {
     double ath_rel_db;
     double ath_ref_db;  /* (-14 dBFS: a loud passage of music) */
     double ath_rel_rel; /* (0.5 dB per frame: 22 dB/s) */
+    /* Band floor (Opus' energy-normalised allocation, Vorbis' noise floor relative to the frame's
+     * peak): with bf_rel_db > 0, a band whose power per coefficient is within bf_rel_db of the
+     * strongest band's of its channel and group gets a mask at most bf_snr_db under its own power
+     * (so a noise target of at most bf_snr_db - q_db under it), whatever its absolute level and the
+     * threshold in quiet (0: off) */
+    double bf_rel_db;
+    double bf_snr_db;
+    /* Rate leveler (Opus' constrained VBR, Vorbis' bitrate management, softened): with rc_k > 0,
+     * each frame's q_db is moved by rc_k x rc_slope x log2(R / R(q_db)), at most rc_max dB either
+     * way, where R is the rate so far smoothed over rc_tau frames and R(q) = rc_r0 2^(-q / rc_slope)
+     * kb/s the mean rate of the setting on a music library: a track's rate is drawn toward the
+     * setting's (its spread in log divided by 1 + rc_k), the quiet sparse tracks get more bits,
+     * the dense loud ones fewer (0: off, quality VBR) */
+    double rc_k;
+    double rc_tau;      /* (200 frames: 4.6 s) */
+    double rc_max;      /* (9 dB) */
+    double rc_r0;       /* (76.4 kb/s, the 300-track campaign's fit, 23/11/2026) */
+    double rc_slope;    /* (9.21 dB of q_db per doubling of the rate) */
+    /* Opus' band allocation (CELT's band_allocation table, libopus celt/modes.c, BSD; MULE's
+     * bands 0-20 are CELT's): for the target rate opa_kbps (0: R(q_db), the rate curve above),
+     * the table's rows interpolated so that the bits of a channel's coefficients make opa_eta of
+     * half the rate, with CELT's default trim (alloc_trim 5 at LM 3), as bits per coefficient
+     * T[b]; band 21 extrapolated. opa_mode 1: the masks replaced by the band's power over
+     * 10^(0.602 T[b]) (Opus' energy-normalised allocation, at q_db's noise target); 2: the masks
+     * moved by opa_k times the change of the table's shape from 128 kb/s to the target rate (its
+     * mean over the coefficients removed: the tilt only); 3: the geometric mix, opa_alpha of the
+     * masks and the rest of mode 1's (0: off) */
+    int opa_mode;
+    double opa_kbps;
+    double opa_eta;     /* (0.8) */
+    double opa_k;       /* (1) */
+    double opa_alpha;   /* (0.5) */
 } mule_enc_params;
 
 void mule_enc_defaults(mule_enc_params *p);

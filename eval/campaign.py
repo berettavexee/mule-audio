@@ -47,7 +47,9 @@ CONFIGS = {                     # (MULE first: A in the report's comparisons)
 # encoder variants measured after the campaign (run --families NAME, report --families ...): the
 # threshold in quiet (refcodecs.Mule's ath20, athrg), a wider q range since their rates move
 FAMILIES = {**CONFIGS, **{f"mule_{v}": [f"mule-{v}_{q:g}" for q in (-1, -2.5, -4, -6, -7.5, -9, -11, -12.5)]
-                          for v in ("ath20", "athrg", "athl")}}
+                          for v in ("ath20", "athrg", "athl")},
+            # the target rate mode (params.for_bitrate, mule-enc --bitrate: the rate leveler)
+            "mule_br": [f"mule-br_{k}" for k in (80, 96, 112, 128, 144, 160, 176, 192)]}
 
 
 def probe_duration(path):

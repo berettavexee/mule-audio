@@ -112,19 +112,12 @@ typedef struct {
     int err;                    /* an allocation failed: the operations are incomplete */
     int esc;                    /* the coefficients' escape symbol: 7 (coef_a8), 15 (16 symbols) */
     mule_models *mr;            /* RD allocation: models tracked as the decoder adapts them */
+    double bits;                /* the cost of the operations so far under the tracked models
+                                 * (when mr: the rate leveler, rc_k) */
 } ops_t;
 
 /* Appends one operation, growing the arrays; on failure sets err (checked at the end). */
 int ops_add(ops_t *o, int32_t m, uint32_t v);
-
-/* A symbol of stream `stream`, context `ctx`; the tracked models (RD choices) adapt to it as
- * the decoder's will. */
-static inline void put(ops_t *o, int stream, int ctx, int sym)
-{
-    ops_add(o, mule_stream_off[stream] + ctx, (uint32_t)sym);
-    if (o->mr)
-        mule_model_update(&o->mr->m[mule_stream_off[stream] + ctx], sym);
-}
 
 /* The cost in bits of a symbol under the tracked models, now (no update). */
 static inline double sym_bits(const ops_t *o, int stream, int ctx, int sym)
@@ -134,10 +127,22 @@ static inline double sym_bits(const ops_t *o, int stream, int ctx, int sym)
     return MULE_PROB_BITS - log2((double)fr);
 }
 
+/* A symbol of stream `stream`, context `ctx`; the tracked models (RD choices) adapt to it as
+ * the decoder's will. */
+static inline void put(ops_t *o, int stream, int ctx, int sym)
+{
+    ops_add(o, mule_stream_off[stream] + ctx, (uint32_t)sym);
+    if (o->mr)
+        o->bits += sym_bits(o, stream, ctx, sym);
+    if (o->mr)
+        mule_model_update(&o->mr->m[mule_stream_off[stream] + ctx], sym);
+}
+
 /* `bits` raw bits of value v. */
 static inline void raw(ops_t *o, int bits, uint32_t v)
 {
     ops_add(o, -bits, v);
+    o->bits += bits;
 }
 
 /* ---------------------------------------------------------------- measurement trace (enc.c) */
@@ -201,6 +206,8 @@ void psy_fine(const psy_t *p, const mule_enc_params *pr, const double *X, const 
 void psy_masks(const psy_t *p, const mule_enc_params *pr, const double *P, const double *flat,
                double *mask, double noise_flat);
 void psy_dynalloc(const mule_enc_params *pr, const double *P, double *mask);
+void psy_floor(const mule_enc_params *pr, const double *P, double *mask);
+void psy_opus(const mule_enc_params *pr, const double *P, double *mask);
 
 /* ---------------------------------------------------------------- enc_tcq.c */
 

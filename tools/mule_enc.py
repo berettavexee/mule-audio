@@ -21,27 +21,14 @@ sys.path.insert(0, os.path.join(ROOT, "py"))
 from mule import native, oggfile, params, replaygain  # noqa: E402
 
 VERSION = "mule-enc 1.0 (mule-audio, stream format v2)"
-# quality setting (noise relative to the masking threshold, dB) -> mean rate over 30 tracks drawn
-# at random from a music library (format v3: eval/results/v3_test.csv); a requested bitrate is matched
-# on this curve (log-linear), so it is a library average, not a per-file rate (VBR)
-RATE_CURVE = [(-6.0, 120.0), (-9.0, 149.7), (-12.0, 180.7), (-15.0, 212.6)]
 Q_MIN, Q_MAX = -30.0, 6.0
 SOURCE_TAGS = ["title", "artist", "album", "date", "tracknumber", "genre", "comment"]
 
 
 def quality_for(kbps):
-    """The quality setting (q_db) whose library-average rate is kbps, on RATE_CURVE (log-linear,
-    extended by its end slopes)."""
-    q = np.array([c[0] for c in RATE_CURVE])
-    r = np.log([c[1] for c in RATE_CURVE])
-    lr = np.log(kbps)
-    if lr <= r[0]:                              # beyond the curve: its end slopes
-        v = q[0] + (lr - r[0]) * (q[1] - q[0]) / (r[1] - r[0])
-    elif lr >= r[-1]:
-        v = q[-1] + (lr - r[-1]) * (q[-1] - q[-2]) / (r[-1] - r[-2])
-    else:
-        v = np.interp(lr, r, q)
-    return float(np.clip(v, Q_MIN, Q_MAX))
+    """The quality setting (q_db) whose library-average rate is kbps (params.for_bitrate's curve;
+    eval/archive/abx_kit_g3.py)."""
+    return params.for_bitrate(kbps).q_db
 
 
 def to_stereo(x):
@@ -108,11 +95,12 @@ def main():
     ap.add_argument("--quiet", action="store_true", help="enable quiet mode")
     g = ap.add_argument_group("encoding options")
     g.add_argument("--bitrate", type=float, metavar="n.nnn",
-                   help="target bitrate in kbit/s, a library average (VBR; default 128: transparent "
-                        "in our listening tests, MULE and Opus indistinguishable at the same rate)")
+                   help="target bitrate in kbit/s (VBR, as opusenc's: each track's rate drawn toward "
+                        "it; default 128: transparent in our listening tests)")
     g.add_argument("-q", "--quality", type=float, metavar="dB",
-                   help="noise target relative to the masking threshold, instead of --bitrate "
-                        "(-6 ~ 120 kb/s, -9 ~ 150, -12 ~ 180, -15 ~ 210)")
+                   help="noise target relative to the masking threshold, instead of --bitrate: "
+                        "pure quality VBR, the rate follows the music (on average -2.5 ~ 90 kb/s, "
+                        "-6 ~ 120, -9 ~ 150, -12.5 ~ 195)")
     m = ap.add_argument_group("metadata options")
     m.add_argument("--title")
     m.add_argument("--artist", action="append", default=[], help="may be used multiple times")
@@ -160,8 +148,11 @@ def main():
         import soxr
         say(f"Resampling from {fs} Hz to 44100 Hz")
         x = soxr.resample(x, fs, 44100, quality="VHQ")
-    q = a.quality if a.quality is not None else quality_for(a.bitrate or 128.0)
-    settings = params.Params(q_db=q)
+    if a.quality is not None:
+        settings = params.Params(q_db=float(min(max(a.quality, Q_MIN), Q_MAX)))
+    else:
+        settings = params.for_bitrate(a.bitrate or 128.0)
+    q = settings.q_db
     body = [("ENCODER", VERSION)] + tags + [oggfile.picture_comment(p) for p in pictures]
 
     data, nbytes = native.c_encode(x, settings, body)

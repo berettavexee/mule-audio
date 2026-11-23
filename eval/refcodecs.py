@@ -301,6 +301,25 @@ class Mule:
     # athl: the relative ATH (Vorbis, LAME): lowered by -14 dBFS minus the passage's level, 24 dB
     # at most, the level follower falling 0.5 dB per frame (core/mule_enc.h, ath_rel_db)
     VARIANTS["athl"] = {"ath_rel_db": 24.0}
+    # the band floor (core/mule_enc.h, bf_rel_db; 23/11/2026): bf<snr>r<rel>, m = minus
+    for _s, _r in ((0, 20), (0, 30), (-4, 40), (3, 20), (6, 20), (10, 20), (14, 20), (10, 12), (10, 30)):
+        VARIANTS[f"bf{'m' if _s < 0 else ''}{abs(_s)}r{_r}"] = {"bf_rel_db": float(_r), "bf_snr_db": float(_s)}
+    del _s, _r
+    # the rate leveler (core/mule_enc.h, rc_k; 23/11/2026): rc<k x 10>, rc10a = with athl
+    for _k in (5, 10, 20, 40):
+        VARIANTS[f"rc{_k}"] = {"rc_k": _k / 10}
+    VARIANTS["rc10a"] = {"rc_k": 1.0, "ath_rel_db": 24.0}
+    for _k in (20, 40, 80, 160):                # rc<k x 10>m15: up to 15 dB of q_db
+        VARIANTS[f"rc{_k}m15"] = {"rc_k": _k / 10, "rc_max": 15.0}
+    del _k
+    # br: mule-br_<kbps>, the target rate mode (params.for_bitrate: mule-enc --bitrate)
+    VARIANTS["br"] = {}
+    # Opus' band allocation in the target rate mode (core/mule_enc.h, opa_mode; 23/11/2026):
+    # brA the table alone, brB<k x 10> its tilt, brC<alpha x 100> the mix
+    VARIANTS.update({"brA": {"opa_mode": 1}, "brB10": {"opa_mode": 2, "opa_k": 1.0},
+                     "brB5": {"opa_mode": 2, "opa_k": 0.5}, "brB20": {"opa_mode": 2, "opa_k": 2.0},
+                     "brC25": {"opa_mode": 3, "opa_alpha": 0.25}, "brC50": {"opa_mode": 3, "opa_alpha": 0.5},
+                     "brC75": {"opa_mode": 3, "opa_alpha": 0.75}})
 
     def __init__(self, variant, q):
         from mule import params
@@ -310,7 +329,8 @@ class Mule:
             path = os.path.join(self.ROOT, "eval", "results", f"m6_best_{tag}.json" if tag else "m6_best.json")
             self.VARIANTS[variant] = {**self.PRE_V5, **{k: (int(v) if k.startswith("tcq_") and k != "tcq_rdl" else v)
                                                     for k, v in json.load(open(path)).items()}}
-        self.params = params.Params(q_db=q, **self.VARIANTS[variant])
+        self.params = (params.for_bitrate(q, **self.VARIANTS[variant]) if variant.startswith("br")
+                       else params.Params(q_db=q, **self.VARIANTS[variant]))
         self.name = f"mule{'-' + variant if variant else ''}_{q:g}"
 
     def run(self, wav, work):

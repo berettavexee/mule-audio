@@ -267,6 +267,52 @@ vieille, et elle vient des modems.
 - À vérifier : la borne de 1,53 dB, la date d'Ungerboeck, la « quantification dépendante » de
   VVC (citée dans le README), l'absence de la TCQ dans les codecs audio grand public.
 
+## Billet 3 : « La compression vient du modèle, pas du codeur »
+
+Plan du 23/11/2026 (premier jet : `03-modele.md`). Environ 3 000 à 3 500 mots, 6 figures. Même
+public et même ton.
+
+### 0. Accroche (≈ 250 mots)
+- Des index et des signes à écrire ; le codeur, partie réputée savante, est parfait à 0,01 % près ;
+  tout le gain (débit divisé par 2,4) vient de ce qu'on sait deviner.
+
+### 1. Ce que coûte un symbole (≈ 400 mots)
+- −log2(p) bits (Shannon) ; les index sont surtout 0 et 1 ; longueur fixe : 232 kb/s, MULE : 96.
+- **Figure 1** : histogramme des index d'un extrait SQAM et leur coût.
+
+### 2. rANS en une page (≈ 450 mots)
+- Huffman et son bit entier ; codage arithmétique ; rANS : un état qui grossit de −log2(p) bits.
+- La pile : codage à l'envers, paquets de 4 trames ; 0,01 % de l'idéal ; rANS trouvé par accident.
+- **Figure 2** : l'état rANS sur quelques symboles.
+
+### 3. Le modèle : deviner ce qui vient (≈ 500 mots)
+- Contextes : 135 modèles en dix flux ; coefficients (96), énergies (9), allocations (6).
+- Sans contexte 110 kb/s, avec 96 : environ 13 % ; 28 kb/s de bits bruts.
+- **Figure 3** : les quatre schémas (232 / 110 / 100,5 / 96,4 kb/s).
+
+### 4. Apprendre en marchant : l'adaptation (≈ 450 mots)
+- Tables apprises (4,9 Kio) ; adaptation à la AV1 (1/16, 1/32, 1/64) ; environ 4 %.
+- Remise à zéro aux paquets clés (0,93 s) ; 63 % des instructions du décodeur v2, mise à jour
+  19 % ; « un symbole sur deux » : −9,6 % d'instructions, +0,32 % de débit.
+- **Figure 4** : convergence d'une CDF.
+
+### 5. Ce qui ne se compresse pas (≈ 300 mots)
+- Signes (un tiers du flux sur ABBA), échappements, alphabet de 8 symboles : 0,00 %.
+- **Figure 5** : composition d'un paquet.
+
+### 6. Le cimetière des contextes (≈ 450 mots)
+- v0 : 480 contextes dont 96 atteignables ; tables réapprises 0,1 % ; inter-trame 2 % ;
+  contextes selon l'état −0,42 % pour 3 Kio ; contextes appris −0,30 à −0,52 %, borne −1,18 %.
+- **Figure 6** : gain des contextes appris face à la mémoire.
+
+### 7. Conclusion (≈ 250 mots)
+- Un compresseur est un prédicteur avec un comptable au bout ; sur le baladeur, le comptable
+  coûte plus que la transformée. Annonce du billet 4 (les machines qui écoutent).
+
+### À produire pour le billet 3
+- Figures : `docs/blog/tools/figs3.py`, sons EBU SQAM ; relancer `eval/entropy_gain.py` sur la v5
+  pour la figure 3 ; le README dit encore 134 modèles (135 en v5).
+
 ## Billet 5 : « Le cimetière des bonnes idées », notes pour le plan
 
 Pas encore de plan détaillé ; matériau rassemblé au fil des discussions.

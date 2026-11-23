@@ -291,3 +291,104 @@ void psy_dynalloc(const mule_enc_params *pr, const double *P, double *mask)
             mask[b] *= pow(10, -pr->dyn_a * x / 10);
     }
 }
+
+/* The band floor (core/mule_enc.h, bf_rel_db): the masks of the bands within bf_rel_db of the
+ * strongest one (power per coefficient) at most bf_snr_db under their own power. */
+void psy_floor(const mule_enc_params *pr, const double *P, double *mask)
+{
+    double pmax = 0;
+    for (int b = 0; b < NB; b++)
+        if (P[b] > pmax)
+            pmax = P[b];
+    double gate = pmax * pow(10, -pr->bf_rel_db / 10), k = pow(10, -pr->bf_snr_db / 10);
+    for (int b = 0; b < NB; b++)
+        if (P[b] >= gate && mask[b] > P[b] * k)
+            mask[b] = P[b] * k;
+}
+
+/* CELT's band_allocation (libopus celt/modes.c, BSD licence, Copyright Xiph.Org, Skype, CSIRO):
+ * 11 rows of 21 bands, 1/32 bit per coefficient. */
+static const unsigned char OPUS_ALLOC[11][21] = {
+    {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0},
+    { 90, 80, 75, 69, 63, 56, 49, 40, 34, 29, 20, 18, 10,  0,  0,  0,  0,  0,  0,  0,  0},
+    {110,100, 90, 84, 78, 71, 65, 58, 51, 45, 39, 32, 26, 20, 12,  0,  0,  0,  0,  0,  0},
+    {118,110,103, 93, 86, 80, 75, 70, 65, 59, 53, 47, 40, 31, 23, 15,  4,  0,  0,  0,  0},
+    {126,119,112,104, 95, 89, 83, 78, 72, 66, 60, 54, 47, 39, 32, 25, 17, 12,  1,  0,  0},
+    {134,127,120,114,103, 97, 91, 85, 78, 72, 66, 60, 54, 47, 41, 35, 29, 23, 16, 10,  1},
+    {144,137,130,124,113,107,101, 95, 88, 82, 76, 70, 64, 57, 51, 45, 39, 33, 26, 15,  1},
+    {152,145,138,132,123,117,111,105, 98, 92, 86, 80, 74, 67, 61, 55, 49, 43, 36, 20,  1},
+    {162,155,148,142,133,127,121,115,108,102, 96, 90, 84, 77, 71, 65, 59, 53, 46, 30,  1},
+    {172,165,158,152,143,137,131,125,118,112,106,100, 94, 87, 81, 75, 69, 63, 56, 45, 20},
+    {200,200,200,200,200,200,200,200,198,193,188,183,178,173,168,163,158,153,148,129,104},
+};
+
+/* The table at row x (0..10, interpolated), bits per coefficient of MULE's bands: CELT's trim
+ * offset at alloc_trim 5, LM 3 (-3 (20 - b) / 64 bit per coefficient), at least 0; band 21 as
+ * twice band 20 minus band 19. Returns the bits of one channel. */
+static double opus_row(double x, double *T)
+{
+    int lo = (int)x;
+    if (lo > 9)
+        lo = 9;
+    double fr = x - lo, tot = 0;
+    for (int b = 0; b < NB; b++) {
+        double v;
+        if (b < 21)
+            v = (1 - fr) * OPUS_ALLOC[lo][b] + fr * OPUS_ALLOC[lo + 1][b];
+        else {
+            double v20 = (1 - fr) * OPUS_ALLOC[lo][20] + fr * OPUS_ALLOC[lo + 1][20];
+            double v19 = (1 - fr) * OPUS_ALLOC[lo][19] + fr * OPUS_ALLOC[lo + 1][19];
+            v = 2 * v20 - v19;
+        }
+        double t = v / 32 - (b < 21 ? 3.0 * (20 - b) / 64 : 0.0);
+        T[b] = t > 0 && v > 0 ? t : 0.0;
+        tot += T[b] * (EDGES[b + 1] - EDGES[b]) * 8;
+    }
+    return tot;
+}
+
+/* T: the table's bits per coefficient for a rate of kbps (a channel's coefficients get opa_eta
+ * of half the rate). */
+static void opus_alloc(const mule_enc_params *pr, double kbps, double *T)
+{
+    double budget = pr->opa_eta * kbps * 1000 * F / 44100.0 / 2, lo = 0, hi = 10;
+    if (opus_row(hi, T) <= budget)
+        return;
+    for (int i = 0; i < 40; i++) {
+        double mid = (lo + hi) / 2;
+        if (opus_row(mid, T) > budget)
+            hi = mid;
+        else
+            lo = mid;
+    }
+    opus_row(lo, T);
+}
+
+/* Opus' band allocation (core/mule_enc.h, opa_mode). */
+void psy_opus(const mule_enc_params *pr, const double *P, double *mask)
+{
+    static double kb = -1, T[NB], T128[NB], sh[NB];
+    if (kb != pr->opa_kbps || pr->opa_mode == 2) {      /* (mode 2: opa_k may change) */
+        kb = pr->opa_kbps;
+        opus_alloc(pr, kb, T);
+        opus_alloc(pr, 128.0, T128);
+        double m = 0, n = 0;
+        for (int b = 0; b < NB; b++) {
+            double w = (EDGES[b + 1] - EDGES[b]) * 8.0;
+            m += w * (T[b] - T128[b]);
+            n += w;
+        }
+        for (int b = 0; b < NB; b++)
+            sh[b] = T[b] - T128[b] - m / n;
+    }
+    double q0 = -pr->rc_slope * log2(kb / pr->rc_r0), tq0 = pow(10, q0 / 10);
+    for (int b = 0; b < NB; b++) {
+        double mo = P[b] * pow(10, -0.602 * T[b]) / tq0 + 1e-30;
+        if (pr->opa_mode == 1)
+            mask[b] = mo;
+        else if (pr->opa_mode == 2)
+            mask[b] *= pow(10, -0.602 * pr->opa_k * sh[b]);
+        else
+            mask[b] = pow(mask[b] + 1e-30, pr->opa_alpha) * pow(mo, 1 - pr->opa_alpha);
+    }
+}

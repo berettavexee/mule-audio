@@ -64,7 +64,30 @@ class Params:
     ath_rel_db: float = 0.0     # relative ATH: lowered by ath_ref_db - passage level, at most this (0: off)
     ath_ref_db: float = -14.0   # its reference level (dBFS)
     ath_rel_rel: float = 0.5    # its level follower's fall (dB per frame)
+    bf_rel_db: float = 0.0      # band floor: bands within this of the strongest (0: off) ...
+    bf_snr_db: float = 0.0      # ... get a mask at most this under their power (dB)
+    rc_k: float = 0.0           # rate leveler: q_db moved by rc_k x rc_slope x log2(R / R(q)) (0: off)
+    rc_tau: float = 200.0       # its rate average (frames)
+    rc_max: float = 9.0         # its largest move of q_db (dB)
+    rc_r0: float = 76.4         # R(q) = rc_r0 2^(-q / rc_slope) kb/s
+    rc_slope: float = 9.21
+    opa_mode: int = 0           # Opus' band allocation: 1 replaces the masks, 2 its tilt, 3 the mix (0: off)
+    opa_kbps: float = 0.0       # its target rate (0: R(q_db))
+    opa_eta: float = 0.8        # share of half the rate for a channel's coefficients
+    opa_k: float = 1.0          # mode 2: the tilt's scale
+    opa_alpha: float = 0.5      # mode 3: the masks' share (log)
 
+
+
+def for_bitrate(kbps, **kw):
+    """The settings for a target rate in kb/s, as opusenc's --bitrate: q_db from the rate curve
+    R(q) = rc_r0 2^(-q / rc_slope) (the 300-track campaign, 23/11/2026), and the rate leveler
+    (rc_k 2, up to 15 dB) that draws each track's rate toward it (core/mule_enc.h); kw: other
+    settings."""
+    import math
+    d = Params()
+    q = -d.rc_slope * math.log2(kbps / d.rc_r0)
+    return Params(**{"q_db": q, "rc_k": 2.0, "rc_max": 15.0, **kw})
 
 # the model streams in the decoder's order: (name, symbols, contexts) (core/models.c)
 STREAMS = [("btype", 2, 1), ("alpha", 4, 1), ("stereo", 2, 3), ("energy", 16, 9),
