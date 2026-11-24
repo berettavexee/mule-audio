@@ -332,6 +332,9 @@ class Mule:
                     "tc12": {"tcap_db": 12.0}, "tc20": {"tcap_db": 20.0}}.items():
         VARIANTS["brT" + _n] = {**_C75, **_kv}
     del _n, _kv
+    # on/off hysteresis of the allocations (24/11/2026, Purcell's flicker): brZ<on dB>[k<keep dB>]
+    VARIANTS.update({"brZ2": {"zh_db": 2.0}, "brZ4": {"zh_db": 4.0}, "brZ6": {"zh_db": 6.0},
+                     "brZ3k3": {"zh_db": 3.0, "zh_keep_db": 3.0}, "brZ0k3": {"zh_keep_db": 3.0}})
 
     def __init__(self, variant, q):
         from mule import params

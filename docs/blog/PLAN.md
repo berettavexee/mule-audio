@@ -313,6 +313,118 @@ public et même ton.
 - Figures : `docs/blog/tools/figs3.py`, sons EBU SQAM ; relancer `eval/entropy_gain.py` sur la v5
   pour la figure 3 ; le README dit encore 134 modèles (135 en v5).
 
+## Billet 4 : « Quand les machines écoutent à notre place »
+
+Plan du 24/11/2026. Environ 3 500 mots, 7 figures, même public et même ton. Le fil : je n'ai qu'une
+paire d'oreilles, fatiguées, et des milliers de réglages à départager. Alors j'ai délégué l'écoute à
+des programmes. Ils sont rapides, infatigables, reproductibles… et ils se contredisent, se font
+tromper, et n'entendent pas ce que j'entends (ni l'inverse). Le billet raconte comment je m'en sers
+quand même : plusieurs juges, une hiérarchie, des statistiques, et l'ABX comme cour d'appel.
+
+### 0. Accroche (≈ 250 mots)
+- Une nuit, une recherche automatique (CMA-ES) m'annonce +0,031 d'ODG en deux générations. Champagne.
+  En fait, elle avait trouvé une faille dans ma façon de mesurer, pas dans le codec (section 5).
+- Le problème de fond : un réglage se mesure en centièmes de note, mon oreille ne les entend pas,
+  et une session ABX honnête prend une heure par extrait. Il faut des juges automatiques.
+- Annonce : quatre juges, leurs travers, et ce qui reste quand on les fait voter.
+
+### 1. Ce qu'on demande à un juge (≈ 350 mots)
+- Comparer l'original et le décodé comme le ferait une oreille : pas une différence d'échantillons
+  (le SNR ne dit rien, un codec perceptif *ajoute* du bruit exprès), mais ce qui est audible.
+- Le schéma commun : un modèle d'oreille (bancs de filtres, sonie, masquage), deux images internes,
+  une distance, puis une note calibrée sur des tests d'écoute.
+- Les échelles : ODG de −4 (très gênant) à 0 (imperceptible) ; distances (plus petit = mieux).
+- **Figure 1** : le schéma commun (Excalidraw), original et décodé → modèle d'oreille → comparaison.
+
+### 2. Les quatre juges (≈ 700 mots)
+- **PEAQ** (ITU-R BS.1387, 1998, GstPEAQ) : onze variables de sortie (MOV) passées dans un petit
+  réseau de neurones. Le mode de base et le mode avancé ne voient pas la même chose. Calibré sur des
+  codecs de la fin des années 1990, il sature près de la transparence.
+- **NMR** : le rapport bruit/masque, bande par bande, avec mon propre modèle psychoacoustique.
+  Le juge le plus simple, et le plus suspect, puisqu'il mesure avec le modèle qui a servi à encoder
+  (section 6).
+- **ViSQOL** (Google) : un modèle de similarité, puis une régression (SVR). Écarté le 22/11 : il
+  sature près de la transparence et ses petits reculs n'ont jamais été entendus en ABX.
+- **Zimtohrli** (Google, 2024) : un modèle d'oreille plus récent, 128 canaux de 18 Hz à 20 kHz,
+  une similarité qui sépare *intensité* (le niveau local) et *structure* (la texture
+  spectro-temporelle). Devenu mon premier juge. Anecdote : pendant des jours, mes CSV l'arrondissaient
+  à 1e-4 (`%.4f`), alors que ses distances valent 0,0001 à 0,0009. J'ai comparé des zéros entre eux.
+- **Figure 2** : tableau des juges (ce qu'ils mesurent, échelle, sens, défaut connu).
+
+### 3. Le piège des 20 kHz, ou un juge qui compte ce que personne n'entend (≈ 350 mots)
+- PEAQ retire 0,025 d'ODG à MULE parce que sa dernière bande s'arrête à 19,95 kHz, contre
+  20,4 kHz pour Opus (MOV `BandwidthTestB`, `E2-LOG.md`). Personne ne l'entend. Une 23e bande,
+  testée puis écartée : un artefact de PEAQ, pas un défaut du codec.
+- La méthode qui l'a révélé : réévaluer le réseau de PEAQ en remplaçant une MOV de MULE par celle
+  d'Opus, pour attribuer l'écart variable par variable.
+- La leçon : un juge note aussi ce qu'il sait mesurer, pas seulement ce qu'on entend.
+- **Figure 3** : l'écart MULE/Opus décomposé par MOV (ADBB +0,066, bande passante +0,025, NMR −0,033).
+
+### 4. Quand les juges ne sont pas d'accord (≈ 500 mots)
+- À 96 kb/s sur 300 morceaux : Zimtohrli voit une égalité avec Opus, PEAQ de base préfère Opus,
+  PEAQ avancé et le NMR préfèrent MULE. Qui croire ?
+- Le réglage `m6z1` (22/11) : Zimtohrli −12 à −13 %, meilleur sur presque tous les extraits, PEAQ de base en
+  léger recul. Règle d'adoption non remplie, donc écoute : 44/96 en ABX, rien entendu ; adopté.
+- Ma règle : Zimtohrli d'abord, puis PEAQ et le NMR. Aucun extrait ne doit régresser. Les juges
+  d'accord, on adopte ; en désaccord, c'est l'ABX qui tranche.
+- **Figure 4** : les quatre juges sur les 300 morceaux, part des morceaux où MULE bat Opus, par
+  débit (une barre par juge). Montre le désaccord à 96 kb/s et l'accord à 160 kb/s.
+
+### 5. L'optimiseur qui triche (≈ 400 mots)
+- CMA-ES (M6, `M-LOG.md`) : maximiser l'ODG « à 128 kb/s ». Mesuré à deux qualités fixes, puis
+  interpolé. Les candidats gourmands dépassaient 128 kb/s aux deux points, la note était
+  extrapolée, la courbe concave, donc surestimée. L'optimiseur a trouvé le biais avant les gains.
+- La correction : encadrer le débit visé pour chaque candidat. Le vrai gain : +0,0006, dans le bruit.
+- Plus généralement : comparer à débit égal (interpolation par extrait, par débit moyen), et le
+  sous-débit des morceaux calmes, qui faussait tout jusqu'au mode `--bitrate`.
+- **Figure 5** : la note en fonction du débit pour un candidat, points mesurés, extrapolation
+  fautive contre interpolation encadrée.
+
+### 6. La circularité : noter un élève avec son propre manuel (≈ 300 mots)
+- MULE est réglé avec ces juges, Opus et AAC à l'oreille, pendant des années. L'avance de MULE sur
+  ces juges surestime toute avance audible. Le NMR, calculé avec le modèle de l'encodeur, est le pire.
+- Les garde-fous : groupes `dev` (réglage) et `test` (validation) séparés, une campagne de 300
+  morceaux jamais vus, plusieurs juges indépendants.
+
+### 7. La cour d'appel : l'ABX (≈ 450 mots)
+- Le protocole : squishyball, 16 essais, 12/16 pour p < 0,05. Une oreille, un casque, une heure
+  par série. Les limites : fatigue, oreilles qui sifflent après un concert, une seule personne.
+- Les verdicts : G3 (17/11), les extraits où PEAQ voit Opus devant, rien d'entendu (Joy Division
+  8/16, Wolfmother 11/16 au plus près) ; `m6z1` 44/96 ; v4 à 128 kb/s.
+- Joy Division, deux fois : pire extrait de MULE face à Opus pour PEAQ en novembre, pire encore sur
+  les 300 morceaux… et un live de 1980 saturé. Rien d'entendu en ABX.
+- **Figure 6** : les scores ABX par extrait (barres sur 16, seuil à 12).
+
+### 8. Regarder où un juge a mal (≈ 400 mots)
+- Une moyenne cache tout : descendre au morceau, puis à la seconde. Purcell : Zimtohrli seconde par
+  seconde, MULE derrière sur 58 fenêtres sur 59. Décomposé, c'est presque uniquement de la
+  *structure*, entre 2,8 et 6 kHz et entre 10 et 15 kHz : le bruit de remplissage de MULE n'a pas la
+  texture du signal, là où Opus plie le spectre.
+- Les fausses pistes, réfutées par la mesure : le papillotement des bandes (hystérésis : moins de
+  bascules, même note), le niveau de bruit (déjà au bon endroit).
+- La raie à 15 625 Hz, revenue sur Beethoven par Pires : un téléviseur cathodique dans la salle
+  d'enregistrement (déjà croisé sur Beethoven 59, voir les notes sur la v4).
+- **Figure 7** : Zimtohrli seconde par seconde sur un extrait SQAM (pas Purcell, sous droits), MULE
+  et Opus, avec la décomposition intensité/structure par région.
+
+### 9. Conclusion (≈ 250 mots)
+- Les juges automatiques sont indispensables pour régler, dangereux pour conclure. Plusieurs juges,
+  une hiérarchie annoncée d'avance, des statistiques, et l'oreille en dernier ressort.
+- Ce qu'ils m'ont appris : à 128 kb/s, tous les codecs comparés sont probablement transparents pour
+  moi ; on se bat pour des écarts que seuls les programmes voient.
+- Annonce du billet 5 (le cimetière des bonnes idées), où les juges ont refusé beaucoup de choses.
+
+### À produire pour le billet 4
+- Figures 1 et 2 : Excalidraw ; figure 3 : `E2-LOG.md` (attribution par MOV, `eval/peaq_movs.py`) ;
+  figure 4 : `data/campaign/matched_mule-mule_br-mule_brC75-opus-aac.csv` (statistiques seulement) ;
+  figure 5 : `m6_search_extrapolated.csv` et `m6_search.csv` ; figure 6 : `G3-ABX.md`, l'ABX
+  `m6z1` (`N-LOG.md`), `V4-ABX.md` s'il est rempli ; figure 7 : refaire l'analyse seconde par seconde
+  sur un extrait SQAM (`docs/blog/tools/`).
+- Sons : EBU SQAM uniquement. Joy Division, Purcell et Pires sont cités par leur nom, sans audio ni
+  spectrogramme publié.
+- À vérifier : la date et la licence de Zimtohrli, la version de PEAQ (BS.1387-1, 2001), l'ABX du
+  morceau Purcell une fois les oreilles reposées (à ajouter à la section 7).
+
 ## Billet 5 : « Le cimetière des bonnes idées », notes pour le plan
 
 Pas encore de plan détaillé ; matériau rassemblé au fil des discussions.

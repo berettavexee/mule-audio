@@ -133,6 +133,13 @@ typedef struct {
      * last band (> 0: fewer bits in the highs, more noise filling; 0: off) */
     double hf_db;
     int hf_band;        /* (16) */
+    /* On/off hysteresis of the allocations (probe, 24/11/2026): with zh_db > 0, a band noise-filled
+     * in the previous frame is coded only if its energy is more than zh_db above its noise target
+     * (mask x tq); with zh_keep_db > 0, a coded band is noise-filled only if its energy falls
+     * zh_keep_db below it (else at least allocation 1): no flicker between coded and noise-filled
+     * near the mask (both 0: off) */
+    double zh_db;
+    double zh_keep_db;
 } mule_enc_params;
 
 void mule_enc_defaults(mule_enc_params *p);

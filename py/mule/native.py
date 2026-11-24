@@ -261,6 +261,8 @@ def c_params(params):
     p.opa_alpha = params.opa_alpha
     p.hf_db = params.hf_db
     p.hf_band = params.hf_band
+    p.zh_db = params.zh_db
+    p.zh_keep_db = params.zh_keep_db
     return p
 
 

@@ -53,7 +53,7 @@ def main(out, csv=None, mule="mule"):
     global CODECS
     df = pd.read_csv(csv or os.path.join(ROOT, "data", "campaign", "matched.csv"))
     base = df[df.codec == "mule"].copy()
-    CODECS = [(mule, "MULE v5" + (" (--bitrate)" if mule == "mule_br" else ""), *CODECS[0][2:])] + CODECS[1:]
+    CODECS = [(mule, "MULE v5" + (" (--bitrate)" if mule.startswith("mule_br") else ""), *CODECS[0][2:])] + CODECS[1:]
     rng = np.random.default_rng(2026)
     n_items = df["item"].nunique()
     rates = sorted(df["rate"].unique())

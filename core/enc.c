@@ -83,6 +83,8 @@ void mule_enc_defaults(mule_enc_params *p)
     p->opa_alpha = 0.5;
     p->hf_db = 0.0;             /* high-band tilt off */
     p->hf_band = 16;
+    p->zh_db = 0.0;             /* on/off hysteresis off */
+    p->zh_keep_db = 0.0;
 }
 
 /* ---------------------------------------------------------------- measurement trace */
@@ -390,11 +392,23 @@ static void choose_alpha(const state_t *s, frame_t *f)
 static void alloc_from_masks(const mule_enc_params *pr, const frame_t *f, const state_t *s, int c,
                              int g, const int *q, int *a)
 {
+    const int *ap = s->aprev[c];
+    int zh = (pr->zh_db > 0 || pr->zh_keep_db > 0) && !f->key;
     for (int b = 0; b < NB; b++) {
         a[b] = 0;
         double rms = pow(2.0, q[b] / 4.0);
         double target = band_mask(f, c, g, b) * f->tq;
-        if (q[b] <= MULE_QMIN || target >= rms * rms)
+        if (q[b] <= MULE_QMIN)
+            continue;
+        if (zh) {                               /* m: the band's energy over its noise target, dB */
+            double m = 10 * log10(rms * rms / target);
+            if (ap[b] == 0 ? m <= pr->zh_db : m <= -pr->zh_keep_db)
+                continue;                       /* noise-filled (a = 0) */
+            double av = nearbyint(MULE_A0 - 2 * log2(12 * target / (rms * rms)));
+            a[b] = av < 1 ? 1 : av > MULE_AMAX ? MULE_AMAX : (int)av;
+            continue;
+        }
+        if (target >= rms * rms)
             continue;                           /* noise-filled (a = 0) */
         double D = sqrt(12 * target) / rms;
         double av = nearbyint(MULE_A0 - 4 * log2(D));
@@ -402,7 +416,6 @@ static void alloc_from_masks(const mule_enc_params *pr, const frame_t *f, const 
         if (av > MULE_AMAX) av = MULE_AMAX;
         a[b] = (int)av;
     }
-    const int *ap = s->aprev[c];
     if (pr->alloc_hyst && !f->key)
         for (int b = 0; b < NB; b++)
             if (a[b] > 0 && ap[b] > 0 && abs(a[b] - ap[b]) <= pr->alloc_hyst)
@@ -726,7 +739,8 @@ static int params_ok(const mule_enc_params *pr)
            (nr == 0 || nr == 8 || nr == 16 || nr == 32 || nr == 64) &&
            pr->tg_band >= 0 && pr->tg_band <= NB && pr->nf_top >= 0 && pr->nf_top <= NB &&
            pr->tg_a >= 1 && pr->tg_a <= MULE_AMAX && pr->eg_band >= 0 && pr->eg_band <= NB &&
-           pr->eg_a >= 1 && pr->eg_a <= MULE_AMAX && pr->hf_band >= 0 && pr->hf_band < NB;
+           pr->eg_a >= 1 && pr->eg_a <= MULE_AMAX && pr->hf_band >= 0 && pr->hf_band < NB &&
+           pr->zh_db >= 0 && pr->zh_keep_db >= 0;
 }
 
 /* Analysis and frame coding of the whole signal: its operations (out) and each frame's first

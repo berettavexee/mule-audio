@@ -78,6 +78,8 @@ class Params:
     opa_alpha: float = 0.5      # mode 3: the masks' share (log)
     hf_db: float = 0.0          # high-band tilt: masks raised up to this in the last band (0: off)
     hf_band: int = 16           # its first band
+    zh_db: float = 0.0          # on/off hysteresis: margin to turn a noise-filled band on, dB (0: off)
+    zh_keep_db: float = 0.0     # ... and to keep a coded band on below its target, dB (0: off)
 
 
 
