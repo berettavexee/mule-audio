@@ -81,6 +81,8 @@ void mule_enc_defaults(mule_enc_params *p)
     p->opa_eta = 0.8;
     p->opa_k = 1.0;
     p->opa_alpha = 0.5;
+    p->hf_db = 0.0;             /* high-band tilt off */
+    p->hf_band = 16;
 }
 
 /* ---------------------------------------------------------------- measurement trace */
@@ -285,6 +287,9 @@ static void frame_analysis(const mule_enc_params *pr, const psy_t *py, double X[
                 psy_floor(pr, f->P[c][g], f->MK[c][g]);
             if (pr->opa_mode)
                 psy_opus(pr, f->P[c][g], f->MK[c][g]);
+            if (pr->hf_db != 0)
+                for (int b = pr->hf_band; b < NB; b++)
+                    f->MK[c][g][b] *= pow(10, pr->hf_db * (b - pr->hf_band + 1) / (NB - pr->hf_band) / 10);
         }
     if (pr->pre_db > 0) {
         if (f->type == 0) {
@@ -721,7 +726,7 @@ static int params_ok(const mule_enc_params *pr)
            (nr == 0 || nr == 8 || nr == 16 || nr == 32 || nr == 64) &&
            pr->tg_band >= 0 && pr->tg_band <= NB && pr->nf_top >= 0 && pr->nf_top <= NB &&
            pr->tg_a >= 1 && pr->tg_a <= MULE_AMAX && pr->eg_band >= 0 && pr->eg_band <= NB &&
-           pr->eg_a >= 1 && pr->eg_a <= MULE_AMAX;
+           pr->eg_a >= 1 && pr->eg_a <= MULE_AMAX && pr->hf_band >= 0 && pr->hf_band < NB;
 }
 
 /* Analysis and frame coding of the whole signal: its operations (out) and each frame's first

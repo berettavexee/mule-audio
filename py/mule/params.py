@@ -76,18 +76,21 @@ class Params:
     opa_eta: float = 0.8        # share of half the rate for a channel's coefficients
     opa_k: float = 1.0          # mode 2: the tilt's scale
     opa_alpha: float = 0.5      # mode 3: the masks' share (log)
+    hf_db: float = 0.0          # high-band tilt: masks raised up to this in the last band (0: off)
+    hf_band: int = 16           # its first band
 
 
 
 def for_bitrate(kbps, **kw):
     """The settings for a target rate in kb/s, as opusenc's --bitrate: q_db from the rate curve
     R(q) = rc_r0 2^(-q / rc_slope) (the 300-track campaign, 23/11/2026), and the rate leveler
-    (rc_k 2, up to 15 dB) that draws each track's rate toward it (core/mule_enc.h); kw: other
-    settings."""
+    (rc_k 2, up to 15 dB) that draws each track's rate toward it (core/mule_enc.h), and the Opus
+    band allocation mixed with the masks (opa_mode 3, 75 % MULE: better on every judge at 96, 128
+    and 160 kb/s on the 300-track campaign, 24/11/2026); kw: other settings."""
     import math
     d = Params()
     q = -d.rc_slope * math.log2(kbps / d.rc_r0)
-    return Params(**{"q_db": q, "rc_k": 2.0, "rc_max": 15.0, **kw})
+    return Params(**{"q_db": q, "rc_k": 2.0, "rc_max": 15.0, "opa_mode": 3, "opa_alpha": 0.75, **kw})
 
 # the model streams in the decoder's order: (name, symbols, contexts) (core/models.c)
 STREAMS = [("btype", 2, 1), ("alpha", 4, 1), ("stereo", 2, 3), ("energy", 16, 9),

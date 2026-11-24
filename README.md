@@ -187,8 +187,10 @@ tools/mule-dec out.mule out.wav         # 16-bit WAV, the reference decoder
 `--picture`, `--discard-comments`...), any input libsndfile reads (or `-` for stdin), any sample
 rate (resampled to 44.1 kHz, the only one the format knows), mono or more than two channels
 (made stereo), and copies the tags and pictures of a FLAC input. As with Opus, `--bitrate` holds
-each track near the requested rate (a rate leveler: on 300 tracks, 95 % within ±10 % of it, with
-the same quality as pure quality VBR); `-q` is pure quality VBR, whose rate follows the music.
+each track near the requested rate (a rate leveler: on 300 tracks, 95 % within ±10 % of it) and
+mixes Opus's band allocation table into its masking model (a quarter of the weight), which beats
+pure quality VBR at the same mean rate on every measure of the campaign; `-q` is pure quality VBR,
+whose rate follows the music.
 
 The evaluation corpus is not included (it comes from the EBU SQAM disc and a private music
 library); `eval/corpus.py` shows how it was cut (the library's root in `MULE_LIBRARY`).

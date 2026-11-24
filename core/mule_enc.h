@@ -128,6 +128,11 @@ typedef struct {
     double opa_eta;     /* (0.8) */
     double opa_k;       /* (1) */
     double opa_alpha;   /* (0.5) */
+    /* High-band tilt (probe, 24/11/2026): with hf_db != 0, the masks of bands hf_band and up
+     * raised by hf_db times (b - hf_band + 1) / (MULE_NB - hf_band), a ramp up to hf_db in the
+     * last band (> 0: fewer bits in the highs, more noise filling; 0: off) */
+    double hf_db;
+    int hf_band;        /* (16) */
 } mule_enc_params;
 
 void mule_enc_defaults(mule_enc_params *p);

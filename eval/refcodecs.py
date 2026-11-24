@@ -313,13 +313,25 @@ class Mule:
         VARIANTS[f"rc{_k}m15"] = {"rc_k": _k / 10, "rc_max": 15.0}
     del _k
     # br: mule-br_<kbps>, the target rate mode (params.for_bitrate: mule-enc --bitrate)
-    VARIANTS["br"] = {}
+    VARIANTS["br"] = {"opa_mode": 0}          # --bitrate before the Opus mix (24/11/2026)
     # Opus' band allocation in the target rate mode (core/mule_enc.h, opa_mode; 23/11/2026):
     # brA the table alone, brB<k x 10> its tilt, brC<alpha x 100> the mix
     VARIANTS.update({"brA": {"opa_mode": 1}, "brB10": {"opa_mode": 2, "opa_k": 1.0},
                      "brB5": {"opa_mode": 2, "opa_k": 0.5}, "brB20": {"opa_mode": 2, "opa_k": 2.0},
                      "brC25": {"opa_mode": 3, "opa_alpha": 0.25}, "brC50": {"opa_mode": 3, "opa_alpha": 0.5},
-                     "brC75": {"opa_mode": 3, "opa_alpha": 0.75}})
+                     "brC75": {"opa_mode": 3, "opa_alpha": 0.75},
+                     "brC65": {"opa_mode": 3, "opa_alpha": 0.65}, "brC85": {"opa_mode": 3, "opa_alpha": 0.85},
+                     "brC90": {"opa_mode": 3, "opa_alpha": 0.90}})
+    # settings by rate (24/11/2026): the psychoacoustic settings and the high-band tilt around the
+    # Opus mix (brC75), measured near 96 kb/s first: brT<name>
+    _C75 = {"opa_mode": 3, "opa_alpha": 0.75}
+    for _n, _kv in {"hf6": {"hf_db": 6.0}, "hf12": {"hf_db": 12.0}, "hf6b19": {"hf_db": 6.0, "hf_band": 19},
+                    "hfm6": {"hf_db": -6.0},
+                    "lo10": {"low_db": 10.0}, "lo20": {"low_db": 20.0}, "mid3": {"mid_db": 3.0},
+                    "mid9": {"mid_db": 9.0}, "rd17": {"rd_lambda": 1.7}, "rd34": {"rd_lambda": 3.4},
+                    "tc12": {"tcap_db": 12.0}, "tc20": {"tcap_db": 20.0}}.items():
+        VARIANTS["brT" + _n] = {**_C75, **_kv}
+    del _n, _kv
 
     def __init__(self, variant, q):
         from mule import params
