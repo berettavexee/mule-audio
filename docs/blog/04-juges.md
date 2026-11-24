@@ -125,9 +125,15 @@ Un codec n'a pas *une* qualité. À 128 kb/s, du morceau le plus facile au plus 
 
 Une moyenne sur 300 morceaux cache une réalité plus complexe. La seule façon d'améliorer le codec à partir des écoutes automatiques est de descendre progressivement : au morceau, puis à la seconde, puis à la bande de fréquence fautive.
 
-Parmi les défaites de MULE face à Opus, il y a l'*Ode pour l'anniversaire de la reine Marie* de Purcell, du chant choral avec un ensemble baroque. Pas de défaut d'enregistrement, contrairement à d'autres. Mais une défaite à tous les débits selon Zimtohrli, alors que PEAQ avancé et le NMR préfèrent MULE. Je ne peux pas vous montrer cet extrait, qui est sous droits, mais le même phénomène se voit sur le quatuor à cordes de la collection EBU SQAM, au même débit pour les deux codecs.
+Parmi les défaites de MULE face à Opus, il y a l'*Ode pour l'anniversaire de la reine Marie* de Purcell, du chant choral avec un ensemble baroque. Pas de défaut d'enregistrement, contrairement à d'autres. Mais une défaite à tous les débits selon Zimtohrli, alors que PEAQ avancé et le NMR préfèrent MULE. Je ne peux pas vous faire écouter cet extrait, qui est sous droits, mais voici ses spectrogrammes.
 
-![Figure 7 : en haut, la distance Zimtohrli seconde par seconde sur le quatuor à cordes de l'EBU, MULE et Opus au même débit ; en bas, sa décomposition par région de fréquence : la perte de MULE est concentrée entre 2,8 et 6 kHz et entre 10 et 15 kHz, et c'est presque uniquement de la structure, pas de l'intensité](fig/b4-fig6-secondes.svg)
+![Figure 7 : les spectrogrammes de l'ode de Purcell, l'original en haut, MULE à 96 kb/s au milieu, Opus à 96 kb/s en bas, sur la même échelle de niveau ; au-dessus de 5 kHz, la texture de MULE est plus lisse et plus floue que celle de l'original ; Opus garde mieux le grain, mais laisse par moments des trous noirs entre 12 et 16 kHz](fig/b4-fig8-purcell-spectro.png)
+
+Rien ne saute aux yeux, et c'est bien le problème : les deux codecs gardent l'essentiel. Il faut regarder le haut du spectre. Au-dessus de 5 kHz, l'original a un grain fin, fait de traits verticaux et d'harmoniques ; chez MULE, cette zone devient une brume plus uniforme. Opus garde mieux ce grain, au prix de trous francs, entre 12 et 16 kHz, où il n'a rien reconstruit. Zimtohrli préfère pourtant nettement Opus : il semble pardonner un trou bref plus facilement qu'une texture lissée partout. (Opus dépense ici un peu plus : 97,9 kb/s contre 92,3 pour MULE.)
+
+Le même phénomène se voit sur le quatuor à cordes de la collection EBU SQAM, au même débit pour les deux codecs.
+
+![Figure 8 : en haut, la distance Zimtohrli seconde par seconde sur le quatuor à cordes de l'EBU, MULE et Opus au même débit ; en bas, sa décomposition par région de fréquence : la perte de MULE est concentrée entre 2,8 et 6 kHz et entre 10 et 15 kHz, et c'est presque uniquement de la structure, pas de l'intensité](fig/b4-fig6-secondes.svg)
 
 En haut, Zimtohrli seconde par seconde. Sur le quatuor, MULE est derrière sur 14 fenêtres sur 23 ; sur Purcell, c'était 58 sur 59. Ce n'est donc pas un accident localisé, mais un défaut d'encodage. En bas, la décomposition par région du quatuor : MULE fait mieux qu'Opus sous 2,8 kHz, mais perd entre 2,8 et 6 kHz et entre 10 et 15 kHz, les mêmes régions que sur Purcell. Et la perte est presque entièrement dans la **structure** : la part d'intensité est si petite qu'elle disparaît sur la figure. Autrement dit, MULE met la bonne *quantité* de bruit, mais pas avec la bonne *texture*.
 
@@ -157,7 +163,7 @@ Dans le prochain billet, on descend dans l'ossuaire des bonnes idées.
 - Chiffres : figure 2, `eval/results/E2-LOG.md` (MULE v2, 17/11) ; figure 3, campagne de 300 morceaux,
   mode `--bitrate` (mélange Opus C75) ; figure 4, `m6_search_extrapolated.csv` et `m6_search.csv` ;
   figure 5, `G3-ABX.md` et `N-LOG.md` (m6z1) ; figure 6, même campagne (`b4-fig7-repartition.svg`) ;
-  figure 7, `docs/blog/tools/figs4.py` (quatuor SQAM, MULE 6,67 contre Opus 6,26 en moyenne des
+  figure 7, `b4-fig8-purcell-spectro.png` (kit `data/listen/c75opus`, MULE 92,3 et Opus 97,9 kb/s) ; figure 8, `docs/blog/tools/figs4.py` (quatuor SQAM, MULE 6,67 contre Opus 6,26 en moyenne des
   fenêtres, 91,9 kb/s chacun).
 - Figure 6, à 160 kb/s : MULE reste le plus groupé (5-95 % : 0,7 à 1,8), mais Opus est alors plus
   dispersé que l'AAC (1,1 à 3,0 contre 1,5 à 2,9). L'idée « Opus groupé, AAC dispersé » ne tient

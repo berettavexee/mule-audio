@@ -255,7 +255,7 @@ def b4_fig7_repartition():
     m = pd.read_csv(CAMPAIGN)
     codecs = [("mule_brC75", "MULE", BLUE), ("opus", "Opus", ORANGE), ("aac", "AAC (Apple)", GREEN)]
     rng = np.random.default_rng(1)
-    fig, axs = plt.subplots(1, 3, figsize=(13, 5))
+    fig, axs = plt.subplots(1, 3, figsize=(13, 5), sharey=True)
     for ax, r in zip(axs, (96, 128, 160)):
         d = m[m.rate == r]
         for i, (c, lab, col) in enumerate(codecs):
@@ -280,8 +280,43 @@ def b4_fig7_repartition():
     save(fig, "b4-fig7-repartition")
 
 
+def b4_fig8_purcell_spectro():
+    """Purcell's ode (a copyrighted track: its spectrograms only, no audio), the original, MULE
+    --bitrate 96 and Opus 96 from the listening kit data/listen/c75opus (mid channel, 2048-point
+    STFT, one dB scale for the three). Saved as PNG: a spectrogram is an image."""
+    import soundfile as sf
+    from scipy.signal import stft
+    d = os.path.join(ROOT, "data", "listen", "c75opus")
+    rates = {ln.split()[0]: ln.split()[2] for ln in open(os.path.join(d, "rates.txt"))}
+
+    def spec(name):
+        x, fs = sf.read(os.path.join(d, name))
+        f, t, z = stft(x.mean(1), fs, nperseg=2048, noverlap=1536)
+        return f, t, 20 * np.log10(np.abs(z) + 1e-9)
+    f, t, so = spec("purcell_ode__orig.wav")
+    vmax = so.max()
+    panels = [("original", so),
+              (f"MULE, --bitrate 96 ({fr(float(rates['purcell_ode__mule96.wav']))} kb/s)",
+               spec("purcell_ode__mule96.wav")[2]),
+              (f"Opus, 96 kb/s ({fr(float(rates['purcell_ode__opus96.wav']))} kb/s)",
+               spec("purcell_ode__opus96.wav")[2])]
+    fig, axs = plt.subplots(3, 1, figsize=(12, 11), sharex=True, constrained_layout=True)
+    for ax, (lab, s) in zip(axs, panels):
+        im = ax.pcolormesh(t, f / 1000, s, vmin=vmax - 100, vmax=vmax, cmap="magma", shading="auto",
+                           rasterized=True)
+        ax.set_title(lab, loc="left", fontsize=13, color=INK)
+        ax.set_ylabel("fréquence (kHz)")
+        ax.set_ylim(0, 22.05)
+    axs[-1].set_xlabel("temps (s)")
+    fig.colorbar(im, ax=axs, shrink=0.5, label="niveau (dB, même échelle pour les trois)")
+    path = os.path.join(figs.FIG, "b4-fig8-purcell-spectro.png")
+    fig.savefig(path, dpi=90)
+    plt.close(fig)
+    print("->", os.path.relpath(path, ROOT))
+
+
 ALL = [b4_fig1_schema, b4_fig2_mov, b4_fig3_juges, b4_fig4_cmaes, b4_fig5_abx, b4_fig6_secondes,
-       b4_fig7_repartition]
+       b4_fig7_repartition, b4_fig8_purcell_spectro]
 
 if __name__ == "__main__":
     figs.style()
