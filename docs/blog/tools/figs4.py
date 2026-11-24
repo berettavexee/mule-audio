@@ -10,6 +10,7 @@ same palette). Sources:
 
     .venv/bin/python docs/blog/tools/figs4.py [names...]      (default: all)
 """
+import functools
 import os
 import sys
 
@@ -182,6 +183,7 @@ def b4_fig5_abx():
     save(fig, "b4-fig5-abx")
 
 
+@functools.lru_cache(maxsize=1)
 def _quartet():
     """Quartet: MULE --bitrate and Opus near the same rate, aligned; per-second Zimtohrli and the
     region split of its similarity."""
@@ -213,7 +215,7 @@ def _quartet():
             ch = (F >= lo) & (F < hi)
             share = ch.mean() * 1e4
             reg.append(((1 - it[:, :, ch]).mean() * share, (1 - st[:, :, ch]).mean() * share))
-        out[lab] = dict(kb=kb, sec=sec, reg=np.array(reg))
+        out[lab] = dict(kb=kb, sec=sec, reg=np.array(reg), it=it.mean(axis=0), st=st.mean(axis=0))
         print(f"   quartet {lab} ({cfg}): {kb:.1f} kb/s, mean of 1 s windows {sec.mean():.2f}")
     return out
 
@@ -346,8 +348,108 @@ def b4_fig9_beethoven_raie():
     print("->", os.path.relpath(path, ROOT))
 
 
+def b4_fig10_carte():
+    """Where the judge hurts: Zimtohrli's structure loss (1 - structure term of its NSIM, mean of
+    the two channels) over time and channel, MULE and Opus on the SQAM quartet, and their
+    difference. PNG (an image)."""
+    import zimt_diag as Z
+    q = _quartet()
+    F = Z.freqs()
+    lm, lo = 1 - q["MULE"]["st"], 1 - q["Opus"]["st"]
+    n = min(len(lm), len(lo))
+    lm, lo = lm[:n], lo[:n]
+    t = np.arange(n) * 0.0116
+    ext = [0, t[-1], 0, len(F) - 1]
+    vmax = np.percentile(np.concatenate([lm, lo]), 99)
+    fig, axs = plt.subplots(3, 1, figsize=(12, 11), sharex=True, constrained_layout=True)
+    for ax, (lab, m) in zip(axs[:2], (("MULE (91,9 kb/s)", lm), ("Opus (91,9 kb/s)", lo))):
+        im = ax.imshow(m.T, origin="lower", aspect="auto", extent=ext, cmap="magma", vmin=0, vmax=vmax)
+        ax.set_title(f"{lab} : perte de structure", loc="left", fontsize=13, color=INK)
+    fig.colorbar(im, ax=axs[:2], shrink=0.6, label="perte de structure (plus clair = pire)")
+    d = lm - lo
+    v = np.percentile(np.abs(d), 99)
+    im2 = axs[2].imshow(d.T, origin="lower", aspect="auto", extent=ext, cmap="RdBu_r", vmin=-v, vmax=v)
+    axs[2].set_title("différence : rouge, MULE pire ; bleu, Opus pire", loc="left", fontsize=13, color=INK)
+    fig.colorbar(im2, ax=axs[2], shrink=0.9, label="MULE − Opus")
+    ticks = [int(np.argmin(np.abs(F - f))) for f in (100, 500, 1000, 2800, 6000, 10000, 15000)]
+    for ax in axs:
+        ax.set_yticks(ticks)
+        ax.set_yticklabels(["100 Hz", "500 Hz", "1 kHz", "2,8 kHz", "6 kHz", "10 kHz", "15 kHz"])
+    axs[-1].set_xlabel("temps (s)")
+    path = os.path.join(figs.FIG, "b4-fig10-carte.png")
+    fig.savefig(path, dpi=90)
+    plt.close(fig)
+    print("->", os.path.relpath(path, ROOT))
+
+
+def b4_fig11_extrapolation():
+    """Why extrapolating overestimates: a concave quality-rate curve, the chord through two points
+    both above the target rate (extended down to it) against two points around it."""
+    R = np.linspace(95, 175, 300)
+
+    def Q(r):
+        return -3.0 * np.exp(-(r - 85) / 22)
+    fig, axs = plt.subplots(1, 2, figsize=(12, 4.8), sharey=True)
+    for ax, (pts, title, col) in zip(axs, (((150, 168), "1er essai : deux points au-delà de 128", ORANGE),
+                                           ((120, 136), "2e essai : 128 kb/s encadré", BLUE))):
+        ax.plot(R, Q(R), color=INK, lw=2, label="la vraie courbe qualité-débit")
+        (r1, r2) = pts
+        slope = (Q(r2) - Q(r1)) / (r2 - r1)
+        rr = np.linspace(min(r1, 128) - 2, max(r2, 128) + 2, 50)
+        ax.plot(rr, Q(r1) + slope * (rr - r1), color=col, lw=1.6, ls="--", label="la droite par les deux mesures")
+        ax.scatter([r1, r2], [Q(r1), Q(r2)], s=70, color=col, zorder=4)
+        est = Q(r1) + slope * (128 - r1)
+        ax.axvline(128, color=MUTED, lw=1, ls=":")
+        ax.scatter([128], [est], s=80, marker="x", color=col, zorder=5, lw=2.5)
+        ax.scatter([128], [Q(128)], s=60, color=INK, zorder=5)
+        ax.annotate("", (128, est), (128, Q(128)), arrowprops=dict(arrowstyle="<->", color=col, lw=1.4))
+        if r1 > 128:
+            ax.text(126.5, (est + Q(128)) / 2, "note annoncée\ntrop haute", color=col, fontsize=11, va="center",
+                    ha="right")
+        else:
+            ax.text(131, Q(128) - 0.25, "écart\nnégligeable", color=col, fontsize=11, va="top", ha="left")
+        ax.set_title(title, fontsize=13, color=INK)
+        ax.set_xlabel("débit (kb/s)")
+        ax.set_xticks([100, 120, 128, 150, 170])
+    axs[0].set_ylabel("qualité (plus haut = mieux)")
+    axs[0].set_yticks([])
+    axs[0].legend(loc="lower right", fontsize=10.5)
+    fig.text(0.5, -0.05, "schéma : courbe concave de forme réaliste ; la croix est la note estimée à 128 kb/s, "
+             "le point noir la vraie", ha="center", color=MUTED, fontsize=11)
+    fig.tight_layout()
+    save(fig, "b4-fig11-extrapolation")
+
+
+def b4_fig12_binomiale():
+    """ABX: the scores out of 16 that chance gives (binomial, p = 1/2), the 12/16 threshold, and the
+    18 real scores of figure b4-fig5-abx."""
+    from math import comb
+    real = [9, 8, 10, 5, 9, 8, 7, 8, 11, 6, 9, 6, 7, 6, 9, 8, 8, 6]
+    k = np.arange(17)
+    p = np.array([comb(16, int(i)) for i in k]) / 2 ** 16
+    tail = p[12:].sum()
+    print(f"   P(>= 12/16) = {tail:.4f}")
+    fig, ax = plt.subplots(figsize=(11, 4.8))
+    ax.bar(k, p * len(real), width=0.75, color=[FILL_ORANGE if i >= 12 else "white" for i in k],
+           edgecolor=[ORANGE if i >= 12 else MUTED for i in k], lw=1.4,
+           label=f"au hasard : nombre de séries attendu sur {len(real)}")
+    obs = np.bincount(real, minlength=17)
+    ax.scatter(k[obs > 0], obs[obs > 0], s=90, color=BLUE, zorder=4, label="mes séries réelles")
+    ax.axvline(11.5, color=INK, lw=1.2, ls="--")
+    ax.text(11.7, ax.get_ylim()[1] * 0.85, f"12/16 ou plus : {fr(100 * tail)} % de chances\nau hasard", fontsize=11,
+            color=INK)
+    ax.set_xticks(k)
+    ax.set_xlabel("bonnes réponses sur 16")
+    ax.set_ylabel("nombre de séries")
+    ax.legend(loc="upper left", fontsize=11)
+    fig.text(0.5, -0.09, "loi binomiale, 16 essais, une chance sur deux à chaque essai ; points : les 18 séries de la "
+             "figure ABX", ha="center", color=MUTED, fontsize=11)
+    save(fig, "b4-fig12-binomiale")
+
+
 ALL = [b4_fig1_schema, b4_fig2_mov, b4_fig3_juges, b4_fig4_cmaes, b4_fig5_abx, b4_fig6_secondes,
-       b4_fig7_repartition, b4_fig8_purcell_spectro, b4_fig9_beethoven_raie]
+       b4_fig7_repartition, b4_fig8_purcell_spectro, b4_fig9_beethoven_raie,
+       b4_fig10_carte, b4_fig11_extrapolation, b4_fig12_binomiale]
 
 if __name__ == "__main__":
     figs.style()
