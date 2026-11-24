@@ -143,6 +143,8 @@ L'hypothèse qui reste : dans ces régions, MULE code peu d'impulsions (un tiers
 
 Dernière anecdote de cette plongée : sur un autre extrait perdant, un concerto de Beethoven, la différence entre les deux codecs se résumait au niveau du bruit qu'ils mettent à la place du souffle de l'enregistrement, au-dessus de 12 kHz. Dans ce souffle, une raie fine, à **15 625 Hz** pile. C'est la fréquence de balayage des lignes d'un téléviseur cathodique au standard européen : il y avait probablement un téléviseur ou un moniteur allumé près des micros. Les juges mesurent tout, y compris l'écran du preneur de son.
 
+![Figure 9 : le spectrogramme de l'original du concerto de Beethoven et son spectre moyen : au-dessus de 12 kHz, il ne reste que le souffle de l'enregistrement, traversé d'une raie fine et continue à 15 625 Hz, qui dépasse nettement du souffle dans le spectre moyen](fig/b4-fig9-beethoven-raie.png)
+
 ## Conclusion : des juges, pas des oracles
 
 Les juges automatiques sont indispensables pour régler un codec, et dangereux pour prendre des décisions. Ils notent ce qu'ils savent mesurer, pas forcément ce qu'on entend. Ils se contredisent. Ils se font abuser par le premier optimiseur venu. Et on tombe vite dans le surapprentissage d'un modèle ou d'un codec particulier.
@@ -163,7 +165,7 @@ Dans le prochain billet, on descend dans l'ossuaire des bonnes idées.
 - Chiffres : figure 2, `eval/results/E2-LOG.md` (MULE v2, 17/11) ; figure 3, campagne de 300 morceaux,
   mode `--bitrate` (mélange Opus C75) ; figure 4, `m6_search_extrapolated.csv` et `m6_search.csv` ;
   figure 5, `G3-ABX.md` et `N-LOG.md` (m6z1) ; figure 6, même campagne (`b4-fig7-repartition.svg`) ;
-  figure 7, `b4-fig8-purcell-spectro.png` (kit `data/listen/c75opus`, MULE 92,3 et Opus 97,9 kb/s) ; figure 8, `docs/blog/tools/figs4.py` (quatuor SQAM, MULE 6,67 contre Opus 6,26 en moyenne des
+  figure 7, `b4-fig8-purcell-spectro.png` (kit `data/listen/c75opus`, MULE 92,3 et Opus 97,9 kb/s) ; figure 9, `b4-fig9-beethoven-raie.png` (original du kit `data/listen/c75opus`) ; figure 8, `docs/blog/tools/figs4.py` (quatuor SQAM, MULE 6,67 contre Opus 6,26 en moyenne des
   fenêtres, 91,9 kb/s chacun).
 - Figure 6, à 160 kb/s : MULE reste le plus groupé (5-95 % : 0,7 à 1,8), mais Opus est alors plus
   dispersé que l'AAC (1,1 à 3,0 contre 1,5 à 2,9). L'idée « Opus groupé, AAC dispersé » ne tient
@@ -171,6 +173,8 @@ Dans le prochain billet, on descend dans l'ossuaire des bonnes idées.
 - Purcell (58 fenêtres sur 59, hystérésis 21 → 8 %) : analyses du 24/11, fichiers dans
   `data/listen/c75opus/` (non publiés). Quatuor : 14 fenêtres sur 23 (fenêtres de 1 s, pas de 0,5 s),
   structure 2,07 contre 1,45 (2,8-6 kHz) et 3,18 contre 2,01 (10-15 kHz), MULE devant sous 2,8 kHz.
+- Figure 9 : l'original montre aussi une raie plus faible vers 19,5 kHz et un creux étroit vers 3,9 kHz, non
+  commentés dans le texte.
 - Zimtohrli : fréquences centrales des 128 canaux de 24 Hz à 19,7 kHz (`eval/zimt_diag.py`).
 - À vérifier :
   - la date et la licence de Zimtohrli ; l'année de PEAQ (BS.1387 de 1998, révisé en 2001) ;

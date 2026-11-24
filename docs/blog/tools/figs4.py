@@ -315,8 +315,39 @@ def b4_fig8_purcell_spectro():
     print("->", os.path.relpath(path, ROOT))
 
 
+def b4_fig9_beethoven_raie():
+    """Pires's Beethoven (copyrighted: spectrogram only), the original from the listening kit: its
+    spectrogram, and beside it the mean spectrum, where the 15 625 Hz line (a CRT's line rate)
+    stands out of the hiss."""
+    import soundfile as sf
+    from scipy.signal import stft
+    x, fs = sf.read(os.path.join(ROOT, "data", "listen", "c75opus", "pires_beethoven__orig.wav"))
+    f, t, z = stft(x.mean(1), fs, nperseg=4096, noverlap=3072)
+    s = 20 * np.log10(np.abs(z) + 1e-9)
+    mean = 10 * np.log10(np.mean(np.abs(z) ** 2, axis=1) + 1e-18)
+    vmax = s.max()
+    fig, (a, b) = plt.subplots(1, 2, figsize=(13, 6), sharey=True, gridspec_kw={"width_ratios": [3, 1]},
+                               constrained_layout=True)
+    a.pcolormesh(t, f / 1000, s, vmin=vmax - 110, vmax=vmax, cmap="magma", shading="auto", rasterized=True)
+    a.set_ylim(0, 22.05)
+    a.set_xlabel("temps (s)")
+    a.set_ylabel("fréquence (kHz)")
+    a.set_title("spectrogramme de l'original", loc="left", fontsize=13, color=INK)
+    a.annotate("15 625 Hz", (t[-1] * 0.97, 15.625), (t[-1] * 0.72, 18.6), color="white", fontsize=12,
+               arrowprops=dict(arrowstyle="->", color="white", lw=1.2))
+    b.plot(mean, f / 1000, color=INK, lw=1)
+    b.axhline(15.625, color=ORANGE, lw=1, ls="--")
+    b.text(mean.max() - 3, 14.4, "15 625 Hz", color=ORANGE, fontsize=11, ha="right")
+    b.set_xlabel("niveau moyen (dB)")
+    b.set_title("spectre moyen", loc="left", fontsize=13, color=INK)
+    path = os.path.join(figs.FIG, "b4-fig9-beethoven-raie.png")
+    fig.savefig(path, dpi=90)
+    plt.close(fig)
+    print("->", os.path.relpath(path, ROOT))
+
+
 ALL = [b4_fig1_schema, b4_fig2_mov, b4_fig3_juges, b4_fig4_cmaes, b4_fig5_abx, b4_fig6_secondes,
-       b4_fig7_repartition, b4_fig8_purcell_spectro]
+       b4_fig7_repartition, b4_fig8_purcell_spectro, b4_fig9_beethoven_raie]
 
 if __name__ == "__main__":
     figs.style()
