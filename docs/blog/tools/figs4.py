@@ -81,7 +81,7 @@ def b4_fig2_mov():
     ax.set_xlabel("ODG que MULE gagnerait avec la valeur d'Opus")
     ax.text(0.084, -0.45, "à droite : Opus meilleur\nà gauche : MULE meilleur", ha="right", fontsize=10.5,
             color=MUTED)
-    fig.text(0.5, -0.06, "PEAQ de base à 128 kb/s, 66 extraits du corpus de réglage, MULE v2 (17/11/2026)",
+    fig.text(0.5, -0.06, "PEAQ de base à 128 kb/s, 66 extraits du corpus de réglage, MULE v2",
              ha="center", color=MUTED, fontsize=11)
     save(fig, "b4-fig2-mov")
 
@@ -157,11 +157,11 @@ def b4_fig4_cmaes():
 
 def b4_fig5_abx():
     """ABX scores out of 16 (12 or more: a difference heard, p < 0.05)."""
-    rows = [("G3, 17/11 : MULE 128 contre l'original", [("voix féminine", 9), ("Joy Division", 8), ("Wolfmother", 10),
+    rows = [("MULE 128 contre l'original", [("voix féminine", 9), ("Joy Division", 8), ("Wolfmother", 10),
                                                          ("Moussorgski", 5), ("Body Count", 9), ("Heilung", 8)], BLUE),
-            ("G3, 17/11 : MULE 128 contre Opus 128", [("voix féminine", 7), ("Joy Division", 8), ("Wolfmother", 11),
+            ("MULE 128 contre Opus 128", [("voix féminine", 7), ("Joy Division", 8), ("Wolfmother", 11),
                                                       ("Moussorgski", 6), ("Body Count", 9), ("Heilung", 6)], ORANGE),
-            ("22/11 : deux réglages de MULE à 128", [("Monster Magnet", 7), ("Red Fang", 6), ("Zombie Zombie", 9),
+            ("deux réglages de MULE à 128", [("Monster Magnet", 7), ("Red Fang", 6), ("Zombie Zombie", 9),
                                                      ("Heilung", 8), ("Belenos", 8), ("clavecin", 6)], GREEN)]
     fig, axs = plt.subplots(1, 3, figsize=(13, 4.8), sharey=True)
     for ax, (title, items, c) in zip(axs, rows):
@@ -249,7 +249,39 @@ def b4_fig6_secondes():
     save(fig, "b4-fig6-secondes")
 
 
-ALL = [b4_fig1_schema, b4_fig2_mov, b4_fig3_juges, b4_fig4_cmaes, b4_fig5_abx, b4_fig6_secondes]
+def b4_fig7_repartition():
+    """The spread of Zimtohrli's distance over the 300 tracks, per codec and rate: one dot per
+    track, the box from the first to the third quartile, the median, whiskers 5 % to 95 %."""
+    m = pd.read_csv(CAMPAIGN)
+    codecs = [("mule_brC75", "MULE", BLUE), ("opus", "Opus", ORANGE), ("aac", "AAC (Apple)", GREEN)]
+    rng = np.random.default_rng(1)
+    fig, axs = plt.subplots(1, 3, figsize=(13, 5))
+    for ax, r in zip(axs, (96, 128, 160)):
+        d = m[m.rate == r]
+        for i, (c, lab, col) in enumerate(codecs):
+            v = d[d.codec == c].zimt.to_numpy() * 1e4
+            ax.scatter(i + rng.uniform(-0.28, 0.28, len(v)), v, s=9, color=col, alpha=0.35, lw=0, zorder=2)
+            p5, q1, med, q3, p95 = np.percentile(v, [5, 25, 50, 75, 95])
+            ax.add_patch(plt.Rectangle((i - 0.33, q1), 0.66, q3 - q1, fill=False, ec=INK, lw=1.3, zorder=3))
+            ax.plot([i - 0.33, i + 0.33], [med, med], color=INK, lw=2.2, zorder=3)
+            ax.plot([i, i], [p5, q1], color=INK, lw=1, zorder=3)
+            ax.plot([i, i], [q3, p95], color=INK, lw=1, zorder=3)
+            print(f"   {r} {lab}: median {med:.2f}, 5-95 % {p5:.2f}-{p95:.2f}, max {v.max():.2f}")
+        ax.set_xticks(range(len(codecs)))
+        ax.set_xticklabels([x[1] for x in codecs])
+        ax.set_xlim(-0.6, len(codecs) - 0.4)
+        ax.set_ylim(0)
+        ax.set_title(f"{r} kb/s", fontsize=13, color=INK)
+    axs[0].set_ylabel("distance Zimtohrli (× 10 000), plus bas = mieux")
+    fig.text(0.5, -0.06, "300 morceaux de 30 s, chaque codec à débit moyen égal ; un point par morceau, la boîte "
+             "va du premier au troisième quartile,\nle trait épais est la médiane, les moustaches vont de 5 à 95 %",
+             ha="center", color=MUTED, fontsize=11)
+    fig.tight_layout()
+    save(fig, "b4-fig7-repartition")
+
+
+ALL = [b4_fig1_schema, b4_fig2_mov, b4_fig3_juges, b4_fig4_cmaes, b4_fig5_abx, b4_fig6_secondes,
+       b4_fig7_repartition]
 
 if __name__ == "__main__":
     figs.style()

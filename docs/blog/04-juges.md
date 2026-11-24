@@ -1,59 +1,57 @@
 # Quand les machines écoutent à notre place
 
-*Quatrième billet de la série « MULE, ou comment marche un codec audio moderne ». Premier jet du 24/11/2026.*
+*Quatrième billet de la série « MULE, ou comment marche un codec audio moderne ». Premier jet.*
 
-## Champagne, puis gueule de bois
+## Désillusion automatisée
 
-Une nuit de novembre, j'ai lâché un algorithme d'optimisation sur l'encodeur de MULE. Son travail : tourner cinq boutons de réglage, encoder, faire noter le résultat, recommencer. Au bout de deux générations, il m'annonce un gain de **+0,031** sur la note de qualité. Pour situer, c'est le genre de gain pour lequel je me battais à la main pendant des jours. J'ai failli ouvrir une bouteille.
+Une nuit, j'ai lâché un algorithme d'optimisation sur l'encodeur de MULE. Son travail : tourner cinq boutons de réglage, encoder, faire noter le résultat, recommencer. Au bout de deux générations, il m'annonce un gain de **+0,031** sur la note de qualité. Pour situer, c'est le genre de gain pour lequel je me battais à la main pendant des jours.
 
-Il n'avait rien trouvé dans le codec. Il avait trouvé une faille dans ma façon de mesurer, et il l'exploitait avec l'application d'un stagiaire qui a compris comment le chef lit les rapports. On y reviendra.
+Il n'avait rien trouvé dans le codec. Il avait trouvé une faille dans ma façon de mesurer, et il l'exploitait avec l'application d'un stagiaire qui a compris comment le chef lit les rapports.
 
-Le problème de fond est simple. Régler un codec, c'est départager des milliers de variantes qui diffèrent de quelques centièmes de note. Mon oreille ne les entend pas. Et une écoute honnête, en aveugle, prend une heure par extrait, avec des oreilles reposées. Il faut donc déléguer l'écoute à des programmes : des **juges automatiques**, qui comparent le son original et le son décodé et rendent une note.
+Le problème de fond est simple. Régler un codec, c'est départager des milliers de variantes qui diffèrent de quelques centièmes de note. Mon oreille ne les entend pas (l'âge et des années de concerts de musique amplifiée ont fait leur travail). Et une écoute honnête, en aveugle, prend quinze à vingt minutes par extrait, avec des oreilles reposées. Il faut donc déléguer l'écoute à des programmes : des **juges automatiques**, qui comparent le son original et le son décodé et rendent une note.
 
-Ce billet raconte ces juges. Ils sont rapides, infatigables et reproductibles. Ils se contredisent aussi, se font berner, comptent des choses que personne n'entend et ratent des choses que j'entends. Et pourtant je ne pourrais rien faire sans eux.
+Ce billet raconte ces juges. Ils sont rapides, infatigables et reproductibles. Ils se contredisent aussi, se font berner, comptent des choses que personne n'entend et ratent des choses que j'entends. Et pourtant ils sont essentiels à ce projet.
 
 ## Ce qu'on demande à un juge
 
-La première idée, la plus naïve, c'est de soustraire le décodé de l'original et de mesurer ce qui reste : le rapport signal sur bruit. C'est inutile pour un codec perceptif, qui **ajoute du bruit exprès**, là où on ne l'entend pas. Tout le billet 1 tenait là-dessus : on jette ce que le masque cache. Un bon codec a un rapport signal sur bruit médiocre, et c'est normal.
+La première idée, la plus naïve, c'est de soustraire le décodé de l'original et de mesurer ce qui reste : le rapport signal sur bruit. C'est inutile pour un codec perceptif, qui dégrade le signal et donc **ajoute du bruit exprès**, là où on ne l'entend pas. Tout le billet 1 tenait là-dessus : on jette ce que le masque cache. Un bon codec a un rapport signal sur bruit médiocre, et c'est normal. C'est la répartition du bruit qui nous intéresse.
 
-Un juge doit donc écouter comme une oreille. Ils suivent tous à peu près le même schéma : un **modèle d'oreille** (des bancs de filtres qui imitent la cochlée, une loi de sonie, un masque) transforme chaque signal en une image interne, puis on compare les deux images. Enfin, la comparaison est convertie en note, calibrée sur des tests d'écoute réels.
+Un juge doit donc écouter comme une oreille. Ils suivent tous à peu près le même schéma : un **modèle d'oreille** (des bancs de filtres qui imitent la cochlée, une loi de sonie, un masque) transforme chaque signal en une image interne, puis on compare les deux images. Enfin, la comparaison est convertie en note, calibrée sur des tests d'écoute réels. Autrement dit, on confronte notre modèle psychoacoustique et notre répartition des bits au modèle d'écoute du juge.
 
 ![Figure 1 : le schéma commun aux juges automatiques : l'original et le décodé passent dans le même modèle d'oreille, on compare les deux images internes, et la comparaison devient une note calibrée sur des tests d'écoute](fig/b4-fig1-schema.svg)
 
-Les notes ne sont pas toutes sur la même échelle. PEAQ rend un **ODG** (Objective Difference Grade), de −4 (« très gênant ») à 0 (« imperceptible »), calqué sur l'échelle des tests d'écoute de l'UIT. D'autres rendent une **distance** : 0 pour deux sons identiques, et plus c'est grand, pire c'est. À 128 kb/s, tout se joue entre −0,3 et 0 d'ODG, c'est-à-dire dans la zone que les auditeurs décrivent comme « perceptible mais pas gênant » ou mieux. On se bat pour des miettes.
+Les notes ne sont pas toutes sur la même échelle. PEAQ rend un **ODG** (Objective Difference Grade), de −4 (« très gênant ») à 0 (« imperceptible »). D'autres rendent une **distance** : 0 pour deux sons identiques, et plus c'est grand, pire c'est. À 128 kb/s, tout se joue entre −0,3 et 0 d'ODG. On va chercher des gains marginaux.
 
 ## Les quatre juges
 
-**PEAQ** est l'ancêtre, normalisé par l'UIT en 1998 (BS.1387), et j'utilise l'implémentation libre GstPEAQ. Il calcule onze variables intermédiaires (les MOV, pour *Model Output Variables* : le bruit sur le masque, la bande passante, la modulation, la structure harmonique de l'erreur…), puis les passe dans un petit réseau de neurones qui rend l'ODG. Il a deux modes, de base et avancé, qui ne regardent pas les mêmes choses et ne sont pas toujours d'accord. Il a été calibré sur les codecs de la fin des années 1990, et ça se voit : près de la transparence, il sature, et il a ses marottes.
+**PEAQ** est l'ancêtre, normalisé par l'UIT en 1998 (BS.1387) ; j'utilise l'implémentation libre GstPEAQ. Il a deux modes, de base et avancé, qui ne sont pas toujours d'accord. Calibré sur les codecs de la fin des années 1990, il sature près de la transparence.
 
-**Le NMR**, le rapport bruit sur masque, est le plus simple : pour chaque bande et chaque trame, combien le bruit dépasse le masque, en décibels. Je le calcule avec mon propre modèle psychoacoustique. C'est le juge le plus lisible, et le plus suspect, parce qu'il mesure avec la règle qui a servi à encoder (j'y reviens plus bas).
+**Le NMR**, le rapport bruit sur masque, mesure de combien le bruit dépasse le masque, bande par bande. Je le calcule avec mon propre modèle psychoacoustique : c'est un écart par rapport à notre propre modèle, et non par rapport à un modèle calé sur des écoutes. Le plus lisible, et le plus suspect (j'y reviens plus bas).
 
-**ViSQOL**, de Google, compare des spectrogrammes et passe le résultat dans une régression. Je l'ai viré le 22 novembre : il sature près de la transparence, et ses petits reculs n'ont jamais été entendus en écoute. Il tourne encore, pour la forme, mais il n'a plus voix au chapitre.
+**Zimtohrli**, de Google, est le plus récent et c'est devenu mon premier juge. Il découpe le son en 128 canaux, d'environ 20 Hz à 20 kHz, et sépare deux choses : l'**intensité** (le niveau local est-il le même ?) et la **structure** (la texture, la façon dont l'énergie se répartit et bouge, est-elle la même ?). Cette séparation servira à la fin du billet.
 
-**Zimtohrli**, de Google aussi, est le plus récent et c'est devenu mon premier juge. Son modèle d'oreille découpe le son en 128 canaux, de 18 Hz à 20 kHz, et compare les deux images avec une mesure de similarité qui sépare deux choses : l'**intensité** (est-ce que le niveau local est le même ?) et la **structure** (est-ce que la texture est la même, la façon dont l'énergie se répartit et bouge dans le temps et en fréquence ?). Cette séparation va servir à la fin du billet.
-
-Une confession, pour l'ambiance. Pendant plusieurs jours, mes fichiers de résultats écrivaient chaque note avec quatre chiffres après la virgule. Les distances de Zimtohrli valent entre 0,0001 et 0,0009. J'ai donc soigneusement comparé des zéros entre eux, et tiré des conclusions. Personne n'est à l'abri.
+Un cinquième, **ViSQOL**, de Google aussi, a été retiré lors du passage à la v4. Il saturait près de la transparence, et c'était souvent le seul juge en désaccord, sans que je parvienne à comprendre pourquoi.
 
 | Juge | Ce qu'il mesure | Échelle | Défaut connu |
 |---|---|---|---|
-| PEAQ de base | 11 variables, un réseau de neurones | ODG, −4 à 0, plus haut = mieux | sature près de 0 ; compte la bande passante |
+| PEAQ de base | 11 variables, un réseau de neurones | ODG, −4 à 0, plus haut = mieux | sature près de 0 ; valorise énormément la bande passante au-dessus de 17 kHz |
 | PEAQ avancé | une autre combinaison de variables | ODG, plus haut = mieux | même âge, mêmes limites |
-| NMR | le bruit au-dessus du masque, bande par bande | dB, plus bas = mieux | mon propre modèle : juge et partie |
+| NMR | le bruit au-dessus du masque, bande par bande | dB, plus bas = mieux | juge et partie |
 | Zimtohrli | intensité et texture, sur 128 canaux | distance, plus bas = mieux | jeune, peu de recul publié |
 
 ## Le piège des 20 kHz
 
 Le premier vrai diagnostic m'a appris à me méfier. À 128 kb/s, PEAQ de base mettait MULE environ 0,06 d'ODG derrière Opus. D'où venait l'écart ?
 
-PEAQ a une propriété pratique : ses onze variables sont visibles, et son réseau de neurones est petit. On peut donc le réévaluer en remplaçant une seule variable de MULE par celle d'Opus, et voir de combien la note bouge. C'est une attribution, variable par variable.
+PEAQ a une propriété pratique. Il calcule onze variables intermédiaires (les MOV, pour *Model Output Variables* : le bruit sur le masque, la bande passante, la modulation…), puis les passe dans un petit réseau de neurones qui rend l'ODG. Ces variables sont visibles. On peut donc le réévaluer en remplaçant une seule variable de MULE par celle d'Opus, et voir de combien la note bouge. C'est une attribution, variable par variable.
 
 ![Figure 2 : l'écart de PEAQ entre MULE et Opus à 128 kb/s, attribué à chacune de ses variables : la distorsion des trames dégradées (+0,066) et la bande passante (+0,025) pèsent pour Opus, le bruit sur masque total (−0,033) pour MULE](fig/b4-fig2-mov.svg)
 
 La plus grosse part venait de la distorsion concentrée dans quelques trames, un vrai sujet, qui a nourri des semaines de travail. La deuxième était la **bande passante** : la dernière bande de MULE s'arrête à 19,95 kHz, celle d'Opus monte à environ 20,4 kHz. Ça valait 0,025 d'ODG. Personne n'entend la différence entre 19,95 et 20,4 kHz, à part peut-être les chauves-souris et les adolescents de 12 ans. J'ai quand même testé une 23e bande pour aller jusqu'au bout du spectre. Verdict : un artefact de PEAQ, pas un défaut du codec. Écartée.
 
-La leçon vaut pour tous les juges : un juge note aussi ce qu'il sait mesurer, pas seulement ce qu'on entend. Si on optimise aveuglément sa note, on finit par coder des ultrasons pour faire plaisir à un réseau de neurones de 1998.
+La leçon vaut pour tous les juges : un juge note aussi ce qu'il sait mesurer, pas réellement ce que l'on entend. Si on optimise aveuglément sa note, on finit par coder des ultrasons pour faire plaisir à un réseau de neurones de 1998. D'autres modèles psychoacoustiques font d'autres choix : l'encodeur AAC d'Apple coupe allègrement dans les hautes fréquences. Il obtient un score médiocre dans les tests automatisés à des débits où il est complètement transparent en écoute ABX.
 
-Remarquez aussi la barre bleue : selon le bruit sur masque total, MULE est *meilleur* qu'Opus. Le même juge, sur la même trame, voit MULE devant sur une variable et derrière sur une autre. Ce n'était qu'un avant-goût.
+Remarquez aussi la seule barre de l'autre côté : selon le bruit sur masque total, MULE est *meilleur* qu'Opus. Le même juge, sur la même trame, voit MULE devant sur une variable et derrière sur une autre. Tous les modèles ont leurs spécificités et ne se valent pas.
 
 ## Quand les juges ne sont pas d'accord
 
@@ -67,85 +65,114 @@ Qui croire ? J'ai fini par écrire une règle, et par m'y tenir :
 
 1. **Zimtohrli d'abord**, parce que c'est celui dont les verdicts collent le mieux à ce que j'entends à ces débits ;
 2. puis **PEAQ** (les deux modes) et **le NMR** ;
-3. un changement de l'encodeur est adopté si les juges sont d'accord et qu'**aucun extrait ne recule** ;
-4. **s'ils ne sont pas d'accord, c'est l'écoute qui tranche.**
+3. un changement de l'encodeur est adopté si les juges sont d'accord et qu'**aucun extrait ne recule** de plus de 0,02 d'ODG ;
+4. **s'ils ne sont pas d'accord, c'est l'écoute qui tranche**, ou à défaut l'analyse des spectrogrammes.
 
-Le cas d'école, c'est le réglage `m6z1`, le 22 novembre. Zimtohrli l'aimait beaucoup : 12 à 13 % de distance en moins, meilleur sur presque tous les extraits. PEAQ de base reculait un peu, de façon cohérente. Règle non remplie, donc écoute : 96 essais en aveugle sur six extraits, 44 bonnes réponses, soit 46 %, moins bien que le hasard. Je n'entendais aucune différence, ni là où PEAQ pénalisait le réglage, ni là où Zimtohrli le favorisait. Adopté, au bénéfice de Zimtohrli.
+Le cas d'école, c'est le réglage `m6z1`. Zimtohrli l'aimait beaucoup : 12 à 13 % de distance en moins, meilleur sur presque tous les extraits. PEAQ de base reculait un peu, de façon cohérente. Règle non remplie, donc écoute : 96 essais en aveugle sur six extraits, 44 bonnes réponses, soit 46 %, moins bien que le hasard. Je n'entendais aucune différence, ni là où PEAQ pénalisait le réglage, ni là où Zimtohrli le favorisait. Adopté, au bénéfice de Zimtohrli.
 
 ## L'optimiseur qui triche
 
-Revenons à ma bouteille de champagne. L'algorithme s'appelle CMA-ES : il essaie une population de réglages, garde les meilleurs, et déplace sa population vers eux, génération après génération. Il lui faut une note par candidat. Je lui avais donné « l'ODG moyen à 128 kb/s, à débit égal ».
+Revenons à la campagne d'optimisation automatique du début. L'algorithme s'appelle CMA-ES : il essaie une population de réglages, garde les meilleurs, et déplace sa population vers eux, génération après génération. Il lui faut une note par candidat. Je lui avais donné « l'ODG moyen à 128 kb/s, à débit égal ».
 
-Sauf qu'un réglage de l'encodeur change aussi le débit. Pour comparer à débit égal, j'encodais chaque candidat à deux réglages de qualité fixes, puis j'interpolais la note à 128 kb/s. Les candidats gourmands, ceux qui dépensaient plus de bits, dépassaient 128 kb/s à mes **deux** points de mesure. La note « à 128 » n'était plus interpolée, mais **extrapolée**. Et comme la courbe qualité-débit est concave, l'extrapolation surestimait.
+Sauf qu'un réglage de l'encodeur change aussi le débit. Pour comparer à débit égal, j'encodais chaque candidat à deux réglages de qualité fixes, puis j'interpolais la note à 128 kb/s. Les candidats gourmands, ceux qui dépensaient plus de bits, dépassaient 128 kb/s à mes **deux** points de mesure. La note « à 128 » n'était plus interpolée, mais **extrapolée**. Et comme la courbe qualité-débit est concave, l'extrapolation surestimait la note.
 
 ![Figure 4 : à gauche, le premier essai : le gain annoncé par CMA-ES suit le débit du candidat, et tous les « gains » au-delà de 128 kb/s sont extrapolés ; à droite, le second essai, où 128 kb/s est toujours encadré : plus aucun candidat ne bat le réglage de départ](fig/b4-fig4-cmaes.svg)
 
-La figure est cruelle. À gauche, le gain annoncé suit presque parfaitement le débit du candidat (corrélation de 0,8). Tous les candidats « gagnants » sont à droite de la ligne des 128 kb/s. CMA-ES n'avait pas trouvé de meilleur réglage : il avait trouvé que dépenser plus de bits faisait monter ma note, grâce à mon extrapolation. Il avait raison, d'ailleurs. C'est moi qui m'étais trompé de question.
+La figure est cruelle. À gauche, le gain annoncé suit presque parfaitement le débit du candidat (corrélation de 0,8). Tous les candidats « gagnants » sont à droite de la ligne des 128 kb/s. CMA-ES n'avait pas trouvé de meilleur réglage : il avait trouvé que dépenser plus de bits faisait monter la note, grâce à l'erreur d'extrapolation.
 
 À droite, le second essai : pour chaque candidat, je cherche d'abord les deux qualités qui donnent 120 et 136 kb/s, puis je note entre les deux. Le débit visé est toujours encadré. Meilleur gain : +0,0006, c'est-à-dire du bruit de mesure. J'ai arrêté après deux générations.
 
-Morale : un optimiseur trouve toujours la faille de la mesure avant le gain réel, parce que c'est plus facile. Toute comparaison « à débit égal » doit encadrer le débit, pour chaque candidat. C'est aussi pour ça que mes comparaisons de codecs interpolent la note morceau par morceau, à débit moyen égal, et jamais au-delà des points mesurés.
+Morale : un optimiseur trouve toujours la faille de la mesure avant le gain réel, parce que c'est plus facile. Toute comparaison « à débit égal » doit encadrer le débit, pour chaque candidat. C'est pour cette raison que j'ai modifié la comparaison des codecs pour m'assurer que les débits moyens interpolés se situent toujours entre deux points de mesure réels. Idéalement, il faudrait même trois points, pour suivre la courbure de la courbe qualité-débit au lieu de tirer un simple segment entre deux points.
 
-## Noter l'élève avec son propre manuel
+## Quand un indicateur devient un objectif
 
-Il y a un biais plus sournois, que je dois avouer avant que quelqu'un ne le fasse à ma place. MULE a été réglé avec ces juges-là. Opus et AAC ont été réglés à l'oreille, pendant des années, par des gens qui savent écouter. Si MULE est devant sur ces juges, c'est en partie parce qu'il a appris à leur plaire.
+Il y a un biais plus sournois, que je dois avouer avant que quelqu'un ne le fasse à ma place. MULE a été réglé majoritairement sur ces modèles. Opus et AAC ont été réglés à l'oreille, pendant des années, par des oreilles expertes des tests ABX. Si MULE est devant sur ces juges, c'est en partie parce qu'il a été entraîné à plaire à ces modèles.
 
-Le pire, c'est le NMR. Je le calcule avec le même modèle psychoacoustique que celui qui décide, dans l'encodeur, où mettre le bruit. C'est un élève qui corrige sa copie avec son propre manuel : il aura toujours de bonnes notes. Les 91 à 99 % de victoires de MULE au NMR sur la figure 3 disent surtout que l'encodeur fait ce que son modèle lui demande.
+Le pire, c'est le NMR. Je le calcule avec le même modèle psychoacoustique que celui qui décide, dans l'encodeur, où mettre le bruit. On évalue donc le bruit de quantification avec l'algorithme même qui l'a réparti. C'est d'autant plus contestable quand on applique le modèle de MULE à un autre codec comme Opus ou l'AAC : sur cet indicateur, MULE bat Opus sur 91 à 99 % des morceaux. Ce n'est pas complètement inutile : cela permet de vérifier que l'encodeur fait ce qu'on attend de lui, ou de repérer les différences d'allocation avec d'autres codecs.
 
-Les garde-fous, imparfaits :
+J'ai mis en place quelques garde-fous, imparfaits :
 - je règle sur un groupe d'extraits (*dev*, 66 extraits), je valide sur un autre (*test*, 30), et je confirme sur une campagne de 300 morceaux que l'encodeur n'a jamais vus ;
-- je regarde plusieurs juges, dont certains que je n'ai pas écrits ;
-- et je fais régulièrement passer le tout devant une paire d'oreilles.
+- je regarde plusieurs juges : Zimtohrli, PEAQ et NMR ;
+- je fais régulièrement passer le tout devant une paire d'oreilles (de mauvaises oreilles).
 
-Ça ne supprime pas le biais. Ça l'empêche de tout décider.
+Ça ne supprime pas le biais, mais cela limite le surapprentissage. En développeur solitaire, je ne peux pas rivaliser avec des décennies d'écoute en aveugle par des oreilles expertes.
+
+Un autre piège aurait été de reprendre tel quel le modèle psychoacoustique de Zimtohrli. D'abord, il évalue, mais ne dit pas quelles fréquences masquer ni comment attribuer les bits. Ensuite, on aurait recréé le cas du NMR : un juge et partie.
+
+Et le juge le moins fiable reste parfois l'auteur. Pendant plusieurs jours, mes fichiers de résultats arrondissaient chaque note à quatre chiffres après la virgule, alors que les distances de Zimtohrli valent entre 0,0001 et 0,0009. J'ai soigneusement comparé des zéros entre eux, et tiré des conclusions de résultats tronqués.
 
 ## La cour d'appel : l'ABX
 
-Quand les juges ne sont pas d'accord, ou quand je veux savoir si un écart s'entend, je fais un test **ABX**. Le programme (squishyball) me fait écouter A, B, puis X, qui est l'un des deux, tiré au hasard. Je dois dire lequel. Seize essais par série ; il faut au moins **12 bonnes réponses sur 16** pour que le résultat ait moins de 5 % de chances d'être dû au hasard. Au hasard pur, on tourne autour de 8.
+Quand les juges ne sont pas d'accord, ou quand je veux savoir si un écart s'entend, je fais un test **ABX**. Le programme (squishyball) me fait écouter A, B, puis X, qui est l'un des deux, tiré au hasard. Je dois dire lequel. Seize essais par série ; il faut au moins **12 bonnes réponses sur 16** pour que le résultat ait moins de 5 % de chances d'être dû au hasard. En tirant à pile ou face, on tourne autour de 8.
 
 ![Figure 5 : les scores ABX de trois séries : MULE à 128 kb/s contre l'original, MULE contre Opus au même débit, et deux réglages de MULE entre eux ; aucun extrait n'atteint le seuil de 12/16](fig/b4-fig5-abx.svg)
 
-Le 17 novembre, j'ai pris les six extraits où PEAQ voyait le plus grand écart entre MULE et Opus. Contre l'original, MULE à 128 kb/s : rien d'entendu, au mieux 10/16 sur Wolfmother. MULE contre Opus au même débit : rien, au mieux 11/16, toujours Wolfmother. L'écart que PEAQ mesurait, environ 0,05 d'ODG, ne s'entend pas, du moins pas par moi. Même verdict pour les deux réglages du 22 novembre : 44/96.
+J'ai pris les six extraits où PEAQ voyait le plus grand écart entre MULE et Opus. Contre l'original, MULE à 128 kb/s : je n'ai rien entendu, au mieux 10/16 sur Wolfmother. MULE contre Opus au même débit : rien, au mieux 11/16, toujours Wolfmother. L'écart que PEAQ mesurait, environ 0,05 d'ODG, ne s'entend pas, du moins pas par moi.
 
-Mention spéciale pour Joy Division, présent dans cette série : c'était l'un des pires extraits de MULE face à Opus selon PEAQ en novembre, et c'est le pire de toute la campagne de 300 morceaux face à Opus. En ABX : 8/16 contre l'original, 8/16 contre Opus, le hasard parfait. Et en y regardant de plus près, c'est un enregistrement live de 1980, saturé jusqu'à la moelle. Les juges s'acharnent sur un morceau dont la source est déjà abîmée.
+J'ai régulièrement fait des tests ABX sur les morceaux qui obtenaient les plus mauvaises notes, pour identifier les points faibles de MULE. Cela m'a permis de repérer quelques anomalies, comme un live de Joy Division, présent dans cette série de morceaux tirés au hasard : c'était l'un des pires extraits de MULE face à Opus selon PEAQ, et c'est le pire de toute la campagne de 300 morceaux face à Opus. C'est un enregistrement live de 1980, sur bande magnétique, saturé jusqu'à la moelle. En ABX : 8/16 contre l'original, 8/16 contre Opus, le hasard parfait. Les juges s'acharnent sur un morceau dont la source est déjà abîmée, et l'optimiser n'aurait rien apporté au reste du corpus.
 
-Il faut dire les limites de cette cour d'appel. C'est une seule paire d'oreilles, la mienne, un seul casque, et des séances d'une heure. Les oreilles se fatiguent. Elles ont aussi une vie : le matin où j'ai voulu faire l'ABX du morceau le plus intéressant de la campagne, je sortais d'un concert de cornemuses, joué très fort, et j'avais les oreilles qui sifflaient. Séance annulée. Un juge automatique n'a jamais d'acouphènes.
+J'ai aussi un gros biais : une seule paire d'oreilles, de qualité très médiocre, deux casques, des DAC d'entrée de gamme, et rarement plus d'une heure par séance. Les oreilles se fatiguent. Et j'ai une vie animée : un des matins d'après campagne, je sortais d'un improbable fest-noz avec quatre cornemuses la veille. Autant dire que j'étais incapable d'entendre quoi que ce soit dans le haut des aigus. Malgré tous leurs défauts, les juges automatiques n'ont pas d'acouphènes.
 
-Ce que ces écoutes disent, au fond : à 128 kb/s, MULE, Opus et l'AAC d'Apple sont probablement transparents pour moi sur presque tout. On se bat pour des écarts que seuls les programmes voient. Ce n'est pas inutile pour autant : ces écarts deviennent audibles à plus bas débit, et ils indiquent où le codec est faible.
+Ce que ces écoutes disent, au fond : à 128 kb/s, MULE, Opus et l'AAC d'Apple sont probablement transparents pour moi sur presque tout. On se bat pour des écarts que la majorité des auditeurs n'entendent pas, et pour des dégradations sur des extraits particulièrement difficiles. Sur un baladeur, surtout : il ne faut pas oublier que MULE est destiné à tourner sur des baladeurs d'entrée de gamme, probablement avec des écouteurs intra-auriculaires. Ma configuration de test est déjà bien meilleure que la cible.
 
-## Regarder où le juge a mal
+Ce qui fait la qualité d'un codec, ce n'est pas uniquement son taux de compression, mais la prévisibilité du résultat. Personne ne veut d'un codec excellent en moyenne, mais catastrophique sur un morceau sur quatre.
 
-Une moyenne sur 300 morceaux cache tout. La seule façon d'apprendre quelque chose d'un juge, c'est de descendre : au morceau, puis à la seconde, puis à la fréquence.
+![Figure 6 : la distance Zimtohrli de chacun des 300 morceaux, pour MULE, Opus et l'AAC d'Apple à 96, 128 et 160 kb/s ; à 128 kb/s, la médiane de MULE est 2,7, celle d'Opus 3,3 et celle de l'AAC 4,2, mais chaque codec s'étale de moins de 1 à plus de 5, et les nuages se recouvrent largement](fig/b4-fig7-repartition.svg)
 
-Parmi les rares défaites de MULE face à Opus, il y a une ode de Purcell, du chant choral avec un ensemble baroque. Pas de défaut d'enregistrement, et une défaite à tous les débits selon Zimtohrli, alors que PEAQ avancé et le NMR préfèrent MULE. Je ne peux pas vous montrer cet extrait, qui est sous droits, mais le même phénomène se voit sur le quatuor à cordes de la collection EBU SQAM, au même débit pour les deux codecs.
+Un codec n'a pas *une* qualité. À 128 kb/s, du morceau le plus facile au plus difficile, la distance de Zimtohrli est multipliée par 9 pour l'AAC, par 12 pour Opus et par plus de 50 pour MULE. Les médianes (2,7 pour MULE, 3,3 pour Opus, 4,2 pour l'AAC) sont plus proches entre elles que deux morceaux d'un même codec. L'AAC est le plus dispersé : 90 % de ses morceaux s'étalent de 2,4 à 5,9, contre 1,7 à 4,5 pour Opus et 1,3 à 3,5 pour MULE. À 96 kb/s, en revanche, c'est Opus le plus groupé : même médiane que MULE (6,0), mais le pire morceau de MULE monte à 12,1, contre 9,8 pour Opus. C'est cette queue de mauvais morceaux qu'il faut aller chercher.
 
-![Figure 6 : en haut, la distance Zimtohrli seconde par seconde sur le quatuor à cordes de l'EBU, MULE et Opus au même débit ; en bas, sa décomposition par région de fréquence : la perte de MULE est concentrée entre 2,8 et 6 kHz et entre 10 et 15 kHz, et c'est presque uniquement de la structure, pas de l'intensité](fig/b4-fig6-secondes.svg)
+## Identifier les anomalies et les exceptions
 
-En haut, Zimtohrli seconde par seconde. Sur Purcell, MULE était derrière sur 58 fenêtres sur 59 : pas un accident localisé, mais un défaut permanent. En bas, la décomposition par région : la perte se concentre entre 2,8 et 6 kHz et entre 10 et 15 kHz, et elle est presque entièrement dans la **structure**. La part d'intensité est si petite qu'elle disparaît sur la figure. Autrement dit, MULE met la bonne *quantité* de bruit, mais pas avec la bonne *texture*.
+Une moyenne sur 300 morceaux cache une réalité plus complexe. La seule façon d'améliorer le codec à partir des écoutes automatiques est de descendre progressivement : au morceau, puis à la seconde, puis à la bande de fréquence fautive.
 
-J'ai d'abord soupçonné un papillotement : certaines bandes, juste au bord du masque, passaient d'une trame à l'autre de « codée » à « remplie de bruit ». C'était vrai, une bande sur Purcell basculait dans 21 % des trames. J'ai ajouté une hystérésis pour stabiliser ces décisions : le papillotement est tombé à 8 %, et la note n'a pas bougé (10,98 → 10,89). Sur les 66 extraits du groupe de réglage, l'effet est de l'ordre du pour cent. Fausse piste. J'ai ensuite fait varier le niveau du bruit de remplissage : le réglage actuel était déjà le meilleur. Deuxième fausse piste.
+Parmi les défaites de MULE face à Opus, il y a l'*Ode pour l'anniversaire de la reine Marie* de Purcell, du chant choral avec un ensemble baroque. Pas de défaut d'enregistrement, contrairement à d'autres. Mais une défaite à tous les débits selon Zimtohrli, alors que PEAQ avancé et le NMR préfèrent MULE. Je ne peux pas vous montrer cet extrait, qui est sous droits, mais le même phénomène se voit sur le quatuor à cordes de la collection EBU SQAM, au même débit pour les deux codecs.
+
+![Figure 7 : en haut, la distance Zimtohrli seconde par seconde sur le quatuor à cordes de l'EBU, MULE et Opus au même débit ; en bas, sa décomposition par région de fréquence : la perte de MULE est concentrée entre 2,8 et 6 kHz et entre 10 et 15 kHz, et c'est presque uniquement de la structure, pas de l'intensité](fig/b4-fig6-secondes.svg)
+
+En haut, Zimtohrli seconde par seconde. Sur le quatuor, MULE est derrière sur 14 fenêtres sur 23 ; sur Purcell, c'était 58 sur 59. Ce n'est donc pas un accident localisé, mais un défaut d'encodage. En bas, la décomposition par région du quatuor : MULE fait mieux qu'Opus sous 2,8 kHz, mais perd entre 2,8 et 6 kHz et entre 10 et 15 kHz, les mêmes régions que sur Purcell. Et la perte est presque entièrement dans la **structure** : la part d'intensité est si petite qu'elle disparaît sur la figure. Autrement dit, MULE met la bonne *quantité* de bruit, mais pas avec la bonne *texture*.
+
+Deux fausses pistes d'abord. Certaines bandes, au bord du masque, basculaient d'une trame à l'autre entre « codée » et « remplie de bruit » ; une hystérésis a fait passer ce papillotement de 21 à 8 % des trames sur Purcell, sans effet sur la note. Faire varier le niveau du bruit de remplissage n'a rien donné non plus.
 
 L'hypothèse qui reste : dans ces régions, MULE code peu d'impulsions (un tiers des coefficients d'une bande codée sont non nuls) et remplit le reste avec du bruit plat. Opus, lui, remplit les trous en **repliant** du spectre déjà décodé, étale ses impulsions et conserve exactement l'énergie de chaque bande : son remplissage a la texture du signal. MULE sait replier aussi, mais seulement dans les trames courtes, celles des attaques. C'est une hypothèse cohérente avec les mesures, pas une démonstration, et la corriger demanderait de toucher au format.
 
-Dernière anecdote de cette plongée : sur un autre extrait perdant, un concerto de Beethoven, la différence entre les deux codecs se résumait au niveau du bruit qu'ils mettent à la place du souffle de l'enregistrement, au-dessus de 12 kHz. Dans ce souffle, une raie fine, à **15 625 Hz** pile. C'est la fréquence de balayage des lignes d'un téléviseur cathodique au standard européen. Il y avait une télé allumée dans la salle d'enregistrement, et j'ai déjà croisé la même raie sur un autre Beethoven. Les juges mesurent tout, y compris la télé du preneur de son.
+Dernière anecdote de cette plongée : sur un autre extrait perdant, un concerto de Beethoven, la différence entre les deux codecs se résumait au niveau du bruit qu'ils mettent à la place du souffle de l'enregistrement, au-dessus de 12 kHz. Dans ce souffle, une raie fine, à **15 625 Hz** pile. C'est la fréquence de balayage des lignes d'un téléviseur cathodique au standard européen : il y avait probablement un téléviseur ou un moniteur allumé près des micros. Les juges mesurent tout, y compris l'écran du preneur de son.
 
 ## Conclusion : des juges, pas des oracles
 
-Les juges automatiques sont indispensables pour régler un codec, et dangereux pour conclure. Ils notent ce qu'ils savent mesurer, pas forcément ce qu'on entend. Ils se contredisent. Ils se font exploiter par le premier optimiseur venu. Et ils favorisent le codec qui a été réglé avec eux.
+Les juges automatiques sont indispensables pour régler un codec, et dangereux pour prendre des décisions. Ils notent ce qu'ils savent mesurer, pas forcément ce qu'on entend. Ils se contredisent. Ils se font abuser par le premier optimiseur venu. Et on tombe vite dans le surapprentissage d'un modèle ou d'un codec particulier.
 
-Ce que j'en ai tiré tient en quatre règles : plusieurs juges, une hiérarchie annoncée d'avance, des statistiques sur beaucoup de morceaux, et l'oreille en dernier ressort, de préférence reposée. Et une cinquième, peut-être la plus utile : quand un juge dit qu'on perd, ne pas regarder la moyenne, mais aller voir **où** il a mal. C'est là qu'on apprend quelque chose sur son codec, même quand on ne l'entend pas.
+Ce que j'en ai tiré tient en quatre règles :
 
-Dans le prochain billet, je vous ouvre le cimetière : toutes les bonnes idées que ces juges ont refusées.
+1. toujours avoir plusieurs juges ;
+2. définir leur hiérarchie à l'avance ;
+3. faire des statistiques sur un grand nombre de morceaux variés, ce qui permet de concentrer le temps d'oreille disponible, et reposée, sur les extraits qui font vraiment la différence ;
+4. et peut-être la plus utile : quand un juge dégrade une moyenne, ne pas regarder la moyenne, mais aller chercher les extraits qui la dégradent. C'est là qu'on identifie les défauts du codec, même quand ils sont presque inaudibles.
+
+Dans le prochain billet, on descend dans l'ossuaire des bonnes idées.
+
+---
 
 ## Notes pour la relecture (à retirer avant publication)
 
 - Chiffres : figure 2, `eval/results/E2-LOG.md` (MULE v2, 17/11) ; figure 3, campagne de 300 morceaux,
   mode `--bitrate` (mélange Opus C75) ; figure 4, `m6_search_extrapolated.csv` et `m6_search.csv` ;
-  figure 5, `G3-ABX.md` et `N-LOG.md` (m6z1) ; figure 6, `docs/blog/tools/figs4.py` (quatuor SQAM,
-  MULE 6,67 contre Opus 6,26 en moyenne des fenêtres, 91,9 kb/s chacun).
-- Purcell (58 fenêtres sur 59, hystérésis 21 → 8 %, 10,98 → 10,89) : analyses du 24/11, fichiers dans
-  `data/listen/c75opus/` (non publiés).
-- À vérifier : la date et la licence de Zimtohrli ; l'année de PEAQ (BS.1387 de 1998, révisé en 2001) ;
-  l'ABX de Purcell, à faire oreilles reposées, à ajouter à la section ABX.
-- L'anecdote du concert de cornemuses : à confirmer ou retirer par l'auteur.
-- La règle « aucun extrait ne recule » : le seuil exact est 0,02 d'ODG (mémoire de projet), à préciser ?
+  figure 5, `G3-ABX.md` et `N-LOG.md` (m6z1) ; figure 6, même campagne (`b4-fig7-repartition.svg`) ;
+  figure 7, `docs/blog/tools/figs4.py` (quatuor SQAM, MULE 6,67 contre Opus 6,26 en moyenne des
+  fenêtres, 91,9 kb/s chacun).
+- Figure 6, à 160 kb/s : MULE reste le plus groupé (5-95 % : 0,7 à 1,8), mais Opus est alors plus
+  dispersé que l'AAC (1,1 à 3,0 contre 1,5 à 2,9). L'idée « Opus groupé, AAC dispersé » ne tient
+  donc qu'à 96 et 128 kb/s.
+- Purcell (58 fenêtres sur 59, hystérésis 21 → 8 %) : analyses du 24/11, fichiers dans
+  `data/listen/c75opus/` (non publiés). Quatuor : 14 fenêtres sur 23 (fenêtres de 1 s, pas de 0,5 s),
+  structure 2,07 contre 1,45 (2,8-6 kHz) et 3,18 contre 2,01 (10-15 kHz), MULE devant sous 2,8 kHz.
+- Zimtohrli : fréquences centrales des 128 canaux de 24 Hz à 19,7 kHz (`eval/zimt_diag.py`).
+- À vérifier :
+  - la date et la licence de Zimtohrli ; l'année de PEAQ (BS.1387 de 1998, révisé en 2001) ;
+  - ViSQOL « retiré lors du passage à la v4 » : d'après mes notes, il est sorti des évaluations le
+    22/11, le jour du gel de la v5 ;
+  - « l'AAC d'Apple … transparent en écoute ABX » : la seule série prévue avec l'AAC,
+    `eval/results/V4-ABX.md` (étapes 2 et 3), n'a pas de score noté ;
+  - « au-dessus de 17 kHz » dans le tableau (le piège décrit ensuite porte sur 19,95 contre 20,4 kHz) ;
+  - l'ABX de Purcell, à faire oreilles reposées, à ajouter à la section ABX.
+- « Le niveau du bruit de remplissage n'a rien donné » : vrai sur Purcell, mais la recherche CMA-ES du
+  24/11 propose un bruit plus fort à 96 kb/s (`nf_off_db` −4,3) ; à revoir après sa validation.
