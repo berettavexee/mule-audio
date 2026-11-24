@@ -133,7 +133,7 @@ def b4_fig4_cmaes():
     gs = s.objective - s.objective.iloc[0]
     rho = np.corrcoef(e.rate_q7, ge)[0, 1]
     print(f"   extrapolated: max gain {ge.max():+.3f}, r(rate, gain) {rho:.2f}; bracketed: max {gs.max():+.4f}")
-    fig, (a, b) = plt.subplots(1, 2, figsize=(12, 4.6), gridspec_kw={"width_ratios": [2.2, 1]}, sharey=True)
+    fig, (a, b) = plt.subplots(1, 2, figsize=(12, 4.6), gridspec_kw={"width_ratios": [2.2, 1.2]}, sharey=True)
     a.scatter(e.rate_q7, ge, s=40, color=ORANGE, zorder=3)
     a.scatter([e.rate_q7.iloc[0]], [0], s=90, color=INK, zorder=4)
     a.annotate("le réglage de départ", (e.rate_q7.iloc[0], 0), (103, 0.022), fontsize=11, color=INK,
@@ -144,11 +144,13 @@ def b4_fig4_cmaes():
     a.set_xlabel("débit du candidat au réglage de qualité fixe (kb/s)")
     a.set_ylabel("gain annoncé (ODG)")
     a.set_title("1er essai : note extrapolée", fontsize=13, color=INK)
-    b.scatter(np.zeros(len(gs)) + np.random.default_rng(1).uniform(-0.25, 0.25, len(gs)), gs, s=40, color=BLUE,
-              zorder=3)
+    b.scatter(np.r_[s.rate_lo, s.rate_hi], np.r_[gs, gs], s=40, color=BLUE, zorder=3)
     b.axhline(0, color=MUTED, lw=1)
-    b.set_xlim(-1, 1)
-    b.set_xticks([])
+    b.axvline(128, color=MUTED, lw=1, ls="--")
+    b.text(128.4, -0.058, "128 kb/s", color=MUTED, fontsize=10.5)
+    b.set_xlim(116, 140)
+    b.set_xticks([120, 128, 136])
+    b.set_xlabel("débits des deux mesures (kb/s)")
     b.set_title("2e essai : 128 kb/s encadré", fontsize=13, color=INK)
     fig.text(0.5, -0.17, "recherche CMA-ES sur cinq réglages de l'encodeur, 33 extraits ;\n"
              "gain = moyenne de l'ODG de base et avancé, par rapport au départ", ha="center", color=MUTED,
