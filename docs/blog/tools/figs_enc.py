@@ -73,9 +73,11 @@ def _v5(df):
     return pd.concat([df, p])
 
 
-def _strip(rows, rate, name, figsize=(9, 5.2), lang="fr", zimt=False):
+def _strip(rows, rate, name, figsize=(9, 5.2), lang="fr", zimt=False, names=None, notes=None, dot=34):
     """One row of dots per (values: item -> ODG, label, colour, marker): the median, the 10-90 %
     range, the hardest and the easiest item named. lang "en": English captions (the README).
+    names: {item: name} (default: the test set's artists); notes: the second caption line, (en, fr);
+    dot: the dots' size.
     zimt: the values are Zimtohrli distances (lower = better), drawn as -distance x 1e4 so that
     better stays on the right, the ticks labelled with the distances themselves."""
     if zimt:
@@ -92,13 +94,13 @@ def _strip(rows, rate, name, figsize=(9, 5.2), lang="fr", zimt=False):
     for k, (v, lab, c, mk) in enumerate(rows):
         y = len(rows) - 1 - k
         jit = rng.uniform(-0.16, 0.16, len(v))
-        ax.scatter(v, y + jit, s=34, color=c, marker=mk, edgecolor="white", linewidth=0.8, zorder=3)
+        ax.scatter(v, y + jit, s=dot, color=c, marker=mk, edgecolor="white", linewidth=0.8, zorder=3)
         p10, med, p90 = v.quantile(0.1), v.median(), v.quantile(0.9)
         ax.plot([p10, p90], [y - 0.32, y - 0.32], color=INK, lw=2, zorder=2)
         ax.plot([med, med], [y - 0.42, y - 0.22], color=INK, lw=2.5, zorder=2)
         ax.text(xlab, y, lab, color=INK, fontsize=13, ha="left", va="center")
         worst, best = v.idxmin(), v.idxmax()    # the hardest and the easiest item
-        nw, nb = _names(worst), _names(best)
+        nw, nb = (names[worst], names[best]) if names else (_names(worst), _names(best))
         close = v[worst] + len(nw) * span * 0.0055 > v[best] - len(nb) * span * 0.011
         pos = list(v.index)
         ax.annotate(nw, (v[worst], y + jit[pos.index(worst)]),
@@ -126,10 +128,10 @@ def _strip(rows, rate, name, figsize=(9, 5.2), lang="fr", zimt=False):
         ax.set_xlim(lo - 0.05, xlab + 0.32 * (hi - lo + 0.1))
         ax.set_xlabel(f"PEAQ's ODG of each track, at {rate} kb/s" if en else f"ODG (PEAQ) de chaque extrait, à {rate} kb/s")
     ax.set_ylim(-0.7, len(rows) - 0.45)
-    notes = (("one dot = one track;  line = 10 to 90 % of the tracks;  bar = median",
-              "the 30 tracks of the test set, never used for tuning") if en else
-             ("un point = un extrait ;  trait = de 10 à 90 % des extraits ;  barre = médiane",
-              "les 30 extraits du jeu de test, jamais utilisés pour les réglages"))
+    sub = notes or ("the 30 tracks of the test set, never used for tuning",
+                    "les 30 extraits du jeu de test, jamais utilisés pour les réglages")
+    notes = (("one dot = one track;  line = 10 to 90 % of the tracks;  bar = median", sub[0]) if en else
+             ("un point = un extrait ;  trait = de 10 à 90 % des extraits ;  barre = médiane", sub[1]))
     for k, txt in enumerate(notes):
         ax.annotate(txt, (0.5, 0), xycoords="axes fraction", xytext=(0, -52 - 18 * k),
                     textcoords="offset points", ha="center", va="top", color=MUTED, fontsize=11)
@@ -322,7 +324,39 @@ def enc_fig8b_spectro_v5_fr():
 
 
 # (enc_fig4_spectro_en is left out: made with format v4, it would now encode v5; see enc_fig8)
-ALL = [enc_fig1_distributions, enc_fig1b_distributions_160, enc_fig2_avant_apres, enc_fig2b_avant_apres_160,
+
+CAMPAIGN = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(HERE))), "data", "campaign")
+
+
+def enc_fig11_campaign(rate=128, lang="en", zimt=False):
+    """The 300-track campaign (data/campaign, eval/campaign.py: each codec at the setting whose mean
+    rate over the 300 excerpts is the target, every item interpolated with the same weights): MULE's
+    --bitrate since 25/11/2026 (brR128), MULE v5 in quality mode (22/11/2026), Opus and Apple's AAC.
+    PEAQ's basic ODG, or (zimt) Zimtohrli."""
+    col = "zimt" if zimt else "odg"
+    a = pd.read_csv(os.path.join(CAMPAIGN, "matched_mule_brC75-mule_brR128-mule_brR144-opus-aac.csv"))
+    b = pd.read_csv(os.path.join(CAMPAIGN, "matched_mule-mule_br-mule_brC75-opus-aac.csv"))
+    a, b = a[a.rate == rate], b[b.rate == rate]
+    names = {i: re.split(r"[;,&]| - ", n)[0].strip() for i, n in zip(a.item, a.artist)}
+
+    def get(df, codec):
+        return df[df.codec == codec].set_index("item")[col]
+    en = lang == "en"
+    rows = [(get(a, "opus"), "Opus", ORANGE, "D"),
+            (get(a, "mule_brR128"), "MULE --bitrate", GREEN, "o"),
+            (get(b, "mule"), "MULE v5 -q", BLUE, "o"),
+            (get(a, "aac"), "AAC (Apple)", APPLE, "v")]
+    _strip(rows, rate, ("enc-fig12-zimt-300" if zimt else "enc-fig11-peaq-300") + ("" if rate == 128 else f"-{rate}")
+           + ("-en" if en else ""), figsize=(9, 4.6), lang=lang, zimt=zimt, names=names, dot=9,
+           notes=("300 tracks of 144 artists drawn at random; MULE: --bitrate (25/11/2026), v5 -q: 22/11/2026",
+                  "300 extraits de 144 artistes tirés au hasard ; MULE : --bitrate (25/11/2026), v5 -q : 22/11/2026"))
+
+
+def enc_fig12_zimt_300():
+    """enc_fig11_campaign with Zimtohrli."""
+    enc_fig11_campaign(128, zimt=True)
+
+ALL = [enc_fig11_campaign, enc_fig12_zimt_300, enc_fig1_distributions, enc_fig1b_distributions_160, enc_fig2_avant_apres, enc_fig2b_avant_apres_160,
        enc_fig3_v4, enc_fig3b_v4_160, enc_fig3c_v4_en, enc_fig5_zimt,
        enc_fig5b_zimt_160, enc_fig5c_zimt_en, enc_fig6_v5, enc_fig6b_v5_160, enc_fig6c_v5_en,
        enc_fig7_zimt_v5, enc_fig7b_zimt_v5_160, enc_fig7c_zimt_v5_en, enc_fig8_spectro_v5_en,

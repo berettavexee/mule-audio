@@ -92,24 +92,28 @@ too many to the low mids, and, at low rates only, too many to the top octave, wh
 already cut. The reallocation (`eval/slopes.py`, `eval/results/B9-REPORT.md`) took 5 to 9 % off
 the distance at every rate, and could not be heard in a blind ABX test at 96 kb/s (46/96).
 
-### Format by format
+### Track by track
 
-The first measurements, on 30 other tracks never used for tuning, in quality mode (`-q`, before
-`--bitrate` existed), at equal real bitrate (curves interpolated), compare the formats and two
-more codecs, FDK-AAC and Vorbis:
+Averages hide a lot. Each dot below is one of the 300 tracks at 128 kb/s, for the current encoder
+(`--bitrate`), the same format v5 in quality mode before the latest encoder changes (`-q`, 22/11),
+Opus and Apple's AAC. In PEAQ's eyes, MULE and Opus have nearly the same median (−0.14 and
+−0.12), but MULE's tail is shorter: 6 tracks below −0.3, against 16 for Opus and 13 for `-q`; the
+worst for both is Belenos (bagpipes). Apple's AAC is spread wide and pays for its lowpass.
 
-| | ODG @128 kb/s | ODG @160 kb/s | ODG (advanced) @128 / @160 | Zimtohrli @128 |
-|---|---|---|---|---|
-| AAC (FDK-AAC) | −0.54 | −0.21 | −0.57 / −0.27 | 5.08 |
-| Vorbis (libvorbis) | −0.45 | −0.16 | −0.63 / −0.34 | 5.12 |
-| AAC (Apple, qaac TVBR) | −0.31 | −0.02 | −0.46 / −0.22 | 4.11 |
-| Opus (libopus) | **−0.12** | 0.00 | −0.45 / −0.24 | 3.32 |
-| MULE (format v3) | −0.16 | 0.00 | −0.36 / −0.14 | 3.74 |
-| MULE (format v4) | −0.15 | 0.00 | −0.34 / −0.14 | 2.84 |
-| MULE (format v5) | −0.15 | **+0.01** | **−0.33 / −0.13** | **2.77** |
+![PEAQ's score of each of the 300 tracks at 128 kb/s, for Opus, MULE --bitrate, MULE v5 -q and Apple's AAC](docs/blog/fig/enc-fig11-peaq-300-en.svg)
 
-MULE beats Vorbis and FDK-AAC everywhere. Apple's AAC encoder is far ahead of FDK on the same
-format (+0.23 ODG at 128 kb/s): in a codec, the encoder is what matters.
+The same tracks seen by Zimtohrli (lower is better; the axis is reversed so that better stays on
+the right), which I trust more than PEAQ at these bitrates: medians 2.58 for MULE, 2.63 for `-q`,
+3.31 for Opus and 4.21 for Apple's AAC. The worst track of MULE and Opus is the same Beethoven
+concerto, whose recording carries the whistle of a cathode-ray monitor at 15.6 kHz: Zimtohrli
+weighs that line heavily, a sound few adults can hear.
+
+![Zimtohrli distance of each of the 300 tracks at 128 kb/s, for Opus, MULE --bitrate, MULE v5 -q and Apple's AAC](docs/blog/fig/enc-fig12-zimt-300-en.svg)
+
+The history of the results, format by format and encoder change by encoder change, with the
+older measurements (30 tracks, Vorbis and FDK-AAC too, and their track-by-track plots), is in
+[`docs/RESULTS-HISTORY.md`](docs/RESULTS-HISTORY.md). In short: MULE beat Vorbis and FDK-AAC
+from format v3 on, and most of the gains since v5 came from the encoder.
 
 The format has been nearly stable since v3. Formats v4 and v5 are minor changes, both about the
 noise the decoder generates in the bands left without bits ([`docs/V4.md`](docs/V4.md),
@@ -125,26 +129,6 @@ noise-to-mask ratio; since v4, Zimtohrli first and no longer ViSQOL), and an ide
 they agreed on an independent test set, or if listening could not tell when they did not.
 Those machines have blind spots, and this project walked into most of them: see
 [`docs/LESSONS.md`](docs/LESSONS.md).
-
-### Track by track
-
-Averages hide a lot. Each dot below is one of the 30 test tracks of the format table at 128 kb/s: Opus is excellent
-almost everywhere but collapses on one track (Belenos, bagpipes); MULE is more even, and v5 sits
-level with v4 in PEAQ's eyes; Apple's AAC is spread wide and pays for its lowpass in PEAQ's eyes.
-
-![PEAQ's score of each of the 30 test tracks at 128 kb/s, for Opus, MULE v5, MULE v4 and Apple's AAC](docs/blog/fig/enc-fig6-v5-en.svg)
-
-The same tracks seen by Zimtohrli (Google's psychoacoustic distance, lower is better; the axis is
-reversed so that better stays on the right), which I trust more than PEAQ at these bitrates.
-MULE v5, whose encoder was tuned on it (on other tracks), has the best median at 128 kb/s (2.71,
-v4 2.85, Opus 3.38) and at 160 kb/s (1.36, v4 1.38, Opus 2.26). Zimtohrli does not pick the same
-hard tracks as PEAQ: MULE's worst used to be Garbage, whose dense cymbals are noise-filled by MULE
-in the top bands with the right average energy but not the right movement from frame to frame; an
-envelope guard in the encoder, short blocks triggered by the highs, then the folding of v5 brought
-it from 6.6 (v3) to 4.9, 3.7, then 3.1 (`eval/results/N-LOG.md`). The worst is now Zombie Zombie
-(4.8), whose structured highs, under a loud band, MULE fills with noise.
-
-![Zimtohrli distance of each of the 30 test tracks at 128 kb/s, for Opus, MULE v5, MULE v4 and Apple's AAC](docs/blog/fig/enc-fig7-zimt-v5-en.svg)
 
 ### Where each codec puts its bits
 
@@ -192,7 +176,7 @@ The details, the numbers and the dead ends are in [`docs/LESSONS.md`](docs/LESSO
 | `eval/` | the evaluation (`eval/README.md`): corpus building, reference codecs, metrics (internal NMR, PEAQ, ViSQOL), equal-rate comparisons; logs and results in `eval/results/`, past one-off scripts in `eval/archive/` |
 | `tests/` | unit tests, and frozen decoder test vectors |
 | `bench/qemu/` | Cortex-M3 benchmark under QEMU (instruction counts, bit-exactness) |
-| `docs/` | `LESSONS.md` (everything measured), `ARTICLE.md` (how MULE works, two pages), `PORT.md` (the port to the player), `V3-IDEAS.md` and `V4-IDEAS.md` (the ideas studied for each format), `V4.md` and `V5.md` (what each format changed, and why), `V5-512.md` (the study of intermediate blocks, folded into v5), `VARIANTS-BC.md`, `TODO.md`, `blog/` (the blog posts, their figures and tools), `history/` |
+| `docs/` | `LESSONS.md` (everything measured), `RESULTS-HISTORY.md` (the results, version by version), `ARTICLE.md` (how MULE works, two pages), `PORT.md` (the port to the player), `V3-IDEAS.md` and `V4-IDEAS.md` (the ideas studied for each format), `V4.md` and `V5.md` (what each format changed, and why), `V5-512.md` (the study of intermediate blocks, folded into v5), `VARIANTS-BC.md`, `TODO.md`, `blog/` (the blog posts, their figures and tools), `history/` |
 
 Most of the documentation and logs are in French, my language.
 
