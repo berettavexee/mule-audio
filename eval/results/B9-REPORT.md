@@ -285,3 +285,49 @@ Lecture :
   environ 0,4 dB de SNR à débit égal et +0,06 d'ODG.
 - Le changement toucherait le format (v6) : à ne lancer que si la mesure pondérée dépasse
   environ 0,1 dB.
+
+### Le signe « triché » (même simulation, `--methods bias vvc --states 64 --frames 100`)
+
+L'encodeur poussé vers un signe pour les ±D/2 de la règle impaire (−1 coûte 2 bits de plus à la
+première passe, puis les fréquences suivent, cinq passes), codé à sa fréquence. Gain sur MULE (dB) :
+
+| entropie (bit/coef) | 0,3 | 0,5 | 0,75 | 1 | 1,5 | 2 |
+|---|---|---|---|---|---|---|
+| β 1,1, signe triché | +0,00 | +0,00 | 0,00 | 0,00 | 0,00 | −0,01 |
+| β 1,1, zéro dans Q1 | +0,07 | +0,05 | +0,03 | +0,01 | −0,03 | −0,07 |
+| β 0,7, signe triché | +0,12 | +0,10 | +0,08 | +0,06 | +0,01 | −0,01 |
+| β 0,7, zéro dans Q1 | +0,45 | +0,53 | +0,48 | +0,39 | +0,17 | +0,03 |
+
+Le biais ne tient pas : la part de +1 parmi les ±1 de la règle impaire revient à 0,50-0,51. Le
+Viterbi préfère payer le signe plutôt que perdre le choix de la branche (le signe de ±D/2 choisit
+le sous-ensemble, donc l'état suivant). Le petit gain à β 0,7 vient probablement des deux passes
+de plus (le coût des index mieux estimé), pas de signes prévisibles. **Piste close** ; le zéro
+dans Q1 reste le seul candidat de ce côté, au même critère que plus haut (entropie réelle par
+classe à mesurer d'abord).
+
+### Le zéro dans Q1 sur les vrais coefficients de `dev` (`eval/tcq_zero_dev.py`)
+
+Les valeurs que l'encodeur quantifie (sa trace, `--bitrate` 128 kb/s de production), 33 extraits
+de `dev` (un sur deux), une trame sur huit : 3,55 millions de coefficients, 5 183 chaînes
+(trame, canal, groupe). Requantifiées par la TCQ de MULE et par la règle à la VVC, 64 états,
+Viterbi débit-distorsion, entropie de l'index sachant la classe d'allocation et la règle.
+
+Point de fonctionnement réel (niveaux de l'encodeur) : **1,87 bit par coefficient**, erreur
+0,281 (en (D/2)²). Classe 0 : 7,8 % des coefficients, 95 % de zéros ; classe 1 : 15,6 %, 61 % de
+zéros ; classes 2 et plus : **76,6 %**, 30 % de zéros seulement.
+
+| entropie (bit/coef) | 1,50 | 1,68 | 1,87 (codec) | 2,06 |
+|---|---|---|---|---|
+| zéro dans Q1 sur MULE, erreur (dB, + = mieux) | −0,58 | −0,37 | **−0,21** | −0,15 |
+
+À erreur égale, la règle à la VVC demande **+0,03 bit par coefficient** (+1,7 % des bits
+d'index, environ 2 kb/s de plus à 128 kb/s).
+
+Lecture : **le zéro dans Q1 perd sur les vrais coefficients.** Nos coefficients sont codés vers
+1,9 bit, au-dessus de la zone où la simulation trouvait un gain (sous 1 bit) ; les trois quarts
+sont dans des classes où les zéros sont minoritaires, et la règle impaire irrégulière y coûte plus
+que le signe économisé. Le modèle synthétique (une seule forme β par simulation) surestimait la
+part des coefficients à bas débit. Seules les classes 0 et 1 (23 % des coefficients) pourraient y
+gagner ; un zéro dans Q1 réservé à ces classes (la classe est connue du décodeur) rapporterait au
+mieux une fraction de ces 23 %, sans doute sous 1 % du débit des coefficients. **Piste close** pour
+le cas général ; la variante par classe n'est à reprendre que si l'on rouvre le format.

@@ -10,6 +10,12 @@ s leads to (2 s + br) mod N, p = br ^ parity(s & mask)):
   vvc  : Q0 the same; Q1 = {0, +-1, +-3, +-5, ...}, index q (0 -> 0, k > 0 -> (k + 1) / 2,
          k < 0 -> (k - 1) / 2), p = q mod 2: zero in both rulers, sign-symmetric
          (Schwarz et al., IEEE TCSVT 31(10), 2021)
+  bias : mule's quantizer, the encoder pushed toward one sign for the near-zero levels of the odd
+         ruler (k = +1 rather than -1: the first pass charges -1 BIAS extra bits; the later passes
+         keep what that leaves in the frequencies, five passes): a "cheated", predictable sign,
+         coded at its frequency. A fixed preference is as good as any pattern the decoder could
+         know (an XOR with a known pattern is a bijection); its price is the trellis branch,
+         which the sign of +-1 chooses in the odd ruler (k mod 4)
 The rate of an index is -log2 of its frequency given the ruler, estimated from the previous pass
 (three passes); the coded entropy is that of the index given the ruler. Each method's curve is
 the lower envelope over steps and lambdas; gains are MSE (dB) against MULE's TCQ with the same
@@ -106,13 +112,23 @@ def rates_from(k, ruler):
     return tab, h
 
 
+BIAS = 2.0
+
+
 def run(x, n, mask, method, step, lam):
     xs = x / (step / 2)
     rate = [np.zeros(2 * KR + 1), np.zeros(2 * KR + 1)]
-    for it in range(3):
-        k, ruler = viterbi(xs, n, mask, method, rate, lam if it else 0.0)
+    q = "mule" if method == "bias" else method
+    passes = 3
+    if method == "bias":
+        rate[1][KR - 1] = BIAS                  # k = -1 in the odd ruler
+        passes = 5
+    for it in range(passes):
+        k, ruler = viterbi(xs, n, mask, q, rate, lam if (it or method == "bias") else 0.0)
         rate, h = rates_from(k, ruler)
-    return h, np.mean((x - k * step / 2) ** 2), np.mean(k == 0)
+    odd1 = np.abs(k[ruler == 1]) == 1
+    plus = np.mean(k[ruler == 1][odd1] > 0) if odd1.any() else np.nan
+    return h, np.mean((x - k * step / 2) ** 2), plus
 
 
 def envelope(points, hs):
@@ -133,6 +149,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--frames", type=int, default=150)
     ap.add_argument("--beta", type=float, nargs="+", default=[1.1, 0.7])
+    ap.add_argument("--states", type=int, nargs="+", default=[8, 64])
+    ap.add_argument("--methods", nargs="+", default=["vvc"], help="compared with mule: vvc, bias")
     a = ap.parse_args()
     hs = np.array([0.3, 0.5, 0.75, 1.0, 1.5, 2.0])
     steps = np.geomspace(0.6, 6.0, 9)
@@ -140,19 +158,23 @@ def main():
     L = sum(WIDTHS) * 8
     for beta in a.beta:
         x = source(np.random.default_rng(1), beta, (a.frames, L))
-        print(f"\nbeta {beta:g}: {a.frames} frames of {L} samples; MSE gain of vvc over mule (dB) "
-              f"at entropy (bits/sample): " + " ".join(f"{h:g}" for h in hs))
-        for n, mask in ((8, 0b110), (64, MASK64)):
-            env = {}
-            for method in ("mule", "vvc"):
+        print(f"\nbeta {beta:g}: {a.frames} frames of {L} samples; MSE gain over mule (dB) "
+              f"at entropy (bits/sample): " + " ".join(f"{h:g}" for h in hs), flush=True)
+        for n in a.states:
+            mask = {8: 0b110, 64: MASK64}[n]
+            env, plus = {}, {}
+            for method in ("mule", *a.methods):
                 pts = []
                 for st in steps:
                     for lam in lams:
-                        h, m, _ = run(x, n, mask, method, st, lam)
+                        h, m, pl = run(x, n, mask, method, st, lam)
                         pts.append((h, m))
+                        plus.setdefault(method, []).append(pl)
                 env[method] = envelope(pts, hs)
-            gain = 10 * (env["mule"] - env["vvc"])
-            print(f"  {n:2d} states: " + " ".join(f"{g:+6.3f}" for g in gain))
+            for method in a.methods:
+                gain = 10 * (env["mule"] - env[method])
+                print(f"  {n:2d} states, {method:5s}: " + " ".join(f"{g:+6.3f}" for g in gain)
+                      + f"   (share of +1 among the odd ruler's +-1: {np.nanmean(plus[method]):.2f})", flush=True)
 
 
 if __name__ == "__main__":
