@@ -97,23 +97,6 @@ my ears aren’t up to it.
 
 So I’ll leave it to others to tell me that my codec is useless garbage.
 
-### Track by track
-
-Averages hide a lot. Each dot below is one of the 299 tracks at 128 kb/s, for the current encoder
-(`--bitrate`), the same format v5 in quality mode before the latest encoder changes (`-q`, 22/11),
-Opus and Apple's AAC. In PEAQ's eyes, MULE and Opus have nearly the same median (−0.14 and
-−0.12), but MULE's tail is shorter: 5 tracks below −0.3, against 15 for Opus and 12 for `-q`; the
-worst for both is Belenos (bagpipes). Apple's AAC is spread wide and pays for its lowpass.
-
-![PEAQ's score of each of the 299 tracks at 128 kb/s, for Opus, MULE --bitrate, MULE v5 -q and Apple's AAC](docs/blog/fig/enc-fig11-peaq-300-en.svg)
-
-The same tracks seen by Zimtohrli (lower is better; the axis is reversed so that better stays on
-the right), which I trust more than PEAQ at these bitrates: medians 2.56 for MULE, 2.63 for `-q`,
-3.31 for Opus and 4.20 for Apple's AAC. MULE's worst track is a Purcell ode (choir and baroque
-orchestra, Martin Neary), much improved by the latest encoder changes; Opus's is Sepultura.
-
-![Zimtohrli distance of each of the 299 tracks at 128 kb/s, for Opus, MULE --bitrate, MULE v5 -q and Apple's AAC](docs/blog/fig/enc-fig12-zimt-300-en.svg)
-
 The history of the results, format by format and encoder change is in
 [`docs/RESULTS-HISTORY.md`](docs/RESULTS-HISTORY.md). In short: MULE beat Vorbis and FDK-AAC
 from format v3 on, and most of the gains since v5 came from the encoder.
@@ -132,6 +115,23 @@ noise-to-mask ratio; since v4, Zimtohrli first and no longer ViSQOL), and an ide
 they agreed on an independent test set, or if listening could not tell when they did not.
 Those machines have blind spots, and this project walked into most of them: see
 [`docs/LESSONS.md`](docs/LESSONS.md).
+
+### Track by track
+
+Averages hide a lot. Each dot below is one of the 299 tracks at 128 kb/s, for the current encoder
+(`--bitrate`), the same format v5 in quality mode before the latest encoder changes (`-q`, 22/11),
+Opus and Apple's AAC. In PEAQ's eyes, MULE and Opus have nearly the same median (−0.14 and
+−0.12), but MULE's tail is shorter: 5 tracks below −0.3, against 15 for Opus and 12 for `-q`; the
+worst for both is Belenos (bagpipes). Apple's AAC is spread wide and pays for its lowpass.
+
+![PEAQ's score of each of the 299 tracks at 128 kb/s, for Opus, MULE --bitrate, MULE v5 -q and Apple's AAC](docs/blog/fig/enc-fig11-peaq-300-en.svg)
+
+The same tracks seen by Zimtohrli (lower is better; the axis is reversed so that better stays on
+the right), which I trust more than PEAQ at these bitrates: medians 2.56 for MULE, 2.63 for `-q`,
+3.31 for Opus and 4.20 for Apple's AAC. MULE's worst track is a Purcell ode (choir and baroque
+orchestra, Martin Neary), much improved by the latest encoder changes; Opus's is Sepultura.
+
+![Zimtohrli distance of each of the 299 tracks at 128 kb/s, for Opus, MULE --bitrate, MULE v5 -q and Apple's AAC](docs/blog/fig/enc-fig12-zimt-300-en.svg)
 
 ### Where each codec puts its bits
 
@@ -178,6 +178,7 @@ The details, the numbers and the dead ends are in [`docs/LESSONS.md`](docs/LESSO
 | `py/mule/` | Python bindings (cffi), settings, Ogg comment handling, ReplayGain (BS.1770-4) |
 | `eval/` | the evaluation (`eval/README.md`): corpus building, reference codecs, metrics (internal NMR, PEAQ, ViSQOL), equal-rate comparisons; logs and results in `eval/results/`, past one-off scripts in `eval/archive/` |
 | `tests/` | unit tests, and frozen decoder test vectors |
+| `sample/SQAM128/` | EBU SQAM tracks encoded with `--bitrate 128` and decoded (FLAC), to listen without building anything |
 | `bench/qemu/` | Cortex-M3 benchmark under QEMU (instruction counts, bit-exactness) |
 | `docs/` | `LESSONS.md` (everything measured), `RESULTS-HISTORY.md` (the results, version by version), `ARTICLE.md` (how MULE works, two pages), `PORT.md` (the port to the player), `V3-IDEAS.md` and `V4-IDEAS.md` (the ideas studied for each format), `V4.md` and `V5.md` (what each format changed, and why), `V5-512.md` (the study of intermediate blocks, folded into v5), `VARIANTS-BC.md`, `TODO.md`, `blog/` (the blog posts, their figures and tools), `history/` |
 
