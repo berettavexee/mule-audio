@@ -6,8 +6,10 @@ A mule is what you get when you cross a horse and a donkey. It is sturdy, it car
 it is famously stubborn, and it has no offspring. MULE is the same thing for audio: a cross
 between **Opus**, **Vorbis** and **AAC**, built to run on one tiny music player, the Snowsky
 Echo Mini (a dual Cortex-M3 SoC without a floating-point unit). The aim is for everything to 
-fit within 64 KB of code and 128 KB of RAM. It carries the music, it refuses to go
-at low bitrates, and it will not start a dynasty.
+fit within 64 KB of compiled code and 128 KB of RAM. The sole purpose is to transcode CDs at 
+44.1 kHz, 16-bit, and this is the only supported format.
+
+*It carries the music, it refuses to go at low bitrates, and it will not start a dynasty.*
 
 This is an **experimental, learning project**. It does not try to replace anything, and it
 does not. If you want a good lossy codec, **use Opus**. If you want to see what happens when some fool
