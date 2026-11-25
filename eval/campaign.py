@@ -55,7 +55,11 @@ FAMILIES = {**CONFIGS, **{f"mule_{v}": [f"mule-{v}_{q:g}" for q in (-1, -2.5, -4
             # the CMA-ES settings found at 128 kb/s (refcodecs brB9r128), around 128 only
             "mule_brB9r128": [f"mule-brB9r128_{k}" for k in (112, 128, 144)],
             # the slopes' reallocation below 13 kHz (refcodecs brS<R>; 25/11/2026), each around its rate
-            **{f"mule_brS{r}": [f"mule-brS{r}_{k}" for k in (r - 16, r, r + 16)] for r in (96, 128, 160)}}
+            **{f"mule_brS{r}": [f"mule-brS{r}_{k}" for k in (r - 16, r, r + 16)] for r in (96, 128, 160)},
+            # ... and with 13-20 kHz too, the whole reallocation (refcodecs brF<R>)
+            **{f"mule_brF{r}": [f"mule-brF{r}_{k}" for k in (r - 16, r, r + 16)] for r in (96, 128, 160)},
+            # the reallocation as a law of the rate (refcodecs brR<end>), the whole grid
+            **{f"mule_brR{e}": [f"mule-brR{e}_{k}" for k in (80, 96, 112, 128, 144, 160, 176, 192)] for e in (128, 144)}}
 
 
 def probe_duration(path):

@@ -96,6 +96,30 @@ they agreed on an independent test set, or if listening could not tell when they
 Those machines have blind spots, and this project walked into most of them: see
 [`docs/LESSONS.md`](docs/LESSONS.md).
 
+### On 300 tracks, with `--bitrate`
+
+A second campaign: 300 excerpts of 30 s from 144 artists, drawn at random from the same library,
+each codec at the setting whose mean rate over the 300 is the target (MULE with `--bitrate`, its
+default since 25/11/2026). Means at equal rate:
+
+| | Zimtohrli @96 / @128 / @160 | ODG @96 / @128 / @160 | ODG (advanced) @96 / @128 / @160 |
+|---|---|---|---|
+| AAC (Apple, qaac TVBR) | 8.94 / 4.21 / 2.27 | −1.00 / −0.32 / −0.06 | −1.04 / −0.47 / −0.22 |
+| Opus (libopus 1.6.1) | 5.84 / 3.24 / 2.14 | **−0.33 / −0.14 / 0.00** | −0.83 / −0.44 / −0.24 |
+| MULE (format v5, `--bitrate`) | **5.35 / 2.48 / 1.25** | −0.36 / **−0.14** / −0.03 | **−0.75 / −0.32 / −0.13** |
+
+Track by track (paired), MULE is closer to the original than Opus in Zimtohrli's eyes on 72 % of
+the tracks at 96 kb/s, 94 % at 128 kb/s and 99 % at 160 kb/s, and better on PEAQ's advanced score
+on 78 to 97 %; PEAQ's basic score puts Opus ahead by 0.02-0.03 at 96 and 160 kb/s, level at 128.
+These are machine measures, not listening tests (see above).
+
+The last encoder change behind these numbers came from asking the judge itself where the bits
+should go: nudging the masks of each frequency region up and down and measuring how Zimtohrli's
+distance moves at constant rate showed that MULE gave too few bits to the bass and to 1-13 kHz,
+too many to the low mids, and, at low rates only, too many to the top octave, as other encoders
+already do. The reallocation (`eval/slopes.py`, `eval/results/B9-REPORT.md`) took 5 to 9 % off
+the distance at every rate, and could not be heard in a blind ABX test at 96 kb/s (46/96).
+
 ### Track by track
 
 Averages hide a lot. Each dot below is one of the 30 test tracks at 128 kb/s: Opus is excellent
@@ -189,8 +213,10 @@ rate (resampled to 44.1 kHz, the only one the format knows), mono or more than t
 (made stereo), and copies the tags and pictures of a FLAC input. As with Opus, `--bitrate` holds
 each track near the requested rate (a rate leveler: on 300 tracks, 95 % within ±10 % of it) and
 mixes Opus's band allocation table into its masking model (a quarter of the weight), which beats
-pure quality VBR at the same mean rate on every measure of the campaign; `-q` is pure quality VBR,
-whose rate follows the music.
+pure quality VBR at the same mean rate on every measure of the campaign; since 25/11/2026 it also
+moves bits between bands by a law of the rate (more to the bass and to 1-13 kHz, fewer to
+13-20 kHz below 128 kb/s: `params.realloc_db`, [`docs/ENC-PARAMS.fr.md`](docs/ENC-PARAMS.fr.md)).
+`-q` is pure quality VBR, whose rate follows the music.
 
 The evaluation corpus is not included (it comes from the EBU SQAM disc and a private music
 library); `eval/corpus.py` shows how it was cut (the library's root in `MULE_LIBRARY`).

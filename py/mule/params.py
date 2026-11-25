@@ -84,16 +84,48 @@ class Params:
 
 
 
+# --bitrate's reallocation between bands (25/11/2026, eval/results/B9-REPORT.md 4-10): per-band mask
+# offsets in dB (- = more bits), found by the slopes of our model against Zimtohrli (eval/slopes.py)
+# on its six regions below 13 kHz (MULE bands 0-2, 2-6, 6-12, 12-16, 16-19, 19-20) at 96, 128 and
+# 160 kb/s, interpolated in log2 of the rate (held outside); 13-20 kHz (bands 20-21) +6 dB up to
+# 96 kb/s, falling linearly to 0 at REALLOC_HF_END. Better than without on Zimtohrli and NMR at every
+# rate of 80-192 kb/s on the 300-track campaign, PEAQ within a few hundredths, ABX at 96 kb/s 46/96.
+REALLOC_RATES = (96, 128, 160)
+REALLOC_REGIONS = (2, 4, 6, 4, 3, 1)
+REALLOC_DB = {96: (-3.35, 1.72, -0.82, -0.69, -1.27, -1.81),
+              128: (-3.82, 3.40, -0.65, -0.56, -0.52, -1.24),
+              160: (-3.66, 0.08, -1.88, -1.36, -1.45, -1.77)}
+REALLOC_HF_DB = 6.0
+REALLOC_HF_END = 128.0
+
+
+def realloc_below(rate):
+    """The offsets of bands 0-19 found at one of REALLOC_RATES."""
+    return sum(((d,) * n for d, n in zip(REALLOC_DB[rate], REALLOC_REGIONS)), ())
+
+
+def realloc_db(kbps, hf_end=REALLOC_HF_END):
+    """--bitrate's per-band mask offsets (22 bands, dB) at kbps."""
+    pts = REALLOC_RATES
+    low = np.array([realloc_below(r) for r in pts])
+    x = np.clip(np.log2(kbps), np.log2(pts[0]), np.log2(pts[-1]))
+    below = [float(np.interp(x, np.log2(pts), low[:, b])) for b in range(low.shape[1])]
+    hf = REALLOC_HF_DB * float(np.clip((hf_end - kbps) / (hf_end - pts[0]), 0.0, 1.0))
+    return tuple(round(v, 3) for v in below) + (hf, hf)
+
+
 def for_bitrate(kbps, **kw):
     """The settings for a target rate in kb/s, as opusenc's --bitrate: q_db from the rate curve
     R(q) = rc_r0 2^(-q / rc_slope) (the 300-track campaign, 23/11/2026), and the rate leveler
-    (rc_k 2, up to 15 dB) that draws each track's rate toward it (core/mule_enc.h), and the Opus
+    (rc_k 2, up to 15 dB) that draws each track's rate toward it (core/mule_enc.h), the Opus
     band allocation mixed with the masks (opa_mode 3, 75 % MULE: better on every judge at 96, 128
-    and 160 kb/s on the 300-track campaign, 24/11/2026); kw: other settings."""
+    and 160 kb/s on the 300-track campaign, 24/11/2026), and the reallocation between bands
+    realloc_db(kbps) (25/11/2026); kw: other settings (band_db=() for none)."""
     import math
     d = Params()
     q = -d.rc_slope * math.log2(kbps / d.rc_r0)
-    return Params(**{"q_db": q, "rc_k": 2.0, "rc_max": 15.0, "opa_mode": 3, "opa_alpha": 0.75, **kw})
+    return Params(**{"q_db": q, "rc_k": 2.0, "rc_max": 15.0, "opa_mode": 3, "opa_alpha": 0.75,
+                     "band_db": realloc_db(kbps), **kw})
 
 # the model streams in the decoder's order: (name, symbols, contexts) (core/models.c)
 STREAMS = [("btype", 2, 1), ("alpha", 4, 1), ("stereo", 2, 3), ("energy", 16, 9),

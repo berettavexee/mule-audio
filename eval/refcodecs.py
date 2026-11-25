@@ -13,6 +13,7 @@ import soundfile as sf
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "py"))
 from mule.oggfile import audio_bytes  # noqa: E402
+from mule import params  # noqa: E402
 
 
 def _sh(cmd):
@@ -329,17 +330,14 @@ class Mule:
     VARIANTS["brB9r160"] = {"opa_mode": 3, "tcap_db": 13.915, "mid_db": 9.323, "low_db": 20.455, "fft_noise_db": 3.082, "rd_lambda": 2.131, "tcq_rdl": 0.652, "pre_db": 9.625, "opa_alpha": 0.631, "nf_off_db": -4.765}
     # the slopes' reallocation (eval/slopes.py, slopes_summary.json; 25/11/2026) without touching
     # 13-20 kHz: brS<R>, the mask offsets (dB) found at R kb/s on Zimtohrli's six lower regions
-    # (MULE bands 0-2, 2-6, 6-12, 12-16, 16-19, 19-20)
-    for _r, _o in {96: (-3.35, 1.72, -0.82, -0.69, -1.27, -1.81),
-                   128: (-3.82, 3.40, -0.65, -0.56, -0.52, -1.24),
-                   160: (-3.66, 0.08, -1.88, -1.36, -1.45, -1.77)}.items():
-        VARIANTS[f"brS{_r}"] = {"band_db": sum(((_d,) * _n for _d, _n in zip(_o, (2, 4, 6, 4, 3, 1))),
-                                               ()) + (0.0, 0.0)}
+    # (params.REALLOC_DB: MULE bands 0-2, 2-6, 6-12, 12-16, 16-19, 19-20)
+    for _r in (96, 128, 160):
+        VARIANTS[f"brS{_r}"] = {"band_db": params.realloc_below(_r) + (0.0, 0.0)}
     # ... 13-20 kHz alone (MULE bands 20-21): brH<R>; and the whole reallocation: brF<R>
     for _r, _h in {96: 6.0, 128: 3.44, 160: 6.0}.items():
         VARIANTS[f"brH{_r}"] = {"band_db": (0.0,) * 20 + (_h, _h)}
         VARIANTS[f"brF{_r}"] = {"band_db": VARIANTS[f"brS{_r}"]["band_db"][:20] + (_h, _h)}
-    del _r, _o, _h
+    del _r, _h
     # settings by rate (24/11/2026): the psychoacoustic settings and the high-band tilt around the
     # Opus mix (brC75), measured near 96 kb/s first: brT<name>
     _C75 = {"opa_mode": 3, "opa_alpha": 0.75}
@@ -354,15 +352,26 @@ class Mule:
     VARIANTS.update({"brZ2": {"zh_db": 2.0}, "brZ4": {"zh_db": 4.0}, "brZ6": {"zh_db": 6.0},
                      "brZ3k3": {"zh_db": 3.0, "zh_keep_db": 3.0}, "brZ0k3": {"zh_keep_db": 3.0}})
 
+    # the reallocation as a law of the rate (25/11/2026): brR<end>, the slopes' offsets below 13 kHz
+    # (brS) interpolated in log2 of the rate between 96, 128 and 160 kb/s (held outside), and the
+    # masks of 13-20 kHz raised by 6 dB up to 96 kb/s, falling linearly to 0 at <end> kb/s
+    # (params.realloc_db; brR128 = --bitrate since 25/11/2026)
+    RATE_LAWS = {"brR128": 128.0, "brR144": 144.0}
+
     def __init__(self, variant, q):
         from mule import params
+        if variant in self.RATE_LAWS:           # a law of the target rate q (kb/s)
+            self.params = params.for_bitrate(q, band_db=params.realloc_db(q, self.RATE_LAWS[variant]))
+            self.name = f"mule-{variant}_{q:g}"
+            return
         if variant.startswith("m6") and variant not in self.VARIANTS:   # a M6 search's best point
             import json
             tag = variant[2:]                   # "m6v3" -> m6_best_v3.json (m6_tune.py --tag v3)
             path = os.path.join(self.ROOT, "eval", "results", f"m6_best_{tag}.json" if tag else "m6_best.json")
             self.VARIANTS[variant] = {**self.PRE_V5, **{k: (int(v) if k.startswith("tcq_") and k != "tcq_rdl" else v)
                                                     for k, v in json.load(open(path)).items()}}
-        self.params = (params.for_bitrate(q, **self.VARIANTS[variant]) if variant.startswith("br")
+        # br variants: --bitrate as it was before the reallocation (band_db 0) unless they set it
+        self.params = (params.for_bitrate(q, **{"band_db": (), **self.VARIANTS[variant]}) if variant.startswith("br")
                        else params.Params(q_db=q, **self.VARIANTS[variant]))
         self.name = f"mule{'-' + variant if variant else ''}_{q:g}"
 

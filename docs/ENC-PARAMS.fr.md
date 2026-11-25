@@ -22,7 +22,7 @@ n'a rien donné ou n'est pas finie.
 `tools/mule-enc` part toujours de `mule_enc_defaults`, puis :
 
 - **`-q dB`** (VBR de qualité pure) : fixe seulement `q_db`. Le débit suit la musique.
-- **`--bitrate N`** (défaut 128, comme `opusenc`) : `params.for_bitrate(N)` remplace cinq valeurs :
+- **`--bitrate N`** (défaut 128, comme `opusenc`) : `params.for_bitrate(N)` remplace six valeurs :
 
   | champ | valeur | défaut de `mule_enc_defaults` |
   |---|---|---|
@@ -31,8 +31,30 @@ n'a rien donné ou n'est pas finie.
   | `rc_max` | 15 dB | 9 dB |
   | `opa_mode` | 3 (mélange avec la table d'Opus) | 0 |
   | `opa_alpha` | 0,75 | 0,5 |
+  | `band_db` | `params.realloc_db(N)` : réallocation entre bandes (ci-dessous) | 0 partout |
 
-  Adopté le 23/11 (niveleur) puis le 24/11/2026 (mélange C75), sur la campagne de 300 pistes.
+  Adopté le 23/11 (niveleur), le 24/11 (mélange C75) puis le 25/11/2026 (réallocation `brR128`),
+  sur la campagne de 300 pistes.
+
+  **La réallocation** (`band_db`, décalages des masques en dB, négatif = plus de bits) vient des
+  pentes de notre modèle face à Zimtohrli (`eval/slopes.py`, `eval/results/B9-REPORT.md` §4-10) :
+
+  | bandes MULE (fréquences) | 96 kb/s | 128 kb/s | 160 kb/s |
+  |---|---|---|---|
+  | 0-1 (graves, < 250 Hz environ) | −3,35 | −3,82 | −3,66 |
+  | 2-5 | +1,72 | +3,40 | +0,08 |
+  | 6-11 | −0,82 | −0,65 | −1,88 |
+  | 12-15 | −0,69 | −0,56 | −1,36 |
+  | 16-18 | −1,27 | −0,52 | −1,45 |
+  | 19 | −1,81 | −1,24 | −1,77 |
+  | 20-21 (13-20 kHz) | +6 | 0 | 0 |
+
+  Entre ces débits, interpolation en log2 du débit (valeurs tenues en dehors) ; l'aigu (bandes
+  20-21) vaut +6 dB jusqu'à 96 kb/s et descend linéairement à 0 à 128 kb/s. Sur 300 pistes, à
+  débit égal, face à `brC75` : Zimtohrli −9,1 % / −4,7 % / −5,6 % à 96 / 128 / 160 kb/s, NMR
+  meilleur partout, PEAQ basique −0,009 / +0,005 / −0,019, PEAQ avancé inchangé dès 128 kb/s ;
+  ABX à 96 kb/s (aigu réduit) 46/96, aucune différence entendue. `band_db=()` dans
+  `for_bitrate` rend l'ancien `--bitrate` (variante `brC75` de `eval/refcodecs.py`).
 
 Les valeurs « production » ci-dessous sont celles de `mule_enc_defaults`. Pour `--bitrate`,
 appliquer le tableau ci-dessus par-dessus.

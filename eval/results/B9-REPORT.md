@@ -331,3 +331,69 @@ part des coefficients à bas débit. Seules les classes 0 et 1 (23 % des coeffic
 gagner ; un zéro dans Q1 réservé à ces classes (la classe est connue du décodeur) rapporterait au
 mieux une fraction de ces 23 %, sans doute sous 1 % du débit des coefficients. **Piste close** pour
 le cas général ; la variante par classe n'est à reprendre que si l'on rouvre le format.
+
+## 9. Campagne de 300 morceaux, réallocation complète (`brF<R>`, 25/11/2026)
+
+`brF<R>` = décalages `brS<R>` sous 13 kHz + masque relevé au-dessus de 13 kHz (+6 dB à 96 et
+160, +3,44 dB à 128). Même protocole qu'au §6 (comparaisons appariées, IC bootstrap par artiste,
+Wilcoxon-Holm ; + = A meilleur). Rapport : `data/campaign/report_mule_brC75-mule_brS96-...-mule_brF160-opus-aac.md`.
+
+| kb/s | brF − production : Zimtohrli ×10⁴ | PEAQ basique | PEAQ avancé | NMR (dB) | brF − brS : Zimtohrli ×10⁴ | PEAQ basique |
+|---|---|---|---|---|---|---|
+| 96 | **−0,53** (−9,1 %, mieux sur 94 %) | −0,009 | −0,016 | **−0,27** | **−0,23** (mieux) | −0,012 |
+| 128 | **−0,16** (−6,1 %) | −0,034 | −0,014 | **−0,38** | −0,04 (mieux) | −0,039 |
+| 160 | −0,04 (−3,2 %) | **−0,139** | −0,028 | −0,73 | **+0,03 (pire)** | **−0,119** |
+
+Par morceau (brF contre production) : à 96 kb/s, médiane Zimtohrli −8,6 %, 7 morceaux dégradés
+de plus de 2 % (le pire : c224, le 5e concerto pour piano de Beethoven (1979), +40 % ; sa raie de balayage cathodique à 15,61 kHz, 50 dB au-dessus du fond, est dégradée quand on retire des bits à l'aigu) ; PEAQ basique
+médian −0,001. À 160 kb/s, 220 morceaux perdent plus de 0,1 en PEAQ basique.
+
+Lecture : **les deux hypothèses sont confirmées.** À 96 kb/s, retirer des bits à l'aigu est un
+gain net sur brS (Zimtohrli, NMR) pour un coût PEAQ d'un centième. À 160 kb/s, cela n'apporte plus
+rien sur Zimtohrli par rapport à brS et coûte 0,12 en PEAQ basique. 128 kb/s est entre les
+deux : un petit gain Zimtohrli (−1,5 %) payé 0,04 en PEAQ basique. D'où la loi en débit `brR`
+(§10) : réallocation `brS` à tous les débits, aigu relevé à bas débit seulement, ramené à 0 à 128
+(`brR128`) ou 144 kb/s (`brR144`).
+
+## 10. Loi en débit `brR` (300 morceaux, grille 80-192 kb/s, 25/11/2026)
+
+`brR128` / `brR144` (`eval/refcodecs.py`, `Mule.realloc_db`) : décalages `brS` sous 13 kHz
+interpolés en log2 du débit entre 96, 128 et 160 kb/s (constants au-delà) ; aigu (13-20 kHz)
++6 dB jusqu'à 96 kb/s, ramené linéairement à 0 à 128 (`brR128`) ou 144 kb/s (`brR144`). À 96 kb/s
+les deux variantes valent `brF96`, à 160 kb/s `brS160`. Rapport :
+`data/campaign/report_mule_brC75-mule_brR128-mule_brR144-opus-aac.md` (96/128/160) ; 112 et
+144 kb/s par la même interpolation à débit égal (script ad hoc, bootstrap par morceau).
+
+Écart à la production (Zimtohrli relatif, − = mieux ; PEAQ et NMR en différence, PEAQ − = perte) :
+
+| kb/s | `brR128` Zimtohrli | PEAQ bas. | PEAQ av. | NMR (dB) | `brR144` Zimtohrli | PEAQ bas. | PEAQ av. | NMR (dB) |
+|---|---|---|---|---|---|---|---|---|
+| 96 | **−9,1 %** | −0,009 | −0,016 | −0,27 | = | = | = | = |
+| 112 | **−6,9 %** | −0,011 | −0,009 | −0,31 | −6,8 % | −0,015 | −0,015 | −0,34 |
+| 128 | −4,7 % | **+0,005** | −0,001 | −0,08 | **−6,2 %** | −0,016 | −0,006 | −0,27 |
+| 144 | −5,1 % | −0,009 | 0,000 | −0,15 | −5,2 % | −0,010 | 0,000 | −0,16 |
+| 160 | −5,6 % | −0,019 | 0,000 | −0,21 | = | = | = | = |
+
+Par morceau : à 128 kb/s, aucun morceau ne perd plus de 0,1 en PEAQ basique avec l'une ou l'autre
+variante ; Zimtohrli pire de plus de 2 % sur 1 (`brR128`) ou 2 morceaux (`brR144`, c224, concerto de
+Beethoven +11 %). À 96 kb/s, le même c224 reste la seule forte régression (+40 %).
+Face à Opus à 128 kb/s, `brR128` est à égalité en PEAQ basique (−0,004, p = 0,57) ; `brR144`
+perd 0,024.
+
+Lecture : **pas de cassure**, la loi est saine sur toute la grille et bat la production sur
+Zimtohrli et NMR partout, PEAQ avancé inchangé à partir de 128 kb/s. Le choix porte sur 128 kb/s :
+`brR128` = moitié du gain Zimtohrli de l'aigu sans coût PEAQ (PEAQ basique même meilleur que la
+production), `brR144` = 1,5 point de Zimtohrli de plus pour −0,02 de PEAQ basique (moitié du coût
+de `brF128`). Selon la règle d'adoption les deux passent ; `brR144` maximise Zimtohrli,
+`brR128` est le choix prudent (aucun juge en recul à 128 kb/s). À trancher par l'utilisateur,
+éventuellement à l'écoute (kit `hf96` pour 96 kb/s ; un kit 128 kb/s serait à faire).
+
+**ABX (25/11/2026, auteur, kit `data/listen/hf96`, `brF96` = `brR` à 96 kb/s, contre la
+production, 16 essais par extrait, squishyball) :** Holst 9/16, Monster Magnet 7/16, Belenos 9/16,
+Zombie Zombie 8/16, voix masculine 5/16, castagnettes 8/16 ; au total **46/96** (p = 0,69).
+Aucune différence entendue : le désaccord des juges sur l'aigu à 96 kb/s (Zimtohrli et NMR pour,
+PEAQ contre) se résout en faveur de l'inaudibilité du coût PEAQ.
+
+**Adopté le 25/11/2026 (décision de l'auteur) : `brR128` devient `--bitrate`** (`params.for_bitrate`,
+`params.realloc_db` ; `band_db=()` rend l'ancien réglage, variante `brC75`). Production
+identique, paramètre par paramètre, à la variante `brR128` de la campagne.
