@@ -36,18 +36,19 @@ d'un codec audio moderne, en le construisant (mal)*](https://berettavexee.github
 
 ## Results
 
-Measured on **300 excerpts** of 30 s (the middle of each track) from 144 artists, drawn at random
-from my music library, at equal mean rate: each codec at the setting whose mean rate over the 300
-excerpts is the target (interpolated between its two nearest settings), audio payload only. MULE
+Measured on **299 excerpts** of 30 s (the middle of each track) from 144 artists, drawn at random
+from my music library (300 drawn; one left out, whose recording carries the whistle of a
+cathode-ray monitor at 15.6 kHz that the measures weigh as music), at equal mean rate: each codec
+at the setting whose mean rate over the excerpts is the target (interpolated between its two nearest settings), audio payload only. MULE
 is the current encoder with `--bitrate` (format v5, settings of 25/11/2026), Opus is libopus 1.6.1,
 Apple's AAC is qaac in TVBR. ODG is PEAQ's score (higher is better, 0 at best); Zimtohrli is a
 distance to the original (lower is better). How to read them is explained below the table.
 
 | | Zimtohrli @96 / @128 / @160 | ODG @96 / @128 / @160 | ODG (advanced) @96 / @128 / @160 |
 |---|---|---|---|
-| AAC (Apple, qaac TVBR) | 8.94 / 4.21 / 2.27 | −1.00 / −0.32 / −0.06 | −1.04 / −0.47 / −0.22 |
-| Opus (libopus 1.6.1) | 5.84 / 3.24 / 2.14 | **−0.33 / −0.14 / 0.00** | −0.83 / −0.44 / −0.24 |
-| MULE (format v5) | **5.35 / 2.48 / 1.25** | −0.36 / **−0.14** / −0.03 | **−0.75 / −0.32 / −0.13** |
+| AAC (Apple, qaac TVBR) | 8.91 / 4.21 / 2.27 | −0.99 / −0.32 / −0.06 | −1.04 / −0.46 / −0.22 |
+| Opus (libopus 1.6.1) | 5.82 / 3.22 / 2.14 | **−0.33 / −0.13 / 0.00** | −0.83 / −0.44 / −0.23 |
+| MULE (format v5) | **5.31 / 2.47 / 1.25** | −0.36 / −0.14 / −0.03 | **−0.75 / −0.32 / −0.13** |
 
 Track by track (paired comparisons), MULE is closer to the original than Opus in Zimtohrli's eyes
 on 72 % of the tracks at 96 kb/s, 94 % at 128 kb/s and 99 % at 160 kb/s, and better on PEAQ's
@@ -94,21 +95,20 @@ the distance at every rate, and could not be heard in a blind ABX test at 96 kb/
 
 ### Track by track
 
-Averages hide a lot. Each dot below is one of the 300 tracks at 128 kb/s, for the current encoder
+Averages hide a lot. Each dot below is one of the 299 tracks at 128 kb/s, for the current encoder
 (`--bitrate`), the same format v5 in quality mode before the latest encoder changes (`-q`, 22/11),
 Opus and Apple's AAC. In PEAQ's eyes, MULE and Opus have nearly the same median (−0.14 and
-−0.12), but MULE's tail is shorter: 6 tracks below −0.3, against 16 for Opus and 13 for `-q`; the
+−0.12), but MULE's tail is shorter: 6 tracks below −0.3, against 15 for Opus and 12 for `-q`; the
 worst for both is Belenos (bagpipes). Apple's AAC is spread wide and pays for its lowpass.
 
-![PEAQ's score of each of the 300 tracks at 128 kb/s, for Opus, MULE --bitrate, MULE v5 -q and Apple's AAC](docs/blog/fig/enc-fig11-peaq-300-en.svg)
+![PEAQ's score of each of the 299 tracks at 128 kb/s, for Opus, MULE --bitrate, MULE v5 -q and Apple's AAC](docs/blog/fig/enc-fig11-peaq-300-en.svg)
 
 The same tracks seen by Zimtohrli (lower is better; the axis is reversed so that better stays on
-the right), which I trust more than PEAQ at these bitrates: medians 2.58 for MULE, 2.63 for `-q`,
-3.31 for Opus and 4.21 for Apple's AAC. The worst track of MULE and Opus is the same Beethoven
-concerto, whose recording carries the whistle of a cathode-ray monitor at 15.6 kHz: Zimtohrli
-weighs that line heavily, a sound few adults can hear.
+the right), which I trust more than PEAQ at these bitrates: medians 2.57 for MULE, 2.63 for `-q`,
+3.31 for Opus and 4.20 for Apple's AAC. MULE's worst track is a Purcell ode (choir and baroque
+orchestra, Martin Neary), much improved by the latest encoder changes; Opus's is Sepultura.
 
-![Zimtohrli distance of each of the 300 tracks at 128 kb/s, for Opus, MULE --bitrate, MULE v5 -q and Apple's AAC](docs/blog/fig/enc-fig12-zimt-300-en.svg)
+![Zimtohrli distance of each of the 299 tracks at 128 kb/s, for Opus, MULE --bitrate, MULE v5 -q and Apple's AAC](docs/blog/fig/enc-fig12-zimt-300-en.svg)
 
 The history of the results, format by format and encoder change by encoder change, with the
 older measurements (30 tracks, Vorbis and FDK-AAC too, and their track-by-track plots), is in

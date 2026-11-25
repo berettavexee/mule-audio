@@ -330,7 +330,8 @@ CAMPAIGN = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(HERE))),
 
 def enc_fig11_campaign(rate=128, lang="en", zimt=False):
     """The 300-track campaign (data/campaign, eval/campaign.py: each codec at the setting whose mean
-    rate over the 300 excerpts is the target, every item interpolated with the same weights): MULE's
+    rate over the excerpts is the target, every item interpolated with the same weights; c224 left
+    out, eval/campaign.py EXCLUDE): MULE's
     --bitrate since 25/11/2026 (brR128), MULE v5 in quality mode (22/11/2026), Opus and Apple's AAC.
     PEAQ's basic ODG, or (zimt) Zimtohrli."""
     col = "zimt" if zimt else "odg"
@@ -348,8 +349,8 @@ def enc_fig11_campaign(rate=128, lang="en", zimt=False):
             (get(a, "aac"), "AAC (Apple)", APPLE, "v")]
     _strip(rows, rate, ("enc-fig12-zimt-300" if zimt else "enc-fig11-peaq-300") + ("" if rate == 128 else f"-{rate}")
            + ("-en" if en else ""), figsize=(9, 4.6), lang=lang, zimt=zimt, names=names, dot=9,
-           notes=("300 tracks of 144 artists drawn at random; MULE: --bitrate (25/11/2026), v5 -q: 22/11/2026",
-                  "300 extraits de 144 artistes tirés au hasard ; MULE : --bitrate (25/11/2026), v5 -q : 22/11/2026"))
+           notes=("299 tracks of 144 artists drawn at random; MULE: --bitrate (25/11/2026), v5 -q: 22/11/2026",
+                  "299 extraits de 144 artistes tirés au hasard ; MULE : --bitrate (25/11/2026), v5 -q : 22/11/2026"))
 
 
 def enc_fig12_zimt_300():

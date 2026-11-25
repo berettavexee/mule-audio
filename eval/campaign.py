@@ -35,6 +35,9 @@ SRC = os.path.join(OUT, "src")
 RESULTS = os.path.join(OUT, "results.csv")
 EXCERPT_S = 30.0
 RATES = (96, 128, 160)
+# items left out of the reports (25/11/2026): recording artefacts that the judges weigh as music
+EXCLUDE = {"c224": "Beethoven, Piano concerto no. 5: the line scan of a cathode-ray monitor at "
+                   "15.6 kHz, 50 dB above the floor, recorded with the music"}
 
 # the settings of each codec, from the calibration on the first 40 excerpts (their mean rates
 # must bracket RATES): Opus 88.0 96.3 128.7 160.8 176.7 kb/s; Apple AAC (TVBR: its steps of 9)
@@ -216,6 +219,6 @@ if __name__ == "__main__":
         fams = a.families or list(CONFIGS)
         tag = "" if fams == list(CONFIGS) else "_" + "-".join(fams)
         campaign_report.main(RESULTS, os.path.join(OUT, "tracks.json"),
-                             {f: FAMILIES[f] for f in fams}, RATES, tag)
+                             {f: FAMILIES[f] for f in fams}, RATES, tag, EXCLUDE)
     else:
         {"prepare": prepare, "calibrate": calibrate, "run": run}[a.cmd](a)

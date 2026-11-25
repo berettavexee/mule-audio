@@ -50,9 +50,9 @@ n'a rien donné ou n'est pas finie.
   | 20-21 (13-20 kHz) | +6 | 0 | 0 |
 
   Entre ces débits, interpolation en log2 du débit (valeurs tenues en dehors) ; l'aigu (bandes
-  20-21) vaut +6 dB jusqu'à 96 kb/s et descend linéairement à 0 à 128 kb/s. Sur 300 pistes, à
-  débit égal, face à `brC75` : Zimtohrli −9,1 % / −4,7 % / −5,6 % à 96 / 128 / 160 kb/s, NMR
-  meilleur partout, PEAQ basique −0,009 / +0,005 / −0,019, PEAQ avancé inchangé dès 128 kb/s ;
+  20-21) vaut +6 dB jusqu'à 96 kb/s et descend linéairement à 0 à 128 kb/s. Sur 299 pistes (c224
+  exclue, `eval/campaign.py` EXCLUDE), à débit égal, face à `brC75` : Zimtohrli −9,4 % / −4,7 % /
+  −5,6 % à 96 / 128 / 160 kb/s, NMR meilleur partout, PEAQ basique −0,008 / +0,005 / −0,020, PEAQ avancé inchangé dès 128 kb/s ;
   ABX à 96 kb/s (aigu réduit) 46/96, aucune différence entendue. `band_db=()` dans
   `for_bitrate` rend l'ancien `--bitrate` (variante `brC75` de `eval/refcodecs.py`).
 

@@ -397,3 +397,11 @@ PEAQ contre) se résout en faveur de l'inaudibilité du coût PEAQ.
 **Adopté le 25/11/2026 (décision de l'auteur) : `brR128` devient `--bitrate`** (`params.for_bitrate`,
 `params.realloc_db` ; `band_db=()` rend l'ancien réglage, variante `brC75`). Production
 identique, paramètre par paramètre, à la variante `brR128` de la campagne.
+
+**c224 retiré des rapports de campagne (25/11/2026, décision de l'auteur)** : le 5e concerto pour
+piano de Beethoven porte la raie de balayage d'un moniteur cathodique (15,61 kHz, 50 dB au-dessus
+du fond), que les juges pèsent comme de la musique (`eval/campaign.py` EXCLUDE ; encore encodé par
+`run`, laissé hors de `report`). Les chiffres des §6, 9 et 10 ci-dessus sont ceux des 300 morceaux ;
+sur 299, `brR128` contre la production : Zimtohrli −9,4 % / −4,7 % / −5,6 % à 96 / 128 / 160 kb/s,
+PEAQ basique −0,008 / +0,005 / −0,020, conclusions inchangées. Contre Opus à 128 kb/s : Zimtohrli
+−23 %, PEAQ basique à égalité (−0,004, n.s.).

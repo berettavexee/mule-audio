@@ -76,19 +76,22 @@ def holm(ps):
     return adj
 
 
-def main(results, tracks, configs, rates, tag=""):
+def main(results, tracks, configs, rates, tag="", exclude=None):
+    """exclude: {item: reason}, items left out of the report (still encoded by run)."""
     from scipy.stats import wilcoxon
     res = load(results)
     meta = json.load(open(tracks))
     artist = {t["item"]: t["artist"] for t in meta["tracks"]}
     allc = [c for fam in configs.values() for c in fam]
-    items = sorted(i for i in artist if all(c in res and i in res[c] for c in allc))
+    exclude = exclude or {}
+    items = sorted(i for i in artist if i not in exclude and all(c in res and i in res[c] for c in allc))
     rng = np.random.default_rng(2026)
     L = [f"# MULE v5, Opus and Apple AAC on {len(items)} tracks", "",
          f"{len(items)} excerpts of {meta['excerpt_s']:.0f} s (the middle of each track), "
          f"{len(set(artist[i] for i in items))} artists, drawn at random (seed {meta['seed']}). "
          "Each codec at the setting whose mean rate over these excerpts is the target "
-         "(interpolated between its two nearest settings), audio payload only.", ""]
+         "(interpolated between its two nearest settings), audio payload only."
+         + "".join(f" Left out: {i} ({why})." for i, why in sorted(exclude.items())), ""]
     table, comps = {}, []
     for rate in rates:
         per = {}
