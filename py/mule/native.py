@@ -263,6 +263,7 @@ def c_params(params):
     p.hf_band = params.hf_band
     p.zh_db = params.zh_db
     p.zh_keep_db = params.zh_keep_db
+    p.band_db = list(params.band_db) + [0.0] * (len(p.band_db) - len(params.band_db))
     return p
 
 

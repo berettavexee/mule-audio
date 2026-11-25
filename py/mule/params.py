@@ -80,6 +80,7 @@ class Params:
     hf_band: int = 16           # its first band
     zh_db: float = 0.0          # on/off hysteresis: margin to turn a noise-filled band on, dB (0: off)
     zh_keep_db: float = 0.0     # ... and to keep a coded band on below its target, dB (0: off)
+    band_db: tuple = ()         # per-band mask offsets, dB (measurements: eval/slopes.py)
 
 
 

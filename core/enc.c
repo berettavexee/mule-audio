@@ -292,6 +292,9 @@ static void frame_analysis(const mule_enc_params *pr, const psy_t *py, double X[
             if (pr->hf_db != 0)
                 for (int b = pr->hf_band; b < NB; b++)
                     f->MK[c][g][b] *= pow(10, pr->hf_db * (b - pr->hf_band + 1) / (NB - pr->hf_band) / 10);
+            for (int b = 0; b < NB; b++)
+                if (pr->band_db[b] != 0)
+                    f->MK[c][g][b] *= pow(10, pr->band_db[b] / 10);
         }
     if (pr->pre_db > 0) {
         if (f->type == 0) {

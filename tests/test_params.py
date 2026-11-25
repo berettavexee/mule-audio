@@ -4,7 +4,9 @@ from mule import native, params as E
 
 
 def _fields(p):
-    return {f: getattr(p, f) for f, _ in native.ffi.typeof("mule_enc_params").fields}
+    def val(v):                                 # arrays (band_db) by value
+        return list(v) if isinstance(v, native.ffi.CData) else v
+    return {f: val(getattr(p, f)) for f, _ in native.ffi.typeof("mule_enc_params").fields}
 
 
 def test_python_defaults_are_the_c_defaults():

@@ -51,7 +51,11 @@ FAMILIES = {**CONFIGS, **{f"mule_{v}": [f"mule-{v}_{q:g}" for q in (-1, -2.5, -4
             # the target rate mode (params.for_bitrate, mule-enc --bitrate: the rate leveler)
             "mule_br": [f"mule-br_{k}" for k in (80, 96, 112, 128, 144, 160, 176, 192)],
             # with Opus' band allocation mixed in (opa_mode 3, 75 % of the masks; 24/11/2026)
-            "mule_brC75": [f"mule-brC75_{k}" for k in (80, 96, 112, 128, 144, 160, 176, 192)]}
+            "mule_brC75": [f"mule-brC75_{k}" for k in (80, 96, 112, 128, 144, 160, 176, 192)],
+            # the CMA-ES settings found at 128 kb/s (refcodecs brB9r128), around 128 only
+            "mule_brB9r128": [f"mule-brB9r128_{k}" for k in (112, 128, 144)],
+            # the slopes' reallocation below 13 kHz (refcodecs brS<R>; 25/11/2026), each around its rate
+            **{f"mule_brS{r}": [f"mule-brS{r}_{k}" for k in (r - 16, r, r + 16)] for r in (96, 128, 160)}}
 
 
 def probe_duration(path):

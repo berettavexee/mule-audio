@@ -10,6 +10,10 @@ other half and `test` are kept for validation. ViSQOL stays out of the loop (it 
 optimization target: docs/NOTES-2026-11-18.md); the 2f-model and the internal NMR are recorded.
 Encoder only: the format does not change.
 
+--space b9 --rate R (24/11/2026): the --bitrate mode (rate leveler, Opus mix), nine settings around
+its production (SPACE_B9), at R kb/s (measured at R -/+ 6.25 %); one search per rate, for tables
+of settings by rate. With --objective zimt and --tag.
+
   python eval/m6_tune.py search [--gens 12] [--pop 8]   # eval/results/m6_search.csv, m6_best.json
   python eval/m6_tune.py best                           # the best point found so far
 
@@ -61,6 +65,18 @@ SPACE_Z = {                     # --objective zimt: the production of v4 (21/11/
     "tcq_rdl": (0.25, 1.0, 0.5),
     "pre_db": (5.0, 15.0, 10.0),
 }
+SPACE_B9 = {                    # --space b9 (24/11/2026): the --bitrate production (rate leveler and the
+    "tcap_db": (8.0, 30.0, 15.3),             # Opus mix C75, MODE_BITRATE) at the centre, wider
+    "mid_db": (0.0, 12.0, 6.1),               # bounds (m6z1 ended at the edges of SPACE_Z), plus
+    "low_db": (8.0, 24.0, 15.0),              # the mix's weight and the zeros' noise level
+    "fft_noise_db": (1.5, 6.0, 3.4),
+    "rd_lambda": (1.0, 4.0, 2.42),
+    "tcq_rdl": (0.2, 1.0, 0.48),
+    "pre_db": (5.0, 15.0, 9.7),
+    "opa_alpha": (0.4, 1.0, 0.75),
+    "nf_off_db": (-10.0, -2.0, -6.0),
+}
+MODE_BITRATE = {"rc_k": 2.0, "rc_max": 15.0, "opa_mode": 3}   # params.for_bitrate's, q set directly
 OBJECTIVE = "peaq"
 __doc__ += "".join(f"  {k}: {lo:g} to {hi:g} (production {p:g})\n" for k, (lo, hi, p) in SPACE.items())
 KEYS = list(SPACE)
@@ -121,7 +137,8 @@ def find_qs(settings_list, ex, items):
     out = {}
     for t in TARGETS:
         pts = {c: [] for c in range(len(settings_list))}
-        q0 = -7.0 - (t - 118.0) / 10.5          # production's slope on these items
+        q0 = (-7.0 - (t - 118.0) / 10.5 if not BASE.get("rc_k") else   # production's slope on these items
+              -9.21 * np.log2(t / 76.4) - 0.9)  # --bitrate: its rate curve (dev runs ~6 % under it)
         first = [(c, q0) for c in pts] + [(c, q0 - 1.5) for c in pts]
         for (c, q), r in zip(first, rates(first), strict=True):
             pts[c].append((q, r))
@@ -231,12 +248,18 @@ def main():
     ap.add_argument("--base", default="", help="fixed integer settings, e.g. tcq_chain=1,tcq_states=64")
     ap.add_argument("--tag", default="", help="suffix of the result files")
     ap.add_argument("--objective", choices=["peaq", "zimt"], default="peaq")
+    ap.add_argument("--space", choices=["z", "b9"], default="z", help="b9: the --bitrate mode, 9 settings")
+    ap.add_argument("--rate", type=float, default=128.0, help="target kb/s, measured at -/+6.25 %%")
     a = ap.parse_args()
+    globals().update(RATE=a.rate, TARGETS=(a.rate * 0.9375, a.rate * 1.0625))
     if a.objective == "zimt":
         globals().update(OBJECTIVE="zimt", SPACE=SPACE_Z, KEYS=list(SPACE_Z))
+    if a.space == "b9":
+        globals().update(SPACE=SPACE_B9, KEYS=list(SPACE_B9))
+        BASE.update(MODE_BITRATE)
     for kv in filter(None, a.base.split(",")):
         k, v = kv.split("=")
-        BASE[k] = int(v)
+        BASE[k] = float(v) if "." in v else int(v)
     if a.tag:
         globals()["SEARCH_CSV"] = os.path.join(RESULTS, f"m6_search_{a.tag}.csv")
         globals()["BEST_JSON"] = os.path.join(RESULTS, f"m6_best_{a.tag}.json")

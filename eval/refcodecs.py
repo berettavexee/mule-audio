@@ -322,6 +322,24 @@ class Mule:
                      "brC75": {"opa_mode": 3, "opa_alpha": 0.75},
                      "brC65": {"opa_mode": 3, "opa_alpha": 0.65}, "brC85": {"opa_mode": 3, "opa_alpha": 0.85},
                      "brC90": {"opa_mode": 3, "opa_alpha": 0.90}})
+    # the CMA-ES searches (eval/m6_tune.py --space b9 --rate R, m6_best_b9_R.json; 24-25/11/2026):
+    # brB9r<R>, the best point found at R kb/s
+    VARIANTS["brB9r96"] = {"opa_mode": 3, "tcap_db": 18.369, "mid_db": 5.281, "low_db": 16.264, "fft_noise_db": 4.463, "rd_lambda": 2.667, "tcq_rdl": 0.601, "pre_db": 10.271, "opa_alpha": 0.665, "nf_off_db": -4.299}
+    VARIANTS["brB9r128"] = {"opa_mode": 3, "tcap_db": 14.113, "mid_db": 7.358, "low_db": 18.409, "fft_noise_db": 3.711, "rd_lambda": 2.163, "tcq_rdl": 0.659, "pre_db": 9.683, "opa_alpha": 0.741, "nf_off_db": -5.016}
+    VARIANTS["brB9r160"] = {"opa_mode": 3, "tcap_db": 13.915, "mid_db": 9.323, "low_db": 20.455, "fft_noise_db": 3.082, "rd_lambda": 2.131, "tcq_rdl": 0.652, "pre_db": 9.625, "opa_alpha": 0.631, "nf_off_db": -4.765}
+    # the slopes' reallocation (eval/slopes.py, slopes_summary.json; 25/11/2026) without touching
+    # 13-20 kHz: brS<R>, the mask offsets (dB) found at R kb/s on Zimtohrli's six lower regions
+    # (MULE bands 0-2, 2-6, 6-12, 12-16, 16-19, 19-20)
+    for _r, _o in {96: (-3.35, 1.72, -0.82, -0.69, -1.27, -1.81),
+                   128: (-3.82, 3.40, -0.65, -0.56, -0.52, -1.24),
+                   160: (-3.66, 0.08, -1.88, -1.36, -1.45, -1.77)}.items():
+        VARIANTS[f"brS{_r}"] = {"band_db": sum(((_d,) * _n for _d, _n in zip(_o, (2, 4, 6, 4, 3, 1))),
+                                               ()) + (0.0, 0.0)}
+    # ... 13-20 kHz alone (MULE bands 20-21): brH<R>; and the whole reallocation: brF<R>
+    for _r, _h in {96: 6.0, 128: 3.44, 160: 6.0}.items():
+        VARIANTS[f"brH{_r}"] = {"band_db": (0.0,) * 20 + (_h, _h)}
+        VARIANTS[f"brF{_r}"] = {"band_db": VARIANTS[f"brS{_r}"]["band_db"][:20] + (_h, _h)}
+    del _r, _o, _h
     # settings by rate (24/11/2026): the psychoacoustic settings and the high-band tilt around the
     # Opus mix (brC75), measured near 96 kb/s first: brT<name>
     _C75 = {"opa_mode": 3, "opa_alpha": 0.75}

@@ -140,6 +140,10 @@ typedef struct {
      * near the mask (both 0: off) */
     double zh_db;
     double zh_keep_db;
+    /* per-band mask offsets, dB, for measurements (eval/slopes.py: the marginal slopes against
+     * Zimtohrli): band b's masks times 10^(band_db[b]/10), after every other mask setting
+     * (memset 0 by mule_enc_defaults: off). 22 = MULE_NB, literal for the cffi cdef */
+    double band_db[22];
 } mule_enc_params;
 
 void mule_enc_defaults(mule_enc_params *p);

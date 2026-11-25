@@ -425,9 +425,112 @@ quand même : plusieurs juges, une hiérarchie, des statistiques, et l'ABX comme
 - À vérifier : la date et la licence de Zimtohrli, la version de PEAQ (BS.1387-1, 2001), l'ABX du
   morceau Purcell une fois les oreilles reposées (à ajouter à la section 7).
 
-## Billet 5 : « Le cimetière des bonnes idées », notes pour le plan
+## Billet 5 : « L'ossuaire des bonnes idées »
 
-Pas encore de plan détaillé ; matériau rassemblé au fil des discussions.
+Fil rouge : chaque idée enterrée était bonne *ailleurs* (chez Opus, chez AAC, dans un livre de
+psychoacoustique) ou *selon un juge*. Une idée n'est bonne que pour un codec, un débit et une
+mesure donnés. Le billet est une visite guidée, par allées, avec pour chaque tombe : l'idée, pourquoi
+elle semblait évidente, ce qu'elle a donné (un chiffre), et l'épitaphe (la leçon en une ligne).
+Environ 3 000 mots. Le billet 4 a expliqué comment on mesure ; celui-ci montre ce que la mesure tue.
+
+### 0. Accroche (≈ 250 mots)
+
+Le tableau de chasse : bien plus d'idées enterrées que gardées. Ouvrir sur la plus belle tombe :
+`tf_change` d'Opus, qui fait *exactement* ce qu'on espérait sur le rock (+0,026 d'ODG) et coûte des
+bits partout ailleurs (+0,003 sur `dev`, sous le seuil). L'idée marchait ; elle ne payait pas.
+
+### 1. Comment on enterre une idée (≈ 250 mots)
+
+Rappel bref du billet 4 : débit égal encadré, `dev` puis `test`, Zimtohrli d'abord, seuil
+d'adoption, aucun extrait qui recule. Une idée est enterrée quand elle ne passe pas ce filtre, pas
+quand elle est fausse. Les journaux (`eval/results/*-LOG.md`) sont les registres de l'ossuaire.
+
+### 2. Allée des emprunts : les outils des grands codecs qui ne voyagent pas (≈ 700 mots)
+
+- **`tf_change` d'Opus** (Haar dans les bandes des trames longues) : +0,026 sur le rock à niveau
+  fixe, +0,003 sur `dev` avec un niveau par trame (`H-LOG.md`, `D-LOG.md`). Épitaphe : un outil
+  pensé pour des trames de 20 ms à bas débit ne rapporte rien dans des trames de 46 ms à 128 kb/s.
+- **Le mixage temps-fréquence par bande, à la CELT**, dans les trames courtes : −0,5 % de
+  Zimtohrli sur un codec jouet, +0,8 % (pire) une fois dans MULE, tous juges contre
+  (`docs/V5-512.md`, sonde `tf`). Épitaphe : le jouet n'avait ni le codage entropique ni le bruit de
+  remplissage de MULE.
+- **Les blocs de 512 points** (entre 256 et 2048) : le 512 uniforme ne gagne rien, il aide les
+  attaques douces et ruine les franches ; le découpage mixte gagne 0,5 %, pas assez pour un format
+  (`docs/V5-512.md`).
+- **TNS (AAC)** : implémenté, vérifié bit-exact, −0,005 d'ODG au mieux (`LESSONS.md`).
+- **dynalloc d'Opus** (`dyn_a`) : sans gain.
+- **La prédiction des signes à la AAC Main** : renvoi à l'encadré du billet 3 (0,05 kb/s).
+- **Contre-exemple, à garder pour la fin de l'allée** : la table d'allocation d'Opus. Seule, à la
+  place de nos masques, elle est nettement moins bonne (sonde `brA`, Zimtohrli 4,8 contre 3,0 sur
+  `dev` à débit voisin : à remettre à débit égal) ; mélangée à 25 % (C75), elle gagne sur tous les
+  juges et sur 300 morceaux. Épitaphe inversée : une idée morte seule peut vivre en alliage.
+
+### 3. Allée de la psychoacoustique : les idées qui sonnent juste (≈ 600 mots)
+
+- **La tonalité par imprévisibilité** (modèle psychoacoustique 2 de MPEG) : le vibrato des cordes
+  ressemble à du bruit ; violon et trompette perdent 0,24 d'ODG.
+- **Additionner les masques en loi de puissance** : −0,03 à −0,18.
+- **Le masquage temporel dans le modèle** (`V4-IDEAS.md`, A1 et A2) : tout négatif, jusqu'à −0,18.
+- **L'étalement de Terhardt**, dépendant du niveau : neutre seul ; gardé en hybride (Schroeder puis
+  Terhardt au-delà de 2 Bark). Une demi-tombe.
+- **Le plancher de bande** (à la Vorbis) et **l'inclinaison des aigus** : sans gain (sondes du
+  23 et 24/11).
+- **Le seuil d'audition relatif** (Vorbis, LAME) : à vérifier dans `N-LOG.md` avant d'écrire
+  (variantes `athl`, `rc10a`).
+- Le contrepoint, en une phrase : la seule correction psychoacoustique franche est venue d'un
+  défaut mesuré (les masques raie par raie dans les graves, jusqu'à +0,2 d'ODG), pas d'un livre.
+
+### 4. Allée des bits mieux placés… ailleurs (≈ 500 mots)
+
+- **Plus de bits aux trames courtes** (`short_db`) : au niveau du bruit de mesure.
+- **Une cible de bruit par trame** (`V4-IDEAS.md`, D) : au niveau du bruit de mesure, des
+  régressions.
+- **Des contextes appris** pour le codage entropique (`V4-IDEAS.md`, B) : −0,3 à −0,5 % de débit,
+  loin de la borne (−1,2 %).
+- **La borne de la stéréo** (C) : au plus 2 à 3 % du débit à gagner au-dessus de 8 kHz.
+- **Des paquets clés plus espacés** : −0,17 et −0,26 % du débit à 80 et 160 trames (`M-LOG.md`).
+- **L'hystérésis marche/arrêt des bandes** (Purcell, billet 4) : le papillotement tombe de 21 à 8 %,
+  la note ne bouge pas.
+- Épitaphe commune : quand l'encodeur est près de son optimum, les idées d'allocation se battent
+  pour des fractions de pour cent.
+
+### 5. Allée des mirages : les idées qui ne trompaient que les juges (≈ 350 mots)
+
+- **La 23e bande jusqu'à 22 kHz** : récompensée par PEAQ à bas débit, pénalisée à haut débit,
+  inaudible dans les deux cas (renvoi au billet 4).
+- **La pente spectrale du bruit de remplissage** : un spectre plus fidèle, rien de gagné.
+- **Le CMA-ES extrapolé** (renvoi au billet 4) : la plus belle tombe de faux gain.
+
+### 6. Les revenants : enterrés trop tôt (≈ 400 mots)
+
+- **Le détecteur de transitoires** : « un seuil plus bas, c'est pire », enterré à l'axe 2 ; en v5,
+  on découvre que le détecteur lui-même était faux (il prenait les impulsions glottales pour des
+  attaques). Corrigé, et doublé d'une passe sur les aigus : −3 % de Zimtohrli sur `test`.
+  Épitaphe : une idée peut mourir d'un bogue voisin.
+- **La table d'Opus**, morte seule, vivante en mélange (renvoi à l'allée 2).
+- **Le pliage de bande** : MULE l'a, mais seulement dans les trames courtes ; Purcell (billet 4)
+  suggère qu'il manque dans les trames longues. Un candidat à l'exhumation, pour un format futur.
+
+### 7. Conclusion (≈ 250 mots)
+
+Ce que dit l'ossuaire : MULE est près de son optimum local ; les gains qui restent sont dans le
+format (pliage, texture du bruit), pas dans les réglages. Garder les registres : une idée enterrée
+avec son chiffre ne sera pas recreusée par erreur, et peut être exhumée quand le contexte change.
+Annoncer le billet suivant.
+
+### À produire pour le billet 5
+
+- Figure 1, **la carte de l'ossuaire** : chaque idée en barre horizontale, son gain mesuré à débit
+  égal (en % de Zimtohrli ou en ODG, selon l'époque : à homogénéiser ou à séparer en deux panneaux),
+  le seuil d'adoption en trait vertical, les idées gardées d'une autre couleur.
+- Figure 2, **jouet contre réalité** : le mixage TF par bande, −0,5 % sur le jouet, +0,8 % dans MULE.
+- Figure 3, **`tf_change`** : le gain par extrait, fort sur le rock, négatif ailleurs (`H-LOG.md`).
+- Figure 4, **le revenant** : le détecteur de transitoires avant et après correction, sur un
+  extrait de voix (EBU SQAM, pas de morceau sous droits pour l'audio ; spectrogramme autorisé).
+- À vérifier avant d'écrire : chaque chiffre dans son journal, l'issue du seuil d'audition relatif,
+  la sonde `brA` à débit égal.
+
+Matériau rassemblé au fil des discussions :
 
 ### Les deux stratégies d'Opus contre les transitoires, et pourquoi MULE n'en a gardé qu'une
 
