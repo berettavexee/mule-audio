@@ -36,9 +36,67 @@ d'un codec audio moderne, en le construisant (mal)*](https://berettavexee.github
 
 ## Results
 
-Measured on 30 tracks drawn at random from my music library and never used for tuning, at equal
-real bitrate (curves interpolated). ODG is PEAQ's score (higher is better, 0 at best); Zimtohrli is a
+Measured on **300 excerpts** of 30 s (the middle of each track) from 144 artists, drawn at random
+from my music library, at equal mean rate: each codec at the setting whose mean rate over the 300
+excerpts is the target (interpolated between its two nearest settings), audio payload only. MULE
+is the current encoder with `--bitrate` (format v5, settings of 25/11/2026), Opus is libopus 1.6.1,
+Apple's AAC is qaac in TVBR. ODG is PEAQ's score (higher is better, 0 at best); Zimtohrli is a
 distance to the original (lower is better). How to read them is explained below the table.
+
+| | Zimtohrli @96 / @128 / @160 | ODG @96 / @128 / @160 | ODG (advanced) @96 / @128 / @160 |
+|---|---|---|---|
+| AAC (Apple, qaac TVBR) | 8.94 / 4.21 / 2.27 | −1.00 / −0.32 / −0.06 | −1.04 / −0.47 / −0.22 |
+| Opus (libopus 1.6.1) | 5.84 / 3.24 / 2.14 | **−0.33 / −0.14 / 0.00** | −0.83 / −0.44 / −0.24 |
+| MULE (format v5) | **5.35 / 2.48 / 1.25** | −0.36 / **−0.14** / −0.03 | **−0.75 / −0.32 / −0.13** |
+
+Track by track (paired comparisons), MULE is closer to the original than Opus in Zimtohrli's eyes
+on 72 % of the tracks at 96 kb/s, 94 % at 128 kb/s and 99 % at 160 kb/s, and better on PEAQ's
+advanced score on 78 to 97 % of them; PEAQ's basic score puts Opus ahead by 0.02 to 0.03 at 96 and
+160 kb/s and level at 128 kb/s.
+
+**How to read these numbers.** Both measures compare the decoded file with the original through a
+model of the ear and predict what a listener would hear; neither is a listening test.
+- **ODG** (PEAQ, the ITU's standard objective measure, ITU-R BS.1387) predicts the grade an expert
+  listener would give on the ITU's impairment scale: **0** imperceptible, **−1** perceptible but not
+  annoying, **−2** slightly annoying, **−3** annoying, **−4** very annoying. At 128 kb/s every codec
+  of the table scores between −0.35 and 0, between "imperceptible" and "perceptible but not
+  annoying": they are all good, and the gaps between them are a few tenths at most. A score of 0 or
+  just above is the model's noise around "imperceptible". The advanced version of PEAQ uses a
+  finer ear model and is usually stricter.
+- **Zimtohrli** (Google) measures how far the decoded file is from the original, as its ear model
+  hears them: **0** means identical, smaller is better. The table shows this **distance** (in units
+  of 10⁻⁴, the values being tiny), not the grade from 1 to 5 that Zimtohrli can also give, the
+  scale usual on audio forums: at these bitrates every codec of the table would get close to 5 out
+  of 5, too close together to tell apart. The distance separates them: at 128 kb/s, MULE's is 23 %
+  below Opus's and 41 % below Apple's AAC's.
+- **In practice**, at 128 kb/s these codecs are all close to transparent for most listeners and
+  most music; the differences show on difficult passages (cymbals, bagpipes, harpsichord) and to
+  trained ears.
+
+In plain words:
+- **at 128 kb/s and above**, MULE is level with Opus on PEAQ's basic score and ahead on its
+  advanced score and on Zimtohrli. Apple's AAC is behind both, and pays for its lowpass (it cuts
+  the top octave) in the eyes of every measure. In blind ABX tests on the six excerpts where PEAQ
+  saw the biggest gap, I could tell MULE at 128 kb/s (format v2) neither from the original nor
+  from Opus;
+- **at 96 kb/s**, MULE is a few hundredths behind Opus on PEAQ's basic score and ahead on the
+  others; **below 96 kb/s**, use Opus: it has a decade of low-rate tools that MULE never got;
+- **on the device**, the decoder runs core B at about **59 MHz**, in 30 KiB of code and tables
+  and 91 KiB of RAM, with the same output, bit for bit, on the PC, the firmware's emulator and
+  the Cortex-M3 (measured with format v2; v3 needs 8 % fewer instructions, not yet ported).
+
+The last encoder change behind these numbers came from asking the judge itself where the bits
+should go: nudging the masks of each frequency region up and down and measuring how Zimtohrli's
+distance moves at constant rate showed that MULE gave too few bits to the bass and to 1-13 kHz,
+too many to the low mids, and, at low rates only, too many to the top octave, which other encoders
+already cut. The reallocation (`eval/slopes.py`, `eval/results/B9-REPORT.md`) took 5 to 9 % off
+the distance at every rate, and could not be heard in a blind ABX test at 96 kb/s (46/96).
+
+### Format by format
+
+The first measurements, on 30 other tracks never used for tuning, in quality mode (`-q`, before
+`--bitrate` existed), at equal real bitrate (curves interpolated), compare the formats and two
+more codecs, FDK-AAC and Vorbis:
 
 | | ODG @128 kb/s | ODG @160 kb/s | ODG (advanced) @128 / @160 | Zimtohrli @128 |
 |---|---|---|---|---|
@@ -50,42 +108,14 @@ distance to the original (lower is better). How to read them is explained below 
 | MULE (format v4) | −0.15 | 0.00 | −0.34 / −0.14 | 2.84 |
 | MULE (format v5) | −0.15 | **+0.01** | **−0.33 / −0.13** | **2.77** |
 
-**How to read these numbers.** Both measures compare the decoded file with the original through a
-model of the ear and predict what a listener would hear; neither is a listening test.
-- **ODG** (PEAQ, the ITU's standard objective measure, ITU-R BS.1387) predicts the grade an expert
-  listener would give on the ITU's impairment scale: **0** imperceptible, **−1** perceptible but not
-  annoying, **−2** slightly annoying, **−3** annoying, **−4** very annoying. Every codec of the table
-  scores between −0.6 and 0 at 128 kb/s, between "imperceptible" and "perceptible but not
-  annoying": they are all good, and the gaps between them are a few tenths at most. A score just
-  above 0 (+0.01) is the model's noise around "imperceptible". The advanced version of PEAQ uses a
-  finer ear model and is usually stricter.
-- **Zimtohrli** (Google) measures how far the decoded file is from the original, as its ear model
-  hears them: **0** means identical, smaller is better. The table shows this **distance** (in units
-  of 10⁻⁴, the values being tiny), not the grade from 1 to 5 that Zimtohrli can also give, the
-  scale usual on audio forums: at these bitrates every codec of the table would get between 4.87
-  and 4.93 out of 5, all close to transparent and too close together to tell apart. The distance
-  separates them: MULE v5's is 17 % below Opus's and about 45 % below Vorbis's and FDK-AAC's.
-- **In practice**, at 128 kb/s these codecs are all close to transparent for most listeners and
-  most music; the differences show on difficult passages (cymbals, bagpipes, harpsichord) and to
-  trained ears.
-
-In plain words:
-- **at 128 kb/s and above**, MULE beats Vorbis and FDK-AAC everywhere, loses to Opus on PEAQ's
-  basic score, and wins on the advanced score and on Zimtohrli. Apple's AAC encoder is far ahead of
-  FDK on the same format (+0.23 ODG at 128 kb/s), behind MULE at 128 kb/s and level with it on
-  PEAQ's basic score at 160 kb/s: in a codec, the encoder is what matters. In blind ABX tests on the six excerpts
-  where PEAQ saw the biggest gap, I could tell MULE at 128 kb/s (format v2) neither from the
-  original nor from Opus;
-- **below 96 kb/s**, use Opus: it has a decade of low-rate tools that MULE never got;
-- **on the device**, the decoder runs core B at about **59 MHz**, in 30 KiB of code and tables
-  and 91 KiB of RAM, with the same output, bit for bit, on the PC, the firmware's emulator and
-  the Cortex-M3 (measured with format v2; v3 needs 8 % fewer instructions, not yet ported).
+MULE beats Vorbis and FDK-AAC everywhere. Apple's AAC encoder is far ahead of FDK on the same
+format (+0.23 ODG at 128 kb/s): in a codec, the encoder is what matters.
 
 The format has been nearly stable since v3. Formats v4 and v5 are minor changes, both about the
 noise the decoder generates in the bands left without bits ([`docs/V4.md`](docs/V4.md),
 [`docs/V5.md`](docs/V5.md)). Most of the work is now on the encoder side.
 
-So, officially: a codec that is worse than Opus on almost every count, and sometimes as good.
+So, officially: a codec that is worse than Opus on several counts, and sometimes better.
 This is a surprise; outperforming Vorbis was by no means a sure thing. Coming close to Opus
 was unexpected.
 
@@ -96,33 +126,9 @@ they agreed on an independent test set, or if listening could not tell when they
 Those machines have blind spots, and this project walked into most of them: see
 [`docs/LESSONS.md`](docs/LESSONS.md).
 
-### On 300 tracks, with `--bitrate`
-
-A second campaign: 300 excerpts of 30 s from 144 artists, drawn at random from the same library,
-each codec at the setting whose mean rate over the 300 is the target (MULE with `--bitrate`, its
-default since 25/11/2026). Means at equal rate:
-
-| | Zimtohrli @96 / @128 / @160 | ODG @96 / @128 / @160 | ODG (advanced) @96 / @128 / @160 |
-|---|---|---|---|
-| AAC (Apple, qaac TVBR) | 8.94 / 4.21 / 2.27 | −1.00 / −0.32 / −0.06 | −1.04 / −0.47 / −0.22 |
-| Opus (libopus 1.6.1) | 5.84 / 3.24 / 2.14 | **−0.33 / −0.14 / 0.00** | −0.83 / −0.44 / −0.24 |
-| MULE (format v5, `--bitrate`) | **5.35 / 2.48 / 1.25** | −0.36 / **−0.14** / −0.03 | **−0.75 / −0.32 / −0.13** |
-
-Track by track (paired), MULE is closer to the original than Opus in Zimtohrli's eyes on 72 % of
-the tracks at 96 kb/s, 94 % at 128 kb/s and 99 % at 160 kb/s, and better on PEAQ's advanced score
-on 78 to 97 %; PEAQ's basic score puts Opus ahead by 0.02-0.03 at 96 and 160 kb/s, level at 128.
-These are machine measures, not listening tests (see above).
-
-The last encoder change behind these numbers came from asking the judge itself where the bits
-should go: nudging the masks of each frequency region up and down and measuring how Zimtohrli's
-distance moves at constant rate showed that MULE gave too few bits to the bass and to 1-13 kHz,
-too many to the low mids, and, at low rates only, too many to the top octave, as other encoders
-already do. The reallocation (`eval/slopes.py`, `eval/results/B9-REPORT.md`) took 5 to 9 % off
-the distance at every rate, and could not be heard in a blind ABX test at 96 kb/s (46/96).
-
 ### Track by track
 
-Averages hide a lot. Each dot below is one of the 30 test tracks at 128 kb/s: Opus is excellent
+Averages hide a lot. Each dot below is one of the 30 test tracks of the format table at 128 kb/s: Opus is excellent
 almost everywhere but collapses on one track (Belenos, bagpipes); MULE is more even, and v5 sits
 level with v4 in PEAQ's eyes; Apple's AAC is spread wide and pays for its lowpass in PEAQ's eyes.
 
