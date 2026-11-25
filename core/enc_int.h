@@ -197,7 +197,7 @@ typedef struct {
 
 #define TR_FC 3000.0    /* the transient detector's first pass: high-passed at 3 kHz */
 int block_types(const double *x, int64_t L, int T, uint8_t *types, double ratio_db, double fc, int add,
-                double decay_db);
+                double decay_db, double pitch);
 void hf_tonal_veto(const double *pcm, int64_t L, int T, uint8_t *types, const uint8_t *first,
                    double ton_db, const mdct_t *ml);
 void psy_init(psy_t *p, int m);
@@ -207,7 +207,7 @@ void psy_masks(const psy_t *p, const mule_enc_params *pr, const double *P, const
                double *mask, double noise_flat);
 void psy_dynalloc(const mule_enc_params *pr, const double *P, double *mask);
 void psy_floor(const mule_enc_params *pr, const double *P, double *mask);
-void psy_opus(const mule_enc_params *pr, const double *P, double *mask);
+void psy_opus(const mule_enc_params *pr, const double *P, const double *flat, double *mask);
 
 /* ---------------------------------------------------------------- enc_tcq.c */
 

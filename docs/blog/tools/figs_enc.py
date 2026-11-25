@@ -332,10 +332,10 @@ def enc_fig11_campaign(rate=128, lang="en", zimt=False):
     """The 300-track campaign (data/campaign, eval/campaign.py: each codec at the setting whose mean
     rate over the excerpts is the target, every item interpolated with the same weights; c224 left
     out, eval/campaign.py EXCLUDE): MULE's
-    --bitrate since 25/11/2026 (brR128), MULE v5 in quality mode (22/11/2026), Opus and Apple's AAC.
+    --bitrate since 26/11/2026 (prPN), MULE v5 in quality mode (22/11/2026), Opus and Apple's AAC.
     PEAQ's basic ODG, or (zimt) Zimtohrli."""
     col = "zimt" if zimt else "odg"
-    a = pd.read_csv(os.path.join(CAMPAIGN, "matched_mule_brC75-mule_brR128-mule_brR144-opus-aac.csv"))
+    a = pd.read_csv(os.path.join(CAMPAIGN, "matched_mule_brR128-mule_prPN-opus-aac.csv"))
     b = pd.read_csv(os.path.join(CAMPAIGN, "matched_mule-mule_br-mule_brC75-opus-aac.csv"))
     a, b = a[a.rate == rate], b[b.rate == rate]
     names = {i: re.split(r"[;,&]| - ", n)[0].strip() for i, n in zip(a.item, a.artist)}
@@ -344,13 +344,13 @@ def enc_fig11_campaign(rate=128, lang="en", zimt=False):
         return df[df.codec == codec].set_index("item")[col]
     en = lang == "en"
     rows = [(get(a, "opus"), "Opus", ORANGE, "D"),
-            (get(a, "mule_brR128"), "MULE --bitrate", GREEN, "o"),
+            (get(a, "mule_prPN"), "MULE --bitrate", GREEN, "o"),
             (get(b, "mule"), "MULE v5 -q", BLUE, "o"),
             (get(a, "aac"), "AAC (Apple)", APPLE, "v")]
     _strip(rows, rate, ("enc-fig12-zimt-300" if zimt else "enc-fig11-peaq-300") + ("" if rate == 128 else f"-{rate}")
            + ("-en" if en else ""), figsize=(9, 4.6), lang=lang, zimt=zimt, names=names, dot=9,
-           notes=("299 tracks of 144 artists drawn at random; MULE: --bitrate (25/11/2026), v5 -q: 22/11/2026",
-                  "299 extraits de 144 artistes tirés au hasard ; MULE : --bitrate (25/11/2026), v5 -q : 22/11/2026"))
+           notes=("299 tracks of 144 artists drawn at random; MULE: --bitrate (26/11/2026), v5 -q: 22/11/2026",
+                  "299 extraits de 144 artistes tirés au hasard ; MULE : --bitrate (26/11/2026), v5 -q : 22/11/2026"))
 
 
 def enc_fig12_zimt_300():

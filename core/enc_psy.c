@@ -7,10 +7,35 @@
 /* The block type of each of the T frames (0 long, 1 short): energies of 128-sample blocks of the
  * signal high-passed at fc; an attack is a block ratio_db above a memory decaying by decay_db per
  * block, or 20 dB above the blocks 7 to 10 earlier, above a -70 dB floor; the frames whose short
- * windows hold it become short. add: the frames already short stay short (a second pass). The
- * production's passes and values: mule_enc.h (tr_db, tr_hf_*, tr_decay_db). -1 if out of memory. */
+ * windows hold it become short. add: the frames already short stay short (a second pass). pitch > 0:
+ * an attack whose block repeats the filtered signal one period earlier is dropped (pitch_repeats).
+ * The production's passes and values: mule_enc.h (tr_db, tr_hf_*, tr_decay_db, tr_pitch). -1 if out
+ * of memory. */
+static int pitch_repeats(const double *y, int64_t n, int64_t st, int len, double thr)
+{
+    const int lag_min = 66, lag_max = 882;      /* 1.5-20 ms: 50-670 Hz */
+    if (st - lag_max < 0 || st + len > n)
+        return 0;
+    double e0 = 0;
+    for (int i = 0; i < len; i++)
+        e0 += y[st + i] * y[st + i];
+    if (e0 <= 0)
+        return 0;
+    for (int lag = lag_min; lag <= lag_max; lag++) {
+        double xy = 0, e1 = 0;
+        for (int i = 0; i < len; i++) {
+            double b = y[st + i - lag];
+            xy += y[st + i] * b;
+            e1 += b * b;
+        }
+        if (xy > 0 && xy * xy > thr * thr * e0 * e1)
+            return 1;
+    }
+    return 0;
+}
+
 int block_types(const double *x, int64_t L, int T, uint8_t *types, double ratio_db, double fc, int add,
-                double decay_db)
+                double decay_db, double pitch)
 {
     const double fs = 44100.0, floor_db = -70.0, slow_db = 20.0;
     const int lag0 = 7, lag1 = 10, SUB = 128;
@@ -21,8 +46,12 @@ int block_types(const double *x, int64_t L, int T, uint8_t *types, double ratio_
     double a1 = 2 * (K * K - 1) * norm, a2 = (1 - K / Q + K * K) * norm;
     int64_t nsub = (L + SUB - 1) / SUB;
     double *e = calloc((size_t)(nsub ? nsub : 1) * 2, sizeof(double));
-    if (!e)
+    double *y = pitch > 0 ? malloc(sizeof(double) * (size_t)(L ? L : 1) * 2) : NULL;
+    if (!e || (pitch > 0 && !y)) {
+        free(e);
+        free(y);
         return -1;
+    }
     for (int c = 0; c < 2; c++) {
         double z1 = 0, z2 = 0;
         for (int64_t i = 0; i < nsub * SUB; i++) {
@@ -33,6 +62,8 @@ int block_types(const double *x, int64_t L, int T, uint8_t *types, double ratio_
                 z2 = b2 * in - a2 * out;
             }
             e[(i / SUB) * 2 + c] += out * out;
+            if (y && i < L)
+                y[c * L + i] = out;
         }
     }
     for (int64_t j = 0; j < nsub * 2; j++)
@@ -43,6 +74,7 @@ int block_types(const double *x, int64_t L, int T, uint8_t *types, double ratio_
         types[t] = 0;
     for (int64_t j = 0; j < nsub; j++) {
         double score = -1e300, emax = 0;
+        int cmax = 0;
         for (int c = 0; c < 2; c++) {
             double ej = e[j * 2 + c];
             double s1 = 10 * log10((ej + flo) / (mem[c] + flo)) - ratio_db;
@@ -52,12 +84,16 @@ int block_types(const double *x, int64_t L, int T, uint8_t *types, double ratio_
                     past = e[(j - k) * 2 + c];
             double s2 = 10 * log10((ej + flo) / (past + flo)) - slow_db;
             double s = s1 > s2 ? s1 : s2;
-            if (s > score)
+            if (s > score) {
                 score = s;
+                cmax = c;
+            }
             if (ej > emax)
                 emax = ej;
             mem[c] = ej > mem[c] * d ? ej : mem[c] * d;
         }
+        if (score > 0 && emax > flo && y && pitch_repeats(y + cmax * L, L, j * SUB, SUB, pitch))
+            continue;
         if (score > 0 && emax > flo) {
             int64_t st = j * SUB;
             int64_t edges[2] = {st, st + SUB - 1};
@@ -70,6 +106,7 @@ int block_types(const double *x, int64_t L, int T, uint8_t *types, double ratio_
         }
     }
     free(e);
+    free(y);
     return 0;
 }
 
@@ -364,8 +401,8 @@ static void opus_alloc(const mule_enc_params *pr, double kbps, double *T)
     opus_row(lo, T);
 }
 
-/* Opus' band allocation (core/mule_enc.h, opa_mode). */
-void psy_opus(const mule_enc_params *pr, const double *P, double *mask)
+/* Opus' band allocation (core/mule_enc.h, opa_mode, opa_ton_k). */
+void psy_opus(const mule_enc_params *pr, const double *P, const double *flat, double *mask)
 {
     static double kb = -1, T[NB], T128[NB], sh[NB];
     if (kb != pr->opa_kbps || pr->opa_mode == 2) {      /* (mode 2: opa_k may change) */
@@ -382,6 +419,16 @@ void psy_opus(const mule_enc_params *pr, const double *P, double *mask)
             sh[b] = T[b] - T128[b] - m / n;
     }
     double q0 = -pr->rc_slope * log2(kb / pr->rc_r0), tq0 = pow(10, q0 / 10);
+    double alpha = pr->opa_alpha;
+    if (pr->opa_ton_k != 0) {
+        double nfl = pr->fft_tonal ? pr->fft_noise_db : 5.5, ts = 0;
+        for (int b = 0; b < NB; b++) {
+            double t = pr->tonal_all ? 1.0 : (flat[b] + nfl) / -pr->ton_scale;
+            ts += t < 0 ? 0 : (t > 1 ? 1 : t);
+        }
+        alpha += pr->opa_ton_k * (ts / NB - 0.15);    /* 0.15: a typical frame (dev, 26/11/2026) */
+        alpha = alpha < 0 ? 0 : (alpha > 1 ? 1 : alpha);
+    }
     for (int b = 0; b < NB; b++) {
         double mo = P[b] * pow(10, -0.602 * T[b]) / tq0 + 1e-30;
         if (pr->opa_mode == 1)
@@ -389,6 +436,6 @@ void psy_opus(const mule_enc_params *pr, const double *P, double *mask)
         else if (pr->opa_mode == 2)
             mask[b] *= pow(10, -0.602 * pr->opa_k * sh[b]);
         else
-            mask[b] = pow(mask[b] + 1e-30, pr->opa_alpha) * pow(mo, 1 - pr->opa_alpha);
+            mask[b] = pow(mask[b] + 1e-30, alpha) * pow(mo, 1 - alpha);
     }
 }

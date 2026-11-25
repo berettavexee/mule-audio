@@ -144,6 +144,27 @@ typedef struct {
      * Zimtohrli): band b's masks times 10^(band_db[b]/10), after every other mask setting
      * (memset 0 by mule_enc_defaults: off). 22 = MULE_NB, literal for the cffi cdef */
     double band_db[22];
+    /* Pitch veto of the transient detector (exhale's pitch-lag test, ecodis/exhale tempAnalysis):
+     * an attack block whose high-passed signal repeats itself one period earlier (normalised
+     * cross-correlation above tr_pitch, over lags of 1.5-20 ms) is a periodic pulse (a voice's
+     * glottal pulses, a pulsed sound), not an attack (0.7 since 26/11/2026; 0: off) */
+    double tr_pitch;
+    /* opa_mode 3 by the frame's tonality (exhale's flatness-driven JND exponent, bitAllocation.cpp):
+     * the masks' share is opa_alpha + opa_ton_k (t - 0.15), t the mean tonality of the group's bands
+     * (0 noise .. 1 tonal, psy_masks' formula), clipped to [0, 1] (0: a fixed share; a probe, rejected
+     * on 26/11/2026: B9-REPORT.md 12) */
+    double opa_ton_k;
+    /* TNS's prediction gain as a temporal cue (exhale's imprSfbStepSizes, without the TNS filter): in a
+     * long frame, a band of at least 16 coefficients whose order-4 LPC over frequency predicts
+     * G dB of its energy (energy concentrated in time) has its masks lowered by tns_k (G - 1.5) dB,
+     * 6 dB at most (1 since 26/11/2026; 0: off) */
+    double tns_k;
+    /* the allocations' RD choice (rd_lambda) as one Viterbi over the group's bands instead of band
+     * after band: a-1 / a / a+1 per coded band, each path with its own coefficient tails, the
+     * allocation symbol costed against the band below as well as the previous frame (the cheaper;
+     * the scale factors' trellis of exhale, after Aggarwal, Regunathan and Rose 2000; 0: off; a probe,
+     * rejected on 26/11/2026: B9-REPORT.md 14) */
+    int alloc_trellis;
 } mule_enc_params;
 
 void mule_enc_defaults(mule_enc_params *p);

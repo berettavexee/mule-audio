@@ -67,6 +67,8 @@ void mule_enc_defaults(mule_enc_params *p)
     p->tr_hf_db = 6.0;          /* 8.5 before the v5 (N-LOG.md, the corrected detector) */
     p->tr_hf_ton = 10.0;        /* tonal veto (v5: Belenos) */
     p->tr_decay_db = 1.0;       /* 3 before 22/11/2026 (the voice's glottal pulses) */
+    p->tr_pitch = 0.7;          /* exhale's pitch veto, 26/11/2026 (eval/results/B9-REPORT.md 11, 16) */
+    p->tns_k = 1.0;             /* TNS gain as a temporal cue, 26/11/2026 (B9-REPORT.md 13, 16) */
     p->ath_rel_db = 0.0;        /* off: being measured (23/11/2026) */
     p->ath_ref_db = -14.0;
     p->ath_rel_rel = 0.5;
@@ -241,6 +243,34 @@ static void frame_groups(const mule_enc_params *pr, double X[2][F], frame_t *f, 
     raw(o, 7, mask);
 }
 
+/* The prediction gain (dB) of an order-4 LPC over the n values v (Levinson-Durbin; TNS's
+ * criterion: a temporal envelope that is not flat within the window). */
+static double lpc_gain_db(const double *v, int n)
+{
+    double r[5] = {0}, a[5] = {1}, err;
+    for (int k = 0; k <= 4; k++)
+        for (int i = k; i < n; i++)
+            r[k] += v[i] * v[i - k];
+    if (r[0] <= 0)
+        return 0;
+    err = r[0];
+    for (int i = 1; i <= 4; i++) {
+        double acc = r[i];
+        for (int j = 1; j < i; j++)
+            acc += a[j] * r[i - j];
+        double k = -acc / err, t[5];
+        for (int j = 0; j < i; j++)
+            t[j] = a[j];
+        for (int j = 1; j < i; j++)
+            a[j] = t[j] + k * t[i - j];
+        a[i] = k;
+        err *= 1 - k * k;
+        if (err <= r[0] * 1e-9)
+            break;
+    }
+    return 10 * log10(r[0] / err);
+}
+
 /* Per (channel, group, band): power, flatness (from the FFT powers PW with fft_tonal), M/S
  * powers, then the masks (fine masks in long frames) and the pre-echo control (a long frame's
  * mask may rise by at most pre_db over the previous long frame's). */
@@ -288,13 +318,25 @@ static void frame_analysis(const mule_enc_params *pr, const psy_t *py, double X[
             if (pr->bf_rel_db > 0)
                 psy_floor(pr, f->P[c][g], f->MK[c][g]);
             if (pr->opa_mode)
-                psy_opus(pr, f->P[c][g], f->MK[c][g]);
+                psy_opus(pr, f->P[c][g], f->FL[c][g], f->MK[c][g]);
             if (pr->hf_db != 0)
                 for (int b = pr->hf_band; b < NB; b++)
                     f->MK[c][g][b] *= pow(10, pr->hf_db * (b - pr->hf_band + 1) / (NB - pr->hf_band) / 10);
             for (int b = 0; b < NB; b++)
                 if (pr->band_db[b] != 0)
                     f->MK[c][g][b] *= pow(10, pr->band_db[b] / 10);
+            if (pr->tns_k > 0 && f->type == 0)
+                for (int b = 0; b < NB; b++) {
+                    int n = band_n(&f->grp[g], b);
+                    if (n < 16)
+                        continue;
+                    double v[176 * 8];
+                    for (int i = 0; i < n; i++)
+                        v[i] = X[c][coef_index(&f->grp[g], b, i)];
+                    double red = pr->tns_k * (lpc_gain_db(v, n) - 1.5);
+                    if (red > 0)
+                        f->MK[c][g][b] *= pow(10, -(red > 6 ? 6 : red) / 10);
+                }
         }
     if (pr->pre_db > 0) {
         if (f->type == 0) {
@@ -539,6 +581,79 @@ static void alloc_rd(const mule_enc_params *pr, const frame_t *f, const state_t 
     }
 }
 
+/* alloc_rd as a Viterbi over the bands (alloc_trellis): states = the 3 candidates of a coded band
+ * (one, a = 0, for the others); a path carries its coefficient tails; the allocation symbol costs
+ * the cheaper of its difference to the band below (frequency mode) and to the previous frame. */
+static void alloc_rd_trellis(const mule_enc_params *pr, const frame_t *f, const state_t *s, ops_t *o,
+                             int c, int g, const int *q, int *a, int inter_ok, int64_t tail1, int64_t tail2)
+{
+    const int *ap = s->aprev[c];
+    double J[3], nJ[3];
+    int val[3], nval[3], ns = 1, back[NB][3], vals[NB][3], nst[NB];
+    int64_t T1[3], T2[3], nT1[3], nT2[3];
+    J[0] = 0;
+    val[0] = ap[0];                             /* the frequency mode's reference of band 0 */
+    T1[0] = tail1;
+    T2[0] = tail2;
+    for (int b = 0; b < NB; b++) {
+        int coded = q[b] > MULE_QMIN && a[b] > 0, nn = 0, cands[3];
+        if (coded) {
+            for (int cand = a[b] - 1; cand <= a[b] + 1; cand++)
+                if (cand >= 1 && cand <= MULE_AMAX)
+                    cands[nn++] = cand;
+        } else
+            cands[nn++] = a[b];
+        double rms = pow(2.0, q[b] / 4.0), mk = band_mask(f, c, g, b);
+        int n = band_n(&f->grp[g], b);
+        for (int k = 0; k < nn; k++) {
+            int cand = cands[k];
+            nJ[k] = 1e300;
+            nval[k] = cand;
+            for (int p = 0; p < ns; p++) {
+                int64_t c1 = T1[p], c2 = T2[p];
+                double cost = 0;
+                int dt = cand - ap[b], df = cand - val[p];
+                double bt = sym_bits(o, MULE_S_ALLOC, band_class(b) + 3, dt >= -7 && dt <= 7 ? dt + 7 : 15);
+                double bf = sym_bits(o, MULE_S_ALLOC, band_class(b), df >= -7 && df <= 7 ? df + 7 : 15);
+                double abits = bt < bf ? bt : bf;
+                if (coded) {
+                    band_in in = {f->Y[c], &f->grp[g], b, f->type, inter_ok && s->along[c][b] > 0, 0,
+                                  s->ylong[c], rms, 0.0, pr->tcq_lam, mk * f->tq, pr, NULL};
+                    in.e = in.inter ? s->qlong[c][b] - q[b] + cand - s->along[c][b] : 0;
+                    double bits, noise;
+                    band_code(&in, cand, &c1, &c2, o, 0, NULL, &bits, &noise, NULL, NULL);
+                    cost = noise / (mk * f->tq * n) + pr->rd_lambda * (bits + abits) / n;
+                } else
+                    cost = pr->rd_lambda * abits / (n > 0 ? n : 1);
+                if (J[p] + cost < nJ[k] - TIE_EPS) {
+                    nJ[k] = J[p] + cost;
+                    back[b][k] = p;
+                    nT1[k] = c1;
+                    nT2[k] = c2;
+                }
+            }
+        }
+        for (int k = 0; k < nn; k++) {
+            J[k] = nJ[k];
+            val[k] = nval[k];
+            vals[b][k] = nval[k];
+            T1[k] = nT1[k];
+            T2[k] = nT2[k];
+        }
+        ns = nn;
+        nst[b] = nn;
+    }
+    int k = 0;
+    for (int i = 1; i < ns; i++)
+        if (J[i] < J[k] - TIE_EPS)
+            k = i;
+    for (int b = NB - 1; b >= 0; b--) {
+        a[b] = vals[b][k];
+        k = back[b][k];
+    }
+    (void)nst;
+}
+
 /* The energies of channel c, group g (spec 5.1): residuals from the prediction (weight alpha
  * between the previous frame and the band below). */
 static void code_energies(const frame_t *f, state_t *s, ops_t *o, int c, int g, const int *q)
@@ -689,8 +804,12 @@ static void encode_frame(const mule_enc_params *pr, const psy_t *psy_l, const ps
             for (int b = pr->nf_top; b < NB; b++)   /* nf_top: uncoded high bands silent, not */
                 if (a[b] == 0)                      /* noise (Apple above 16 kHz, N-LOG.md) */
                     q[b] = MULE_QMIN;
-            if (pr->rd_lambda > 0 && o->mr)
-                alloc_rd(pr, f, s, o, c, g, q, a, inter_ok, tail1, tail2);
+            if (pr->rd_lambda > 0 && o->mr) {
+                if (pr->alloc_trellis)
+                    alloc_rd_trellis(pr, f, s, o, c, g, q, a, inter_ok, tail1, tail2);
+                else
+                    alloc_rd(pr, f, s, o, c, g, q, a, inter_ok, tail1, tail2);
+            }
             if (pr->nf_bias > 0)                /* noise-filled bands: energy sent lower */
                 for (int b = 0; b < NB; b++)
                     if (a[b] == 0 && q[b] > MULE_QMIN) {
@@ -760,12 +879,12 @@ static int encode_ops(const double *pcm, int64_t L, const mule_enc_params *pr, i
     double (*X)[F] = malloc(sizeof(double) * 2 * F);
     double (*PW)[F] = malloc(sizeof(double) * 2 * F);
     int rc = -1;
-    if (!types || !first || !s || !X || !PW || block_types(pcm, L, T, first, pr->tr_db, TR_FC, 0, pr->tr_decay_db) ||
+    if (!types || !first || !s || !X || !PW || block_types(pcm, L, T, first, pr->tr_db, TR_FC, 0, pr->tr_decay_db, pr->tr_pitch) ||
         mdct_init(&ml, MULE_N_LONG) || mdct_init(&msh, MULE_N_SHORT))
         goto done;
     memcpy(types, first, (size_t)T);
     if (pr->tr_hf) {                            /* the highs pass, its frames added */
-        if (block_types(pcm, L, T, types, pr->tr_hf_db, pr->tr_hf_fc, 1, pr->tr_decay_db))
+        if (block_types(pcm, L, T, types, pr->tr_hf_db, pr->tr_hf_fc, 1, pr->tr_decay_db, pr->tr_pitch))
             goto done;
         if (pr->tr_hf_ton > 0)
             hf_tonal_veto(pcm, L, T, types, first, pr->tr_hf_ton, &ml);

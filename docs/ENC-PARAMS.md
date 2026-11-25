@@ -52,6 +52,7 @@ on top of them.
 | `opa_eta` | Share of half the rate given to one channel's coefficients (the table's calibration). | 0.8 | Chosen at design time, not swept. |
 | `opa_k` | Mode 2: the tilt's scale. | 1 | Mode 2 not adopted. |
 | `opa_alpha` | Mode 3: the (log) share of our masks; the rest comes from Opus's table. | 0.5; 0.75 with `--bitrate` | Grid on *dev*, confirmed on *test* then on the 300 tracks (C75, 24/11/2026). The CMA-ES search of 24/11 suggests ~0.67 at 96 kb/s (to be validated). |
+| `opa_ton_k` | Mode 3: our masks' share moved by `opa_ton_k` × (t − 0.15), t the frame's mean tonality (exhale's idea). | 0 (off) | Probe of 26/11/2026, rejected both ways (`B9-REPORT.md` 12). |
 
 ## Frames, short blocks and groups
 
@@ -60,6 +61,8 @@ on top of them.
 | `keyframe` | Frames between two key packets (multiple of 4). Rate cost against seek time. | 40 (0.93 s) | `M-LOG.md`: 80 and 160 frames save only 0.17 and 0.26 % of the rate. 40 kept. |
 | `tr_db` | Transient detector: energy rise above its memory (dB). | 8.5 | 10 before 20/11/2026 (`N-LOG.md`). |
 | `tr_decay_db` | The detector's memory decay per block of 128. | 1 dB | 3 before 22/11/2026: a voice's glottal pulses were taken for attacks (`N-LOG.md`). |
+| `tr_pitch` | Pitch veto (exhale's pitch-lag test): an attack block whose filtered signal repeats itself one period earlier (normalised correlation above this threshold, periods of 1.5-20 ms) is not an attack. 0: off. | 0.7 | Adopted on 26/11/2026 with `tns_k` (`B9-REPORT.md` 11, 15, 16). Fixes pitchpipe (−3.9 → +0.1 ODG). 0.5 loses real attacks (castanets, organ). |
+| `tns_k` | TNS's prediction gain as a temporal cue (exhale), without the filter: in a long frame, a band of at least 16 coefficients whose order-4 LPC over frequency predicts G dB has its masks lowered by `tns_k` × (G − 1.5) dB, 6 dB at most. 0: off. | 1 | Adopted on 26/11/2026 (13, 16): voices −12 to −16 % Zimtohrli distance; piano slightly down on PEAQ basic. 3: violin +26 %. |
 | `tr_hf` | A second detector pass on the high-passed signal. | 1 | 22/11/2026 (`N-LOG.md`). |
 | `tr_hf_fc` | That high-pass's cutoff. | 8000 Hz | Same series. |
 | `tr_hf_db` | That pass's threshold. | 6 dB | 8.5 before v5 (the corrected detector, `N-LOG.md`). |
@@ -110,6 +113,7 @@ on top of them.
 | `alloc_auto` | Reference for coding the allocations: the cheaper of the previous band and the previous frame (else per band). | 1 | Prototype. |
 | `alloc_hyst` | Keep the previous frame's allocation if the new one differs by at most `alloc_hyst` (fewer allocation bits, less flicker). | 1 | Prototype; see `N-LOG.md`. |
 | `rd_lambda` | Rate-distortion choice per band between a−1, a and a+1: (noise/mask) + λ × bits, the bits counted on a copy of the adaptive models. 0: off. | 2.42 | Axis 3 (`E-LOG.md`, 2), then the Zimtohrli tuning of 22/11/2026. |
+| `alloc_trellis` | That choice made by one Viterbi over the bands (exhale's scale-factor trellis) instead of band after band. | 0 (off) | Probe of 26/11/2026, rejected: all four judges worse, encoder 1.6 times slower (14). |
 | `zh_db` | On/off hysteresis: a band noise-filled in the previous frame is coded only if its energy exceeds its target by `zh_db`. | 0 (off) | Probe of 24/11/2026 (Purcell): ±1 % effects, not adopted. |
 | `zh_keep_db` | A coded band goes back to noise only if its energy falls `zh_keep_db` below its target. | 0 (off) | Same probe. |
 

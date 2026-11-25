@@ -81,6 +81,10 @@ class Params:
     zh_db: float = 0.0          # on/off hysteresis: margin to turn a noise-filled band on, dB (0: off)
     zh_keep_db: float = 0.0     # ... and to keep a coded band on below its target, dB (0: off)
     band_db: tuple = ()         # per-band mask offsets, dB (measurements: eval/slopes.py)
+    tr_pitch: float = 0.7       # transient detector's pitch veto: correlation threshold (26/11/2026; 0: off)
+    opa_ton_k: float = 0.0      # opa_mode 3: the masks' share moved by the frame's tonality (0: fixed)
+    tns_k: float = 1.0          # long frames: masks lowered by tns_k dB per dB of TNS prediction gain (26/11/2026; 0: off)
+    alloc_trellis: int = 0      # the allocations' RD choice as one Viterbi over the bands (0: band after band)
 
 
 

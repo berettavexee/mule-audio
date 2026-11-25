@@ -62,7 +62,10 @@ FAMILIES = {**CONFIGS, **{f"mule_{v}": [f"mule-{v}_{q:g}" for q in (-1, -2.5, -4
             # ... and with 13-20 kHz too, the whole reallocation (refcodecs brF<R>)
             **{f"mule_brF{r}": [f"mule-brF{r}_{k}" for k in (r - 16, r, r + 16)] for r in (96, 128, 160)},
             # the reallocation as a law of the rate (refcodecs brR<end>), the whole grid
-            **{f"mule_brR{e}": [f"mule-brR{e}_{k}" for k in (80, 96, 112, 128, 144, 160, 176, 192)] for e in (128, 144)}}
+            **{f"mule_brR{e}": [f"mule-brR{e}_{k}" for k in (80, 96, 112, 128, 144, 160, 176, 192)] for e in (128, 144)},
+            # exhale's pitch veto and TNS cue on the --bitrate of 25/11 (refcodecs prPN, brR128 being that
+            # production): --bitrate since 26/11/2026, the whole grid
+            "mule_prPN": [f"mule-prPN_{k}" for k in (80, 96, 112, 128, 144, 160, 176, 192)]}
 
 
 def probe_duration(path):

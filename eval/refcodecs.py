@@ -357,11 +357,26 @@ class Mule:
     # masks of 13-20 kHz raised by 6 dB up to 96 kb/s, falling linearly to 0 at <end> kb/s
     # (params.realloc_db; brR128 = --bitrate since 25/11/2026)
     RATE_LAWS = {"brR128": 128.0, "brR144": 144.0}
+    # the settings adopted after these variants were measured, off in them (their meaning kept)
+    PRE_PN = {"tr_pitch": 0.0, "tns_k": 0.0}
+    # pr: --bitrate of 25/11/2026 (params.for_bitrate with the reallocation, before exhale's pitch veto
+    # and TNS cue: PRE_PN): mule-pr_<kbps>; prP<t x 10>: the transient detector's pitch veto (tr_pitch t,
+    # exhale's pitch-lag test; 26/11/2026)
+    VARIANTS.update({"pr": {}, "prP5": {"tr_pitch": 0.5}, "prP6": {"tr_pitch": 0.6}, "prP7": {"tr_pitch": 0.7}})
+    # prT<k x 10>: the Opus mix's share driven by the frame's tonality (opa_ton_k, exhale's flatness-driven
+    # JND exponent; 26/11/2026); prTm: k < 0
+    VARIANTS.update({"prT10": {"opa_ton_k": 1.0}, "prTm10": {"opa_ton_k": -1.0}})
+    # prN<k x 10>: TNS's prediction gain as a temporal cue in long frames (tns_k; 26/11/2026)
+    VARIANTS.update({"prN10": {"tns_k": 1.0}, "prN30": {"tns_k": 3.0}})
+    # prA: the allocations' RD choice as one Viterbi over the bands (alloc_trellis; 26/11/2026)
+    VARIANTS.update({"prA": {"alloc_trellis": 1}})
+    # prPN: the pitch veto (0.7) and the TNS cue (1) together (26/11/2026): --bitrate since 26/11/2026
+    VARIANTS.update({"prPN": {"tr_pitch": 0.7, "tns_k": 1.0}})
 
     def __init__(self, variant, q):
         from mule import params
         if variant in self.RATE_LAWS:           # a law of the target rate q (kb/s)
-            self.params = params.for_bitrate(q, band_db=params.realloc_db(q, self.RATE_LAWS[variant]))
+            self.params = params.for_bitrate(q, band_db=params.realloc_db(q, self.RATE_LAWS[variant]), **self.PRE_PN)
             self.name = f"mule-{variant}_{q:g}"
             return
         if variant.startswith("m6") and variant not in self.VARIANTS:   # a M6 search's best point
@@ -370,8 +385,12 @@ class Mule:
             path = os.path.join(self.ROOT, "eval", "results", f"m6_best_{tag}.json" if tag else "m6_best.json")
             self.VARIANTS[variant] = {**self.PRE_V5, **{k: (int(v) if k.startswith("tcq_") and k != "tcq_rdl" else v)
                                                     for k, v in json.load(open(path)).items()}}
+        if variant == "pr" or variant.startswith(("prP", "prT", "prN", "prA")):
+            self.params = params.for_bitrate(q, **{**self.PRE_PN, **self.VARIANTS[variant]})
+            self.name = f"mule-{variant}_{q:g}"
+            return
         # br variants: --bitrate as it was before the reallocation (band_db 0) unless they set it
-        self.params = (params.for_bitrate(q, **{"band_db": (), **self.VARIANTS[variant]}) if variant.startswith("br")
+        self.params = (params.for_bitrate(q, **{"band_db": (), **self.PRE_PN, **self.VARIANTS[variant]}) if variant.startswith("br")
                        else params.Params(q_db=q, **self.VARIANTS[variant]))
         self.name = f"mule{'-' + variant if variant else ''}_{q:g}"
 

@@ -40,7 +40,7 @@ Measured on **299 excerpts** of 30 s (the middle of each track) from 144 artists
 from my music library (300 drawn; one left out, whose recording carries the whistle of a
 cathode-ray monitor at 15.6 kHz that the measures weigh as music), at equal mean rate: each codec
 at the setting whose mean rate over the excerpts is the target (interpolated between its two nearest settings), audio payload only. MULE
-is the current encoder with `--bitrate` (format v5, settings of 25/11/2026), Opus is libopus 1.6.1,
+is the current encoder with `--bitrate` (format v5, settings of 26/11/2026), Opus is libopus 1.6.1,
 Apple's AAC is qaac in TVBR. ODG is PEAQ's score (higher is better, 0 at best); Zimtohrli is a
 distance to the original (lower is better). How to read them is explained below the table.
 
@@ -48,11 +48,11 @@ distance to the original (lower is better). How to read them is explained below 
 |---|---|---|---|
 | AAC (Apple, qaac TVBR) | 8.91 / 4.21 / 2.27 | −0.99 / −0.32 / −0.06 | −1.04 / −0.46 / −0.22 |
 | Opus (libopus 1.6.1) | 5.82 / 3.22 / 2.14 | **−0.33 / −0.13 / 0.00** | −0.83 / −0.44 / −0.23 |
-| MULE (format v5) | **5.31 / 2.47 / 1.25** | −0.36 / −0.14 / −0.03 | **−0.75 / −0.32 / −0.13** |
+| MULE (format v5) | **5.27 / 2.45 / 1.24** | −0.35 / −0.14 / −0.02 | **−0.74 / −0.32 / −0.13** |
 
 Track by track (paired comparisons), MULE is closer to the original than Opus in Zimtohrli's eyes
-on 72 % of the tracks at 96 kb/s, 94 % at 128 kb/s and 99 % at 160 kb/s, and better on PEAQ's
-advanced score on 78 to 97 % of them; PEAQ's basic score puts Opus ahead by 0.02 to 0.03 at 96 and
+on 73 % of the tracks at 96 kb/s, 95 % at 128 kb/s and 99 % at 160 kb/s, and better on PEAQ's
+advanced score on 78 to 98 % of them; PEAQ's basic score puts Opus ahead by 0.02 at 96 and
 160 kb/s and level at 128 kb/s.
 
 **How to read these numbers.** Both measures compare the decoded file with the original through a
@@ -68,8 +68,8 @@ model of the ear and predict what a listener would hear; neither is a listening 
   hears them: **0** means identical, smaller is better. The table shows this **distance** (in units
   of 10⁻⁴, the values being tiny), not the grade from 1 to 5 that Zimtohrli can also give, the
   scale usual on audio forums: at these bitrates every codec of the table would get close to 5 out
-  of 5, too close together to tell apart. The distance separates them: at 128 kb/s, MULE's is 23 %
-  below Opus's and 41 % below Apple's AAC's.
+  of 5, too close together to tell apart. The distance separates them: at 128 kb/s, MULE's is 24 %
+  below Opus's and 42 % below Apple's AAC's.
 - **In practice**, at 128 kb/s these codecs are all close to transparent for most listeners and
   most music; the differences show on difficult passages (cymbals, bagpipes, harpsichord) and to
   trained ears.
@@ -99,13 +99,13 @@ So I’ll leave it to others to tell me that my codec is useless garbage.
 Averages hide a lot. Each dot below is one of the 299 tracks at 128 kb/s, for the current encoder
 (`--bitrate`), the same format v5 in quality mode before the latest encoder changes (`-q`, 22/11),
 Opus and Apple's AAC. In PEAQ's eyes, MULE and Opus have nearly the same median (−0.14 and
-−0.12), but MULE's tail is shorter: 6 tracks below −0.3, against 15 for Opus and 12 for `-q`; the
+−0.12), but MULE's tail is shorter: 5 tracks below −0.3, against 15 for Opus and 12 for `-q`; the
 worst for both is Belenos (bagpipes). Apple's AAC is spread wide and pays for its lowpass.
 
 ![PEAQ's score of each of the 299 tracks at 128 kb/s, for Opus, MULE --bitrate, MULE v5 -q and Apple's AAC](docs/blog/fig/enc-fig11-peaq-300-en.svg)
 
 The same tracks seen by Zimtohrli (lower is better; the axis is reversed so that better stays on
-the right), which I trust more than PEAQ at these bitrates: medians 2.57 for MULE, 2.63 for `-q`,
+the right), which I trust more than PEAQ at these bitrates: medians 2.56 for MULE, 2.63 for `-q`,
 3.31 for Opus and 4.20 for Apple's AAC. MULE's worst track is a Purcell ode (choir and baroque
 orchestra, Martin Neary), much improved by the latest encoder changes; Opus's is Sepultura.
 

@@ -1,4 +1,4 @@
-# Quand les machines écoutent à notre place
+# Les androïdes écoutent-ils du Brahms ?
 
 *Quatrième billet de la série « MULE, ou comment marche un codec audio moderne ». Premier jet.*
 

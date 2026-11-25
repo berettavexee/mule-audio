@@ -17,6 +17,7 @@ the README.
 | 23/11 | encoder: `--bitrate` | a rate leveler that draws each track toward the requested rate | [`ENC-PARAMS.fr.md`](ENC-PARAMS.fr.md) |
 | 24/11 | encoder: Opus mix (C75) | Opus's band allocation table mixed into the masks, a quarter of the weight | [`ENC-PARAMS.fr.md`](ENC-PARAMS.fr.md) |
 | 25/11 | encoder: reallocation (brR128) | bits moved between bands by a law of the rate, found from Zimtohrli's slopes | [`../eval/results/B9-REPORT.md`](../eval/results/B9-REPORT.md) |
+| 26/11 | encoder: exhale's ideas (prPN) | a pitch veto in the transient detector, TNS's prediction gain as a temporal cue | [`../eval/results/B9-REPORT.md`](../eval/results/B9-REPORT.md) §11-16 |
 
 ## The encoder on 299 tracks (format v5)
 
@@ -29,13 +30,15 @@ whose mean rate over the excerpts is the target (interpolated), audio payload on
 | quality mode `-q` (22/11) | 6.16 / 2.76 / 1.40 | −0.37 / −0.15 / −0.01 | −0.74 / −0.33 / −0.13 |
 | `--bitrate`, rate leveler (23/11) | 6.15 / 2.76 / 1.38 | −0.36 / −0.16 / −0.02 | −0.75 / −0.33 / −0.13 |
 | + Opus mix C75 (24/11) | 5.86 / 2.59 / 1.32 | **−0.35** / −0.14 / **−0.01** | **−0.73 / −0.32 / −0.13** |
-| + reallocation brR128 (25/11, current) | **5.31 / 2.47 / 1.25** | −0.36 / **−0.14** / −0.03 | −0.75 / −0.32 / −0.13 |
+| + reallocation brR128 (25/11) | 5.31 / 2.47 / 1.25 | −0.36 / **−0.14** / −0.03 | −0.75 / −0.32 / −0.13 |
+| + pitch veto and TNS cue (26/11, current) | **5.27 / 2.45 / 1.24** | −0.35 / **−0.14** / −0.02 | −0.74 / −0.32 / −0.13 |
 | *Opus (libopus 1.6.1), for reference* | *5.82 / 3.22 / 2.14* | *−0.33 / −0.13 / 0.00* | *−0.83 / −0.44 / −0.23* |
 
 The leveler changed little in quality (its point is the rate: 95 % of the tracks within ±10 % of
 the target); the Opus mix gained on every measure; the reallocation took another 5 to 9 % off
 Zimtohrli's distance, for a few hundredths of PEAQ's basic score that a blind ABX test at 96 kb/s
-could not hear (46/96). Over the three steps, Zimtohrli's distance fell by 10 to 14 %.
+could not hear (46/96); exhale's two ideas added 0.7 % at every rate, the other judges stable.
+Over the four steps, Zimtohrli's distance fell by 11 to 14 %.
 
 ## Formats v3 to v5 on 30 tracks (quality mode)
 

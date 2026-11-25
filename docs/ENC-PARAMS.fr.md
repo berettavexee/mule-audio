@@ -74,6 +74,7 @@ appliquer le tableau ci-dessus par-dessus.
 | `opa_eta` | Part de la moitié du débit attribuée aux coefficients d'un canal (calibrage de la table). | 0,8 | Choisi à la conception, pas balayé. |
 | `opa_k` | Mode 2 : échelle de l'inclinaison. | 1 | Mode 2 non retenu. |
 | `opa_alpha` | Mode 3 : part (en log) de nos masques ; le reste vient de la table d'Opus. | 0,5 ; 0,75 avec `--bitrate` | Grille sur *dev*, confirmée sur *test* puis sur les 300 pistes (C75, 24/11/2026). La recherche CMA-ES du 24/11 propose ~0,67 à 96 kb/s (à valider). |
+| `opa_ton_k` | Mode 3 : la part de nos masques déplacée de `opa_ton_k` × (t − 0,15), t la tonalité moyenne de la trame (idée d'exhale). | 0 (éteint) | Sonde du 26/11/2026, rejetée dans les deux sens (`B9-REPORT.md` §12). |
 
 ## Trames, blocs courts et groupes
 
@@ -82,6 +83,8 @@ appliquer le tableau ci-dessus par-dessus.
 | `keyframe` | Trames entre deux paquets clés (multiple de 4). Coût en débit contre temps de recherche dans le fichier. | 40 (0,93 s) | `M-LOG.md` : 80 et 160 trames ne gagnent que 0,17 et 0,26 % de débit. On garde 40. |
 | `tr_db` | Détecteur de transitoires : montée d'énergie au-dessus de sa mémoire (dB). | 8,5 | 10 avant le 20/11/2026 (`N-LOG.md`). |
 | `tr_decay_db` | Décroissance de la mémoire du détecteur par bloc de 128. | 1 dB | 3 avant le 22/11/2026 : les impulsions glottales d'une voix passaient pour des attaques (`N-LOG.md`). |
+| `tr_pitch` | Veto de hauteur (le test de période d'exhale) : un bloc d'attaque dont le signal filtré se répète une période plus tôt (corrélation normalisée au-dessus de ce seuil, périodes de 1,5 à 20 ms) n'est pas une attaque. 0 : éteint. | 0,7 | Adopté le 26/11/2026 avec `tns_k` (`B9-REPORT.md` §11, 15, 16). Répare le pitchpipe (−3,9 → +0,1 d'ODG). 0,5 perd de vraies attaques (castagnettes, orgue). |
+| `tns_k` | Le gain de prédiction de TNS comme indice temporel (exhale), sans le filtre : dans une trame longue, une bande d'au moins 16 coefficients dont une LPC d'ordre 4 en fréquence prédit G dB a ses masques abaissés de `tns_k` × (G − 1,5) dB, 6 dB au plus. 0 : éteint. | 1 | Adopté le 26/11/2026 (§13, 16) : voix −12 à −16 % de distance Zimtohrli ; piano un peu en recul sur PEAQ basique. 3 : violon +26 %. |
 | `tr_hf` | Seconde passe du détecteur sur le signal filtré passe-haut. | 1 | 22/11/2026 (`N-LOG.md`). |
 | `tr_hf_fc` | Fréquence de coupure de ce passe-haut. | 8000 Hz | Même série. |
 | `tr_hf_db` | Seuil de cette passe. | 6 dB | 8,5 avant la v5 (détecteur corrigé, `N-LOG.md`). |
@@ -132,6 +135,7 @@ appliquer le tableau ci-dessus par-dessus.
 | `alloc_auto` | Référence de codage des allocations : la moins chère entre la bande précédente et la trame précédente (sinon par bande). | 1 | Prototype. |
 | `alloc_hyst` | Garde l'allocation de la trame précédente si la nouvelle en diffère d'au plus `alloc_hyst` (moins de bits d'allocation, moins de scintillement). | 1 | Prototype ; voir `N-LOG.md`. |
 | `rd_lambda` | Choix débit-distorsion par bande entre a−1, a et a+1 : (bruit/masque) + λ × bits, les bits comptés sur une copie des modèles adaptatifs. 0 : éteint. | 2,42 | Axe 3 (`E-LOG.md`, 2), puis réglage Zimtohrli du 22/11/2026. |
+| `alloc_trellis` | Ce choix fait par un Viterbi sur les bandes (le treillis des facteurs d'échelle d'exhale) au lieu de bande après bande. | 0 (éteint) | Sonde du 26/11/2026, rejetée : les quatre juges en recul, encodeur 1,6 fois plus lent (§14). |
 | `zh_db` | Hystérésis marche/arrêt : une bande remplie de bruit à la trame précédente n'est codée que si son énergie dépasse sa cible de `zh_db`. | 0 (éteint) | Sonde du 24/11/2026 (Purcell) : effets de ±1 %, pas retenue. |
 | `zh_keep_db` | Une bande codée ne repasse en bruit que si son énergie tombe `zh_keep_db` sous sa cible. | 0 (éteint) | Même sonde. |
 

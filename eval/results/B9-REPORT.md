@@ -405,3 +405,141 @@ du fond), que les juges pèsent comme de la musique (`eval/campaign.py` EXCLUDE 
 sur 299, `brR128` contre la production : Zimtohrli −9,4 % / −4,7 % / −5,6 % à 96 / 128 / 160 kb/s,
 PEAQ basique −0,008 / +0,005 / −0,020, conclusions inchangées. Contre Opus à 128 kb/s : Zimtohrli
 −23 %, PEAQ basique à égalité (−0,004, n.s.).
+
+## 11. Veto de hauteur du détecteur d'attaques (`tr_pitch`, 26/11/2026)
+
+Idée reprise d'exhale (encodeur xHE-AAC de C. Helmrich, `tempAnalysis.cpp` : test de période avant
+de déclarer une attaque). Dans `block_types` (`core/enc_psy.c`), un bloc d'attaque dont le signal
+filtré se répète une période plus tôt (corrélation normalisée > `tr_pitch`, périodes de 1,5 à 20 ms)
+n'est pas une attaque. 0 par défaut : production identique au bit près. Variantes `prP5`, `prP7`
+(`eval/refcodecs.py`, sur la production `pr`), `eval/results/pval_{dev,test}.csv`, à 128 kb/s
+interpolé sur 120/128/136, + = mieux, \* : IC 95 % hors de 0.
+
+Trames courtes (--bitrate 128) : voix féminine 16,7 → 13,2 % (0,5) / 16,2 % (0,7) ; voix masculine
+17,1 → 11,6 / 16,0 % ; Kompromat 9,9 → 5,4 / 9,3 % ; castagnettes 16,4 → 15,5 / 16,4 % ;
+glockenspiel 1,5 → 0,8 / 1,0 % ; pitchpipe 3,5 → 0 %.
+
+| | Zimtohrli | PEAQ basique | PEAQ avancé | NMR |
+|---|---|---|---|---|
+| `dev` sans pitchpipe, 0,5 | −0,3 % | +0,003 \* | +0,001 \* | +0,017 dB \* |
+| `dev` sans pitchpipe, 0,7 | +0,1 % | +0,003 \* | +0,001 \* | +0,012 dB \* |
+| `test`, 0,5 | 0,0 % | +0,001 | +0,001 | +0,011 dB |
+| `test`, 0,7 | +0,1 % \* | +0,001 | 0,000 | +0,006 dB \* |
+
+**pitchpipe (EBU SQAM 05) : un défaut ancien trouvé.** −3,91 d'ODG en production à tous les débits
+depuis toujours, classé « cas limite de PEAQ » (`E2-LOG.md`, 17/11). Avec le veto : +0,14 d'ODG,
+Zimtohrli 1,4 → 0,004 (× 10⁻⁴), NMR −4,8 → −24,2 dB. Les quelques trames courtes déclenchées sur le
+sifflet abîmaient le son ; ce n'était pas PEAQ.
+
+À 0,5 : castagnettes +7,3 % et orgue (Bach) +10,5 % sur Zimtohrli (vraies attaques perdues) :
+**rejeté**. À 0,7 : pas de régression notable (ABBA +3,1 % au pire), triangles +0,11 d'ODG ; petit
+gain cohérent sur les quatre juges, plus le pitchpipe. **Candidat**, à confirmer sur la campagne.
+
+## 12. Mélange avec la table d'Opus selon la tonalité de la trame (`opa_ton_k`, 26/11/2026)
+
+Idée d'exhale (`bitAllocation.cpp` : l'exposant du modèle de seuil suit la planéité spectrale). Le
+poids de nos masques dans le mélange devient 0,75 + k (t − 0,15), t la tonalité moyenne des bandes
+du groupe (formule de `psy_masks`, médianes 0,03 à 0,34 selon les extraits). `tval_{dev,test}.csv`,
+même protocole qu'au §11 (pitchpipe exclu de `dev`).
+
+| | Zimtohrli | PEAQ basique | PEAQ avancé | NMR |
+|---|---|---|---|---|
+| `dev`, k = +1 | −2,0 % \* | −0,010 \* | −0,004 | −0,03 dB |
+| `dev`, k = −1 | −0,9 % | −0,009 | −0,008 | −0,15 dB \* |
+| `test`, k = +1 | +0,1 % | −0,003 | 0,000 | +0,03 dB |
+| `test`, k = −1 | −0,7 % \* | −0,010 \* | −0,008 \* | −0,07 dB \* |
+
+k = +1 : orchestre +25 %, trompette +22 %, orgue +18 % (Zimtohrli). k = −1 : violon +69 %, triangles
++61 %. **Rejeté dans les deux sens** : la table d'Opus aide autant les trames tonales que bruitées,
+le poids fixe 75/25 reste le meilleur.
+
+## 13. Le gain de prédiction de TNS comme indice temporel (`tns_k`, 26/11/2026)
+
+Idée d'exhale (`imprSfbStepSizes` : pas réduit dans les bandes à fort gain de prédiction TNS, sans le
+filtre). Trames longues, bandes d'au moins 16 coefficients : masque abaissé de k (G − 1,5) dB, 6 dB
+au plus, G le gain d'une LPC d'ordre 4 sur les coefficients de la bande. `nval_{dev,test}.csv`.
+
+| | Zimtohrli | PEAQ basique | PEAQ avancé | NMR |
+|---|---|---|---|---|
+| `dev`, k = 1 | **+0,6 %** \* | −0,001 | 0,000 | 0,00 dB |
+| `dev`, k = 3 | +0,2 % | −0,004 \* | −0,003 | −0,03 dB |
+| `test`, k = 1 | +0,5 % | −0,002 | −0,001 | 0,00 dB |
+| `test`, k = 3 | +0,5 % | −0,003 | −0,004 \* | −0,02 dB \* |
+
+k = 1 : **voix féminine −15,5 %, voix masculine −12,1 %**, guitare −9,0 %, Zombie Zombie −6,6 %,
+Eminem −4,4 % (Zimtohrli) ; ABBA +9,1 % ; Liszt −0,09 et piano −0,06 d'ODG. Le critère vise les
+voix : leurs bandes ont une enveloppe temporelle marquée (les impulsions de la glotte) dans une
+trame longue. k = 3 : violon +26 %, PEAQ en recul. **k = 1 candidat faible** (Zimtohrli seul,
+autres juges neutres), à juger surtout sur les voix.
+
+## 14. Choix des allocations par Viterbi sur les bandes (`alloc_trellis`, 26/11/2026)
+
+Idée d'exhale (treillis des facteurs d'échelle, d'après Aggarwal, Regunathan et Rose 2000). Le choix
+a−1 / a / a+1 de `alloc_rd` devient un Viterbi sur les bandes du groupe : chaque chemin garde ses
+queues de coefficients, le symbole d'allocation coûte le moins cher de son écart à la bande du
+dessous et à la trame précédente. Encodeur 1,6 fois plus lent. `aval_{dev,test}.csv`.
+
+| | Zimtohrli | PEAQ basique | PEAQ avancé | NMR |
+|---|---|---|---|---|
+| `dev` | −1,7 % \* | −0,004 \* | −0,004 \* | −0,04 dB \* |
+| `test` | −1,4 % \* | −0,005 \* | −0,007 \* | −0,03 dB \* |
+
+**Rejeté** : moins bon sur les quatre juges et les deux jeux (violon +27 %). Le choix glouton,
+réglé avec `rd_lambda` et `tcq_rdl`, est déjà à l'optimum de ce qu'il mesure ; l'écart à la bande du
+dessous ne compte que quand la trame choisit le mode fréquentiel, ce que le coût « le moins cher des
+deux » surestime.
+
+## Bilan des pistes d'exhale (26/11/2026)
+
+| piste | verdict |
+|---|---|
+| 1. Veto de hauteur (`tr_pitch` 0,7) | candidat : petit gain sur les quatre juges, et le défaut du pitchpipe corrigé |
+| 2. Mélange Opus selon la tonalité (`opa_ton_k`) | rejeté dans les deux sens |
+| 3. Viterbi des allocations (`alloc_trellis`) | rejeté (quatre juges en recul) |
+| 4. Gain TNS (`tns_k` 1) | candidat faible : Zimtohrli +0,5 %, voix −12 à −16 %, autres juges neutres |
+
+Tous les réglages restent à 0 par défaut : production inchangée.
+
+## 15. Combinaison des pistes 1 et 4 (`prPN` : `tr_pitch` 0,7 et `tns_k` 1, 26/11/2026)
+
+`cval_{dev,test}.csv`, même protocole (pitchpipe exclu de `dev`).
+
+| | Zimtohrli | PEAQ basique | PEAQ avancé | NMR |
+|---|---|---|---|---|
+| `dev` | **+0,8 %** \* | +0,002 | +0,001 | +0,01 dB |
+| `test` | **+0,6 %** \* | 0,000 | −0,001 | +0,01 dB |
+
+Les gains s'additionnent sur Zimtohrli, les autres juges restent neutres. Par extrait (réglage
+128) : voix féminine −15,7 %, voix masculine −11,6 % (+0,03 d'ODG), Zombie Zombie −8,6 %, triangles
++0,11 d'ODG, pitchpipe réparé ; ABBA +4,1 % (+9,1 % avec la piste 4 seule : le veto compense en
+partie). Régressions PEAQ héritées de la piste 4 : Liszt −0,088, piano −0,064, Brahms −0,027 d'ODG
+(Zimtohrli neutre sur ces extraits). **Candidat** pour la campagne, après une écoute des voix
+(gain Zimtohrli seul) et du piano (perte PEAQ seule).
+
+## 16. Campagne de 299 morceaux : la combinaison `prPN` contre la production (26/11/2026)
+
+`data/campaign/report_mule_brR128-mule_prPN-opus-aac.md` (production = `brR128`, identique réglage par
+réglage ; `prPN` sur la grille 80-192 kb/s, 2 400 encodages, aucun échec ; c224 exclu). `prPN` moins
+production, + = mieux, IC bootstrap par artiste, Wilcoxon-Holm :
+
+| kb/s | Zimtohrli | PEAQ basique | PEAQ avancé | NMR |
+|---|---|---|---|---|
+| 96 | **−0,7 %** (p 4e-8, mieux sur 64 %) | +0,001 | **+0,004** | 0,00 dB |
+| 128 | **−0,7 %** (p 5e-10, 62 %) | +0,001 | **+0,001** | 0,00 dB |
+| 160 | **−0,7 %** (p 3e-10, 65 %) | **+0,004** | 0,000 | 0,00 dB |
+
+Par morceau : Zimtohrli meilleur de plus de 2 % sur 37 à 48 morceaux (Eminem −9 à −11 %, Les Rita
+Mitsouko −10 %, New Order, La Femme : voix et rap), pire de plus de 2 % sur 1 ou 2 au plus (+2,7 %
+au pire, Moussorgski). PEAQ basique : plus de morceaux gagnent 0,03 que n'en perdent (7 contre 4 à
+128 kb/s, 18 contre 10 à 160) ; les pertes sont sur le piano à 160 kb/s (Chopin −0,12, Beethoven
+−0,11, Roscoe −0,08), comme sur `dev`. PEAQ avancé : aucun morceau en recul de plus de 0,03.
+
+Lecture : **gain petit mais net et sans contrepartie mesurable en moyenne** ; tous les juges
+stables ou meilleurs à tous les débits. Seul point d'écoute possible : le piano à 160 kb/s (PEAQ
+basique seul). Adoption : décision de l'auteur.
+
+**Adopté le 26/11/2026 (décision de l'auteur) : `tr_pitch` 0,7 et `tns_k` 1 par défaut**
+(`mule_enc_defaults`, `params.Params` : `--bitrate` et `-q`). `--bitrate` est identique, réglage
+par réglage, à la variante `prPN` de la campagne ; `refcodecs` garde le sens des variantes
+mesurées avant (`PRE_PN` : les deux réglages à 0 dans `pr*`, `br*`, `brR*`). `opa_ton_k` et
+`alloc_trellis` restent des sondes éteintes. Le mode `-q` n'a pas été mesuré avec ces réglages.
