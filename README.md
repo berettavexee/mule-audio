@@ -9,7 +9,7 @@ Echo Mini (a dual Cortex-M3 SoC without a floating-point unit). It carries the m
 at low bitrates, and it will not start a dynasty.
 
 This is an **experimental, learning project**. It does not try to replace anything, and it
-does not. If you want a good lossy codec, **use Opus**. If you want to see what happens when some idiot
+does not. If you want a good lossy codec, **use Opus**. If you want to see what happens when some fool
 builds one from scratch, measures everything, listens blind, and writes down every idea that did
 not work, read on.
 
@@ -86,12 +86,13 @@ In plain words:
   and 91 KiB of RAM, with the same output, bit for bit, on the PC, the firmware's emulator and
   the Cortex-M3 (measured with format v2; v3 needs 8 % fewer instructions, not yet ported).
 
-The last encoder change behind these numbers came from asking the judge itself where the bits
-should go: nudging the masks of each frequency region up and down and measuring how Zimtohrli's
-distance moves at constant rate showed that MULE gave too few bits to the bass and to 1-13 kHz,
-too many to the low mids, and, at low rates only, too many to the top octave, which other encoders
-already cut. The reallocation (`eval/slopes.py`, `eval/results/B9-REPORT.md`) took 5 to 9 % off
-the distance at every rate, and could not be heard in a blind ABX test at 96 kb/s (46/96).
+The psychoacoustic and bit-allocation model has largely been fine-tuned and trained to suit 
+Zimtohrli’s preferences, which explains the significant increase in scores as soon as I started 
+tweaking the encoder settings.  The Zimtohrli scores aren’t equivalent to proper ABX listening 
+tests. I can no longer tell the difference in ABX tests; I’m not skilled or trained enough, and 
+my ears aren’t up to it.
+
+So I’ll leave it to others to tell me that my codec is useless garbage.
 
 ### Track by track
 
@@ -110,8 +111,7 @@ orchestra, Martin Neary), much improved by the latest encoder changes; Opus's is
 
 ![Zimtohrli distance of each of the 299 tracks at 128 kb/s, for Opus, MULE --bitrate, MULE v5 -q and Apple's AAC](docs/blog/fig/enc-fig12-zimt-300-en.svg)
 
-The history of the results, format by format and encoder change by encoder change, with the
-older measurements (30 tracks, Vorbis and FDK-AAC too, and their track-by-track plots), is in
+The history of the results, format by format and encoder change is in
 [`docs/RESULTS-HISTORY.md`](docs/RESULTS-HISTORY.md). In short: MULE beat Vorbis and FDK-AAC
 from format v3 on, and most of the gains since v5 came from the encoder.
 
@@ -123,7 +123,7 @@ So, officially: a codec that is worse than Opus on several counts, and sometimes
 This is a surprise; outperforming Vorbis was by no means a sure thing. Coming close to Opus
 was unexpected.
 
-At 128 kb/s, telling two modern codecs apart by ear is close to impossible, so almost every
+At 128 kb/s, telling two modern codecs apart by ear is not hard. It's close to impossible, so almost every
 decision was taken by automated measures instead (PEAQ basic and advanced, ViSQOL, an internal
 noise-to-mask ratio; since v4, Zimtohrli first and no longer ViSQOL), and an idea was kept only if
 they agreed on an independent test set, or if listening could not tell when they did not.
