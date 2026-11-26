@@ -45,3 +45,33 @@ average** over the 16 files (file size, container and headers included).
 All the tuning was done with objective measures (Zimtohrli first, then PEAQ and a noise-to-mask
 ratio) on music, not on SQAM; my own ABX tests at 128 kb/s could not tell MULE from the original.
 Critical listening reports, good or bad, are exactly what I am looking for.
+
+## What to listen for
+
+MULE codes the spectrum in 22 bands. Inside a band it spends bits on the strongest lines, and a
+band coded with few bits, or none, gets noise at the band's level. Above 2.8 kHz (band 12 and up),
+the coefficients quantized to zero also get a little noise. The typical artefact is therefore
+**noise where the original has a gap**: between harmonics, or in a notch just above a steep
+spectral edge, when the gap shares a band with something loud.
+
+The figures below show it on a commercial recording, so it is not in this pack: Purcell's *Ode for
+Queen Mary's Birthday*, Z 332 (Martin Neary, *Music for Queen Mary*, 1994). They show a 30-second
+excerpt from the middle of the track, as in the 300-track campaign, at `--bitrate 128` (124 kb/s)
+and in Opus 128 kb/s (130 kb/s). The left column holds the spectrograms; the right column shows
+each codec's difference to the original in dB (red: energy added, blue: energy missing).
+
+![Spectrograms on a Bark scale: original, MULE, Opus, and their differences to the original](fig/purcell-bark.png)
+
+The recording falls off by about 30 dB at 3.3 kHz and has a notch from 3.8 to 4.4 kHz. MULE's
+band 12 (2.76 to 3.45 kHz) holds the top of the voices and the edge: its quantization noise
+spreads a few dB up to the edge (the red line). Band 13 (3.45 to 4.13 kHz) holds the notch: MULE
+partly fills it with noise (red) and loses weak harmonics (blue). Opus shows the same pattern,
+more lightly; its bands are almost the same there.
+
+![Zoom, 2 to 7 kHz, 12 to 20 s, on a linear scale](fig/purcell-zoom.png)
+
+Here these differences sit 50 to 60 dB under the voices at 2 to 3 kHz and are probably masked.
+In the SQAM items, the places to try are those with clean harmonic spectra and silence between
+the lines: the pitch pipe, the glockenspiel, the triangles, the harpsichord, the violin. The
+question is whether the space between the harmonics, or the air above them, sounds noisier or
+rougher than in the original. The figures come from `eval/spectro_compare.py --scale bark --diff`.
