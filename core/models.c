@@ -5,36 +5,30 @@
 #include "init_cdf_a8.h"
 
 const int mule_init_cdf_id = MULE_INIT_CDF_ID;
-const int mule_stream_nsyms[MULE_S_COUNT] = {2, 4, 2, 16, 16, 2, 16, 16, 16, 8};
-const int mule_stream_nctx[MULE_S_COUNT] = {1, 1, 3, 9, 6, 1, 16, 96, 1, 1};
-const int mule_stream_off[MULE_S_COUNT] = {0, 1, 2, 5, 14, 20, 21, 37, 133, 134};
+#define NSYMS_(name, nsyms, nctx) nsyms,
+#define NCTX_(name, nsyms, nctx) nctx,
+#define OFF_(name, nsyms, nctx) MULE_OFF_##name,
+const int mule_stream_nsyms[MULE_S_COUNT] = {MULE_STREAMS(NSYMS_)};
+const int mule_stream_nctx[MULE_S_COUNT] = {MULE_STREAMS(NCTX_)};
+const int mule_stream_off[MULE_S_COUNT] = {MULE_STREAMS(OFF_)};
 #define NTABLES ((int)(sizeof mule_init_cdf / sizeof *mule_init_cdf))   /* streams with a table */
+
+/* mule_init_cdf with the 8-symbol coefficient alphabet's own tables (core/init_cdf_a8.h) */
+static const uint16_t *const init_cdf_a8[] = {mule_init_btype, mule_init_alpha, mule_init_stereo,
+                                              mule_init_energy, mule_init_alloc, mule_init_amode,
+                                              mule_init_cesc8, mule_init_coef8, mule_init_eaesc};
 
 /* The initial CDF of stream s (its contexts' n + 1 values each, one after the other), NULL for
  * a uniform start (NFLEV); n: its symbols. a8 (format flag MULE_COEF_A8): the coefficients have 8
- * symbols (escape at 7) and the escape orders their own table (core/init_cdf_a8.h). Built with
- * MULE_DEC_V5_ONLY (core B), the 16-symbol coefficient tables of v2 are not referenced (the
- * linker drops them): every stream is then read as a8. */
+ * symbols (escape at 7) and the escape orders their own table. Built with MULE_DEC_V5_ONLY (core
+ * B), a8 is always set: the v2 tables are then not referenced, and the linker drops them. */
 const uint16_t *mule_stream_init(int s, int a8, int *n)
 {
-    *n = mule_stream_nsyms[s];
 #ifdef MULE_DEC_V5_ONLY
     a8 = 1;
 #endif
-    if (a8 && s == MULE_S_COEF) {
-        *n = 8;
-        return mule_init_coef8;
-    }
-    if (a8 && s == MULE_S_CESC)
-        return mule_init_cesc8;
-#ifdef MULE_DEC_V5_ONLY
-    static const uint16_t *const other[] = {mule_init_btype, mule_init_alpha, mule_init_stereo,
-                                            mule_init_energy, mule_init_alloc, mule_init_amode,
-                                            NULL, NULL, mule_init_eaesc};
-    return s < (int)(sizeof other / sizeof *other) ? other[s] : NULL;
-#else
-    return s < NTABLES ? mule_init_cdf[s] : NULL;   /* NFLEV: uniform */
-#endif
+    *n = a8 && s == MULE_S_COEF ? 8 : mule_stream_nsyms[s];
+    return s < NTABLES ? (a8 ? init_cdf_a8 : mule_init_cdf)[s] : NULL;
 }
 
 /* Every model to its initial state (a key packet, spec 4): the trained CDF of its stream and

@@ -78,20 +78,25 @@ static inline int mule_tcq_step(int s, int64_t k)       /* v2's 8-state trellis 
     return mule_tcq_step_n(s, k, 8, 0x6);
 }
 
-/* models: streams in this order, each nctx contexts of nsyms symbols (same order in Python) */
-enum {
-    MULE_S_BTYPE, MULE_S_ALPHA, MULE_S_STEREO, MULE_S_ENERGY, MULE_S_ALLOC, MULE_S_AMODE,
-    MULE_S_CESC, MULE_S_COEF, MULE_S_EAESC,
-    MULE_S_NFLEV,                               /* v5: the zeros' noise level (uniform start) */
-    MULE_S_COUNT
-};
+/* models (spec 3): the streams in this order, X(name, nsyms, nctx): nctx contexts of nsyms
+ * symbols each (the same order in Python: py/mule/params.py STREAMS). NFLEV (v5, the zeros' noise
+ * level) starts uniform; COEF has 8 symbols with MULE_COEF_A8. Everything below derives from it. */
+#define MULE_STREAMS(X) \
+    X(BTYPE, 2, 1) X(ALPHA, 4, 1) X(STEREO, 2, 3) X(ENERGY, 16, 9) X(ALLOC, 16, 6) \
+    X(AMODE, 2, 1) X(CESC, 16, 16) X(COEF, 16, 96) X(EAESC, 16, 1) X(NFLEV, 8, 1)
+#define MULE_S_ENUM_(name, nsyms, nctx) MULE_S_##name,
+enum { MULE_STREAMS(MULE_S_ENUM_) MULE_S_COUNT };
+/* each stream's first model: MULE_OFF_<name> (the enum counts on by nctx from one to the next) */
+#define MULE_OFF_ENUM_(name, nsyms, nctx) MULE_OFF_##name, MULE_OFF_LAST_##name = MULE_OFF_##name + (nctx) - 1,
+enum { MULE_STREAMS(MULE_OFF_ENUM_) };
+#define MULE_NCTX_SUM_(name, nsyms, nctx) + (nctx)
+#define MULE_NMODELS (0 MULE_STREAMS(MULE_NCTX_SUM_))
 extern const int mule_stream_nsyms[MULE_S_COUNT];
 extern const int mule_stream_nctx[MULE_S_COUNT];
 extern const int mule_stream_off[MULE_S_COUNT];  /* first model of each stream */
 extern const int mule_init_cdf_id;               /* MULEHead byte 19 of the built-in tables */
 /* stream s's initial CDFs (n + 1 values per context; NULL: uniform) and its symbols n (core/models.c) */
 const uint16_t *mule_stream_init(int s, int a8, int *n);
-#define MULE_NMODELS (1 + 1 + 3 + 9 + 6 + 1 + 16 + 96 + 1 + 1)
 
 /* models state shared by the encoder and the decoder */
 typedef struct {
@@ -129,15 +134,17 @@ typedef struct mule_dec_state mule_dec;
 mule_dec *mule_dec_init(void *mem, size_t size, const uint8_t *head, int len);
 /* The most memory a decoder's state takes on any build (mule_dec_size() is at most this; core/dec.c
  * checks it at compile time): a caller that reserves static memory can size it with this. */
-#if defined(MULE_FFT_MEM_EXTERNAL) && defined(MULE_DEC_V5_ONLY)
-#define MULE_DEC_STATE_MAX 40960        /* without the FFT memory (mule_dec_set_fft_mem), v5 only */
-#elif defined(MULE_FFT_MEM_EXTERNAL)
-#define MULE_DEC_STATE_MAX 42496        /* without the FFT memory (mule_dec_set_fft_mem) */
-#elif defined(MULE_DEC_V5_ONLY)
-#define MULE_DEC_STATE_MAX 45056
+#ifdef MULE_FFT_MEM_EXTERNAL
+#define MULE_DEC_FFT_SAVE 4096          /* the FFT in the caller's memory (mule_dec_set_fft_mem) */
 #else
-#define MULE_DEC_STATE_MAX 46592
+#define MULE_DEC_FFT_SAVE 0
 #endif
+#ifdef MULE_DEC_V5_ONLY
+#define MULE_DEC_V5_SAVE 1536           /* no room for 16-symbol coefficient models */
+#else
+#define MULE_DEC_V5_SAVE 0
+#endif
+#define MULE_DEC_STATE_MAX (46592 - MULE_DEC_FFT_SAVE - MULE_DEC_V5_SAVE)
 size_t mule_dec_size(void);
 /* The same on the heap (not built with MULE_NO_MALLOC). */
 mule_dec *mule_dec_new(const uint8_t *head, int len);

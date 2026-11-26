@@ -29,16 +29,17 @@ typedef int32_t coef_t;                 /* Q24 */
 #define COEF_ESC(d) 7
 #define DEC_COEF_SYMS 8
 #else
-#define IS_V4(d) ((d)->v4)
-#define IS_V5(d) ((d)->v5)
+#define IS_V4(d) ((d)->ver >= 4)
+#define IS_V5(d) ((d)->ver >= 5)
 #define COEF_ESC(d) ((d)->coef_t)
 #define DEC_COEF_SYMS 16
 #endif
 
 /* The adaptive models' inner CDF entries (n - 1 per context: cdf[0] and cdf[n] are implied, see
- * mule_cdf_find), packed stream after stream: spec 3's table, the coefficients at their widest */
-#define DEC_CDF_LEN (1 * 1 + 1 * 3 + 3 * 1 + 9 * 15 + 6 * 15 + 1 * 1 + 16 * 15 \
-                     + 96 * (DEC_COEF_SYMS - 1) + 1 * 15 + 1 * 7)
+ * mule_cdf_find), packed stream after stream (MULE_STREAMS), the coefficients at their widest */
+#define DEC_INNER_(name, nsyms, nctx) \
+    + (nctx) * ((MULE_S_##name == MULE_S_COEF ? DEC_COEF_SYMS : (nsyms)) - 1)
+#define DEC_CDF_LEN (0 MULE_STREAMS(DEC_INNER_))
 
 /* the overlap-add accumulator: the current frame's 1024 samples, then what the short blocks of
  * this frame reach beyond (448 + 7 * 128 + 256 = 1600) */
@@ -52,9 +53,12 @@ struct mule_dec_state {
     int channels, pre_skip;
     uint32_t rate;
     int tcq_chain;                      /* v3: the trellis state runs on across the bands */
+#ifndef MULE_DEC_V5_ONLY                 /* (constants otherwise: IS_V4, IS_V5, COEF_ESC) */
     int coef_t;                         /* the coefficient escape symbol: 15 (v2), 7 (v3 a8) */
-    int v4;                             /* v4, v5: noise in coded bands' zeros, sloped noise filling */
-    int v5;                             /* v5: folding in short frames, the zeros' noise level modelled */
+    int ver;                            /* the format version: from 4, noise in coded bands' zeros and
+                                         * sloped noise filling; from 5, folding in short frames and
+                                         * the zeros' noise level modelled */
+#endif
     uint8_t tcq_next[MULE_TCQ_MAXS][4]; /* next state from (state, k mod 4) (v2: 8 states) */
     uint16_t cdf[DEC_CDF_LEN];          /* the adaptive models (reset at each key packet): inner */
     uint8_t count[MULE_NMODELS];        /* CDF entries, packed, and symbols seen (spec 3) */
@@ -877,33 +881,19 @@ static int16_t to_sample(int32_t v)
 
 /* ---------------- frame decoding ---------------- */
 
-/* The models' layout in cdf (sbase, snsym) for the stream's alphabet; 0 if it does not fit. */
-static int models_layout(mule_dec *d)
+/* Every model to its initial state (spec 3, 4: mule_cdf_init), laid out in cdf for the stream's
+ * coefficient alphabet (sbase, snsym; DEC_CDF_LEN holds the widest). */
+static void models_reset(mule_dec *d)
 {
     int off = 0;
     for (int s = 0; s < MULE_S_COUNT; s++) {
         int n;
-        mule_stream_init(s, COEF_ESC(d) == 7, &n);
+        const uint16_t *init = mule_stream_init(s, COEF_ESC(d) == 7, &n);
         d->sbase[s] = (uint16_t)off;
         d->snsym[s] = (uint8_t)n;
-        off += mule_stream_nctx[s] * (n - 1);
-    }
-    return off <= DEC_CDF_LEN;
-}
-
-/* Every model to its initial state (spec 3, 4): the trained CDF of its stream and context with a
- * count of 16, or the uniform one with a count of 0 (as mule_model_init_cdf and mule_model_init). */
-static void models_reset(mule_dec *d)
-{
-    for (int s = 0; s < MULE_S_COUNT; s++) {
-        int n;
-        const uint16_t *init = mule_stream_init(s, COEF_ESC(d) == 7, &n);
-        for (int c = 0; c < mule_stream_nctx[s]; c++) {
-            uint16_t *e = d->cdf + d->sbase[s] + c * (n - 1);
-            for (int i = 1; i < n; i++)
-                e[i - 1] = init ? init[c * (n + 1) + i] : (uint16_t)((MULE_PROB_ONE * (uint32_t)i) / (uint32_t)n);
-            d->count[mule_stream_off[s] + c] = init ? 16 : 0;
-        }
+        for (int c = 0; c < mule_stream_nctx[s]; c++, off += n - 1)
+            mule_cdf_init(d->cdf + off, n, init ? init + c * (n + 1) : NULL,
+                          &d->count[mule_stream_off[s] + c]);
     }
 }
 
@@ -1179,11 +1169,10 @@ mule_dec *mule_dec_init(void *mem, size_t size, const uint8_t *h, int len)
         for (int j = 0; j < 4; j++)
             d->tcq_next[st][j] = (uint8_t)mule_tcq_step_n(st, j, n, mule_tcq_mask(n));
     d->tcq_chain = flags & MULE_TCQ_CHAIN;
+#ifndef MULE_DEC_V5_ONLY
     d->coef_t = flags & MULE_COEF_A8 ? 7 : 15;
-    d->v4 = h[8] >= 4;
-    d->v5 = h[8] >= 5;
-    if (!models_layout(d))
-        return NULL;
+    d->ver = h[8];
+#endif
     reset_key(d);
     return d;
 }
