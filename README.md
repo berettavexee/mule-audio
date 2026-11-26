@@ -85,9 +85,9 @@ In plain words:
   from Opus;
 - **at 96 kb/s**, MULE is a few hundredths behind Opus on PEAQ's basic score and ahead on the
   others; **below 96 kb/s**, use Opus: it has a decade of low-rate tools that MULE never got;
-- **on the device**, the decoder runs core B at about **59 MHz**, in 30 KiB of code and tables
-  and 91 KiB of RAM, with the same output, bit for bit, on the PC, the firmware's emulator and
-  the Cortex-M3 (measured with format v2; v3 needs 8 % fewer instructions, not yet ported).
+- **on the device**, the decoder runs core B at about **53 MHz**, in 30 KiB of code and tables
+  and 81 KiB of RAM, with the same output, bit for bit, on the PC, the firmware's emulator and
+  the Cortex-M3.
 
 The psychoacoustic and bit-allocation model has largely been fine-tuned and trained to suit 
 Zimtohrli’s preferences, which explains the significant increase in scores as soon as I started 
