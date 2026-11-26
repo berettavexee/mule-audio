@@ -145,6 +145,10 @@ the energy Apple removes; whether the ear does is what the ABX kit of v4 is for
 
 ![Spectrograms of the EBU SQAM harpsichord: the original, MULE v5, Opus and Apple's AAC, all at 117 kb/s](docs/blog/fig/enc-fig8-spectro-v5-en.svg)
 
+Please note that the spectrograms are shown on a linear scale, in order to highlight the noise 
+filling in the high-frequency bands; this is not representative of actual listening perception. 
+The appropriate scale would be the [Bark scale](https://en.wikipedia.org/wiki/Bark_scale), but the noise filling becomes dot and dash on it
+
 ## What was learned
 
 The details, the numbers and the dead ends are in [`docs/LESSONS.md`](docs/LESSONS.md). In short:
