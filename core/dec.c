@@ -10,13 +10,35 @@
  *   - window slopes, rotations and twiddles from core/fx_tables.h (tools/gen_fx_tables.py);
  *   - output: interleaved int16.
  *
- * Built with MULE_NO_MALLOC (the firmware), only the caller-memory API exists (mule_dec_init). */
+ * Built with MULE_NO_MALLOC (the firmware), only the caller-memory API exists (mule_dec_init).
+ * Built with MULE_DEC_V5_ONLY (core B), it reads format v5 with 8-symbol coefficients only (what
+ * the encoder writes): the paths and tables of v2 to v4 are left out, and so is the room of the
+ * 16-symbol coefficient models. */
 #include <stdlib.h>
 #include <string.h>
 #include "mule.h"
 #include "fx_tables.h"
 
 typedef int32_t coef_t;                 /* Q24 */
+
+/* Format versions read: v2 to v5, or v5 only (MULE_DEC_V5_ONLY: the version tests are constants,
+ * the compiler drops the older paths) */
+#ifdef MULE_DEC_V5_ONLY
+#define IS_V4(d) 1
+#define IS_V5(d) 1
+#define COEF_ESC(d) 7
+#define DEC_COEF_SYMS 8
+#else
+#define IS_V4(d) ((d)->v4)
+#define IS_V5(d) ((d)->v5)
+#define COEF_ESC(d) ((d)->coef_t)
+#define DEC_COEF_SYMS 16
+#endif
+
+/* The adaptive models' inner CDF entries (n - 1 per context: cdf[0] and cdf[n] are implied, see
+ * mule_cdf_find), packed stream after stream: spec 3's table, the coefficients at their widest */
+#define DEC_CDF_LEN (1 * 1 + 1 * 3 + 3 * 1 + 9 * 15 + 6 * 15 + 1 * 1 + 16 * 15 \
+                     + 96 * (DEC_COEF_SYMS - 1) + 1 * 15 + 1 * 7)
 
 /* the overlap-add accumulator: the current frame's 1024 samples, then what the short blocks of
  * this frame reach beyond (448 + 7 * 128 + 256 = 1600) */
@@ -34,7 +56,10 @@ struct mule_dec_state {
     int v4;                             /* v4, v5: noise in coded bands' zeros, sloped noise filling */
     int v5;                             /* v5: folding in short frames, the zeros' noise level modelled */
     uint8_t tcq_next[MULE_TCQ_MAXS][4]; /* next state from (state, k mod 4) (v2: 8 states) */
-    mule_models ms;                     /* the adaptive models (reset at each key packet) */
+    uint16_t cdf[DEC_CDF_LEN];          /* the adaptive models (reset at each key packet): inner */
+    uint8_t count[MULE_NMODELS];        /* CDF entries, packed, and symbols seen (spec 3) */
+    uint16_t sbase[MULE_S_COUNT];       /* each stream's first entry in cdf */
+    uint8_t snsym[MULE_S_COUNT];        /* each stream's symbols */
     int qprev[2][MULE_NB], aprev[2][MULE_NB];   /* last energies and allocations (prediction) */
     uint16_t ylong[2][MULE_F];          /* previous long frame's index u, saturated at 65535 */
     int qlong[2][MULE_NB], along[2][MULE_NB], lvalid[2];   /* ... with its energies, allocations */
@@ -207,20 +232,21 @@ uint64_t mule_stat_raw;
 /* One symbol of stream `stream`, context `ctx`, with its adaptive model (updated). */
 static int sym(mule_dec *d, int stream, int ctx)
 {
-    mule_model *m = &d->ms.m[mule_stream_off[stream] + ctx];
+    int n = d->snsym[stream];
+    uint16_t *c = d->cdf + d->sbase[stream] + ctx * (n - 1);
     uint32_t slot = d->x & (MULE_PROB_ONE - 1), start = 0, freq = 0;
-    int s = mule_model_find(m, slot, &start, &freq);
+    int s = mule_cdf_find(c, n, slot, &start, &freq);
 #ifdef MULE_STATS
     mule_stat_calls[stream]++;
     mule_stat_search[stream] += (uint64_t)(s + 1);
-    mule_stat_update[stream] += (uint64_t)(m->n - 1);
+    mule_stat_update[stream] += (uint64_t)(n - 1);
 #endif
     if (s < 0) {                        /* cannot happen with a valid model */
         d->err = 1;
         return 0;
     }
     take(d, slot, start, freq);
-    mule_model_update(m, s);
+    mule_cdf_update(c, n, &d->count[mule_stream_off[stream] + ctx], s);
     return s;
 }
 
@@ -851,11 +877,41 @@ static int16_t to_sample(int32_t v)
 
 /* ---------------- frame decoding ---------------- */
 
+/* The models' layout in cdf (sbase, snsym) for the stream's alphabet; 0 if it does not fit. */
+static int models_layout(mule_dec *d)
+{
+    int off = 0;
+    for (int s = 0; s < MULE_S_COUNT; s++) {
+        int n;
+        mule_stream_init(s, COEF_ESC(d) == 7, &n);
+        d->sbase[s] = (uint16_t)off;
+        d->snsym[s] = (uint8_t)n;
+        off += mule_stream_nctx[s] * (n - 1);
+    }
+    return off <= DEC_CDF_LEN;
+}
+
+/* Every model to its initial state (spec 3, 4): the trained CDF of its stream and context with a
+ * count of 16, or the uniform one with a count of 0 (as mule_model_init_cdf and mule_model_init). */
+static void models_reset(mule_dec *d)
+{
+    for (int s = 0; s < MULE_S_COUNT; s++) {
+        int n;
+        const uint16_t *init = mule_stream_init(s, COEF_ESC(d) == 7, &n);
+        for (int c = 0; c < mule_stream_nctx[s]; c++) {
+            uint16_t *e = d->cdf + d->sbase[s] + c * (n - 1);
+            for (int i = 1; i < n; i++)
+                e[i - 1] = init ? init[c * (n + 1) + i] : (uint16_t)((MULE_PROB_ONE * (uint32_t)i) / (uint32_t)n);
+            d->count[mule_stream_off[s] + c] = init ? 16 : 0;
+        }
+    }
+}
+
 /* The state a key packet starts from (spec 4): initial models, predictions reset, no previous
  * long frame, the noise generator's seed. */
 static void reset_key(mule_dec *d)
 {
-    mule_models_reset_a8(&d->ms, d->coef_t == 7);
+    models_reset(d);
     for (int c = 0; c < 2; c++)
         for (int b = 0; b < MULE_NB; b++) {
             d->qprev[c][b] = MULE_Q_RESET;
@@ -971,9 +1027,9 @@ static int read_band(mule_dec *d, coef_t *X, uint16_t *ycur, const group *gr, in
         int ctx = ac * 6 + nc_map(mctx);
         int s = sym(d, MULE_S_COEF, ctx);
         int64_t mag = s;
-        if (s == d->coef_t) {                   /* escape: Exp-Golomb */
+        if (s == COEF_ESC(d)) {                 /* escape: Exp-Golomb */
             int k = sym(d, MULE_S_CESC, ac);
-            mag = d->coef_t + (int64_t)(1u << k) - 1 + (k ? raw(d, k) : 0);
+            mag = COEF_ESC(d) + (int64_t)(1u << k) - 1 + (k ? raw(d, k) : 0);
         }
         /* TCQ: the state gives the level's parity (odd states have no zero) */
         int even = !(tst & 1);
@@ -1020,8 +1076,8 @@ static void decode_frame(mule_dec *d, int16_t *out)
         uint16_t *ycur = d->sc.ycur;
         memset(ycur, 0, sizeof d->sc.ycur);
         int q[MULE_NB] = {0}, a[MULE_NB] = {0};
-        int nf = d->v5 ? sym(d, MULE_S_NFLEV, 0)    /* the level of the zero coefficients' noise: */
-               : d->v4 ? (int)raw(d, 3) : 0;    /* modelled (v5), 3 raw bits (v4) */
+        int nf = IS_V5(d) ? sym(d, MULE_S_NFLEV, 0) /* the level of the zero coefficients' noise: */
+               : IS_V4(d) ? (int)raw(d, 3) : 0; /* modelled (v5), 3 raw bits (v4) */
         for (int g = 0; g < ng; g++) {
             if (read_energies(d, c, g == 0 ? ALPHAS[ai] : 26, q) || read_allocations(d, c, a)) {
                 d->err = 1;                     /* not a valid stream (5.1, 5.2) */
@@ -1036,9 +1092,9 @@ static void decode_frame(mule_dec *d, int16_t *out)
                     int n = band_count(&grp[g], b), idx[MULE_BAND_MAX];
                     for (int i = 0; i < n; i++)
                         idx[i] = coef_index(&grp[g], b, i);
-                    if (d->v5 && type && b >= MULE_NF_START)   /* v5: folded */
+                    if (IS_V5(d) && type && b >= MULE_NF_START)   /* v5: folded */
                         fold_band(d, X, idx, n, q[b], EDGES[b + 1] - EDGES[b]);
-                    else if (d->v4 && type == 0 && b >= MULE_NF_START)   /* v4: sloped */
+                    else if (IS_V4(d) && type == 0 && b >= MULE_NF_START)   /* v4: sloped */
                         noise_band_sloped(d, X, idx, n, q, b);
                     else
                         noise_band(d, X, idx, n, q[b]);
@@ -1101,6 +1157,10 @@ mule_dec *mule_dec_init(void *mem, size_t size, const uint8_t *h, int len)
         return NULL;
 #endif
     int n = 8, flags = 0;               /* v2: 8 states, restarted in each band, 16 symbols */
+#ifdef MULE_DEC_V5_ONLY
+    if (h[8] != 5 || len < MULE_HEAD_LEN || !(h[21] & MULE_COEF_A8))   /* v5, 8-symbol coefficients */
+        return NULL;
+#endif
     if (h[8] >= 3 && h[8] <= MULE_VERSION) {    /* v3 to v5: the trellis's size, chaining, alphabet */
         if (len < MULE_HEAD_LEN || h[20] < 3 || h[20] > 6 || (h[21] & ~(MULE_TCQ_CHAIN | MULE_COEF_A8)))
             return NULL;
@@ -1122,6 +1182,8 @@ mule_dec *mule_dec_init(void *mem, size_t size, const uint8_t *h, int len)
     d->coef_t = flags & MULE_COEF_A8 ? 7 : 15;
     d->v4 = h[8] >= 4;
     d->v5 = h[8] >= 5;
+    if (!models_layout(d))
+        return NULL;
     reset_key(d);
     return d;
 }

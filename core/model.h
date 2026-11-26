@@ -16,6 +16,45 @@ typedef struct {
     uint8_t count;                       /* symbols seen, saturates at 32 (adaptation rate) */
 } mule_model;
 
+/* The two primitives, on a model's inner CDF entries c[0 .. n-2] = cdf[1 .. n-1] (cdf[0] = 0 and
+ * cdf[n] = 2^15 are implied): the decoder keeps only those, packed (core/dec.c); mule_model_find
+ * and mule_model_update below call them on a mule_model. */
+
+/* The symbol whose coded range [start, start + freq) holds slot (the rANS state's low 15 bits),
+ * with that range; -1 if none (not possible with a valid model). The coded range is the CDF
+ * scaled into 2^15 - n MULE_MIN_FREQ, plus MULE_MIN_FREQ per symbol below. */
+static inline int mule_cdf_find(const uint16_t *c, int n, uint32_t slot, uint32_t *start, uint32_t *freq)
+{
+    const uint32_t span = MULE_PROB_ONE - (uint32_t)n * MULE_MIN_FREQ;
+    uint32_t lo = 0;                            /* start of symbol 0: cdf[0] = 0 */
+    for (int s = 0; s < n; s++) {
+        uint32_t hi = s + 1 == n ? MULE_PROB_ONE
+                    : ((uint32_t)c[s] * span >> MULE_PROB_BITS) + (uint32_t)(s + 1) * MULE_MIN_FREQ;
+        if (slot < hi) {
+            *start = lo;
+            *freq = hi - lo;
+            return s;
+        }
+        lo = hi;
+    }
+    return -1;
+}
+
+/* Adaptation after symbol sym: each CDF entry moves towards its target (0 below the symbol, 2^15
+ * above) by 2^-rate of the distance. The rate is 4 for the first 16 symbols, then 5, then 6 past
+ * 32, plus 1 for alphabets of more than 4 symbols: fast learning after a reset, stable after. */
+static inline void mule_cdf_update(uint16_t *c, int n, uint8_t *count, int sym)
+{
+    int rate = 4 + (*count > 15) + (*count > 31) + (n > 4);
+    int j = 0;                                  /* c[j] = cdf[j + 1] */
+    for (; j < sym && j < n - 1; j++)           /* two loops, no branch inside */
+        c[j] -= (uint16_t)(c[j] >> rate);
+    for (; j < n - 1; j++)
+        c[j] += (uint16_t)((MULE_PROB_ONE - c[j]) >> rate);
+    if (*count < 32)
+        (*count)++;
+}
+
 /* A model of n symbols: uniform, or from a trained CDF (n + 1 values) */
 void mule_model_init(mule_model *m, int n);
 void mule_model_init_cdf(mule_model *m, int n, const uint16_t *cdf);

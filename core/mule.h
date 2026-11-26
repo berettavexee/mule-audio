@@ -89,6 +89,8 @@ extern const int mule_stream_nsyms[MULE_S_COUNT];
 extern const int mule_stream_nctx[MULE_S_COUNT];
 extern const int mule_stream_off[MULE_S_COUNT];  /* first model of each stream */
 extern const int mule_init_cdf_id;               /* MULEHead byte 19 of the built-in tables */
+/* stream s's initial CDFs (n + 1 values per context; NULL: uniform) and its symbols n (core/models.c) */
+const uint16_t *mule_stream_init(int s, int a8, int *n);
 #define MULE_NMODELS (1 + 1 + 3 + 9 + 6 + 1 + 16 + 96 + 1 + 1)
 
 /* models state shared by the encoder and the decoder */
@@ -127,10 +129,14 @@ typedef struct mule_dec_state mule_dec;
 mule_dec *mule_dec_init(void *mem, size_t size, const uint8_t *head, int len);
 /* The most memory a decoder's state takes on any build (mule_dec_size() is at most this; core/dec.c
  * checks it at compile time): a caller that reserves static memory can size it with this. */
-#ifdef MULE_FFT_MEM_EXTERNAL
-#define MULE_DEC_STATE_MAX 43520        /* without the FFT memory (mule_dec_set_fft_mem) */
+#if defined(MULE_FFT_MEM_EXTERNAL) && defined(MULE_DEC_V5_ONLY)
+#define MULE_DEC_STATE_MAX 40960        /* without the FFT memory (mule_dec_set_fft_mem), v5 only */
+#elif defined(MULE_FFT_MEM_EXTERNAL)
+#define MULE_DEC_STATE_MAX 42496        /* without the FFT memory (mule_dec_set_fft_mem) */
+#elif defined(MULE_DEC_V5_ONLY)
+#define MULE_DEC_STATE_MAX 45056
 #else
-#define MULE_DEC_STATE_MAX 47616
+#define MULE_DEC_STATE_MAX 46592
 #endif
 size_t mule_dec_size(void);
 /* The same on the heap (not built with MULE_NO_MALLOC). */

@@ -127,6 +127,21 @@ Instructions par trame, abba q −7, 10 s (`bench/qemu/prof.sh`, le code M0 exé
 
 Code de `core/dec.c` : 19,8 Kio sur M3, 25,3 Kio pour la variante M0 (22,0 Kio pour le décodeur générique compilé pour M0). À 43 trames par seconde, la variante demande environ 82 millions d'instructions par seconde avec la FFT logicielle, environ 61 millions avec une FFT matérielle. Deux essais sans gain, retirés : une routine assembleur par multiplication complexe, appelée depuis les rotations (l'appel et le passage par tableau coûtent ce que l'assembleur gagne) ; la mise à jour des CDF par paires d'entrées de 16 bits dans un mot de 32 bits (exacte, mais les masques par paire coûtent plus que les deux boucles sans branchement : +7 % sur M3, +35 % sur M0). Reste à essayer : les boucles de rotation entières en assembleur (environ −70 000 instructions par trame sur M0).
 
+## 8 ter. Modèles tassés et décodeur v5 seul (26/11/2026)
+
+Toujours exact au bit près : empreintes identiques au PC sur les 68 flux de `bench/qemu/exact.sh`, sur Cortex-M3 et sur la variante M0 ; `make test` vert ; dans l'émulateur du firmware, `mule-exact` et `mule-seek` passent (image de test 0.106mu3).
+
+- **Modèles tassés** : chaque modèle réservait 17 entrées de CDF (36 octets), quelle que soit la taille de son alphabet. Le décodeur ne garde plus que les `n − 1` entrées intérieures de chaque CDF (`cdf[0] = 0` et `cdf[n] = 2^15` sont implicites), mises bout à bout, et un compteur par modèle. La recherche et la mise à jour (`mule_cdf_find`, `mule_cdf_update`, `core/model.h`) sont partagées avec l'encodeur, qui garde ses modèles complets.
+- **`-DMULE_DEC_V5_ONLY`** (cœur B) : le décodeur ne lit que la v5 à coefficients sur 8 symboles, ce qu'écrit l'encodeur ; il refuse les autres en-têtes. Les tests de version deviennent des constantes, et les tables des coefficients à 16 symboles de la v2 ne sont plus référencées : l'éditeur de liens les retire. Le build par défaut lit toujours les v2 à v5.
+
+| Build (M3, FFT externe) | État | Code et tables liés |
+|---|---|---|
+| avant | 43 268 octets | 28 442 octets |
+| v2 à v5, modèles tassés | 42 444 (−824) | 28 534 (+92) |
+| **v5 seul** | **40 908 (−2 360)** | **24 502 (−3 940)** |
+
+Image du codec sur le cœur B (`hifi_mule.elf`) : code 34 716 → 30 780 octets, données 85 312 → 82 756 octets (`dec_mem` réservé par `MULE_DEC_STATE_MAX` : 43 520 → 40 960). Les instructions baissent un peu au passage (abba q −7, 10 s, lecture du flux : 429 632 → 414 842 par trame, −2,0 % sur le total, 805 120 → 788 819), la recherche et la mise à jour étant désormais compilées en ligne dans le décodeur.
+
 ## 9. Intégration au firmware et premiers essais sur l'appareil
 
 **Intégration** (dépôt `echo-mini-newfw`, branche de test `Mule`, ETUDE §159 et §160) :
